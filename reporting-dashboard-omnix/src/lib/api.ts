@@ -14,3 +14,19 @@ async function apiFetch(path: string) {
 export async function getDashboardSummary() {
   return apiFetch("/dashboard/summary");
 }
+
+export async function getDashboardTrend() {
+  return apiFetch("/dashboard/trend");
+}
+
+export async function getDashboardByChannel() {
+  return apiFetch("/dashboard/by-channel");
+}
+
+export async function getVoiceSummary() {
+  return apiFetch("/dashboard/voice/summary");
+}
+
+export async function getCsatSummary() {
+  return apiFetch("/dashboard/csat/summary");
+}

@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  getDashboardSummary,
+  getDashboardTrend,
+  getDashboardByChannel,
+  getVoiceSummary,
+  getCsatSummary,
+} from "@/lib/api";
+import {
   Home,
   BarChart3,
   Phone,
@@ -33,13 +40,6 @@ type NavKey = "home" | "omnix" | "voice" | "csat" | "upload";
 type ThemeMode = "dark" | "light";
 type PeriodMode = "monthly" | "quarterly" | "yearly";
 
-const homeSummaryByChannel = [
-  { channel: "WhatsApp", icon: "WA", total: 11240 },
-  { channel: "DM Instagram", icon: "IG", total: 4186 },
-  { channel: "Email", icon: "EM", total: 2510 },
-  { channel: "Hotline", icon: "HL", total: 803 },
-];
-
 const homeSummaryByCategory = [
   { category: "Informasi", total: 8214 },
   { category: "Panduan", total: 6240 },
@@ -51,39 +51,6 @@ const homeSummaryByProduct = [
   { product: "Tineco", total: 3760 },
   { product: "Deebot", total: 2844 },
   { product: "Other Product", total: 1968 },
-];
-
-const homeDailyChatData = [
-  { label: "1", total: 612 },
-  { label: "2", total: 584 },
-  { label: "3", total: 640 },
-  { label: "4", total: 621 },
-  { label: "5", total: 598 },
-  { label: "6", total: 666 },
-  { label: "7", total: 655 },
-  { label: "8", total: 634 },
-  { label: "9", total: 680 },
-  { label: "10", total: 649 },
-  { label: "11", total: 630 },
-  { label: "12", total: 672 },
-  { label: "13", total: 691 },
-  { label: "14", total: 645 },
-  { label: "15", total: 704 },
-  { label: "16", total: 688 },
-  { label: "17", total: 660 },
-  { label: "18", total: 715 },
-  { label: "19", total: 697 },
-  { label: "20", total: 673 },
-  { label: "21", total: 721 },
-  { label: "22", total: 706 },
-  { label: "23", total: 684 },
-  { label: "24", total: 739 },
-  { label: "25", total: 708 },
-  { label: "26", total: 690 },
-  { label: "27", total: 664 },
-  { label: "28", total: 718 },
-  { label: "29", total: 681 },
-  { label: "30", total: 642 },
 ];
 
 const omnixSummaryByChannel = [
@@ -411,12 +378,39 @@ export default function DashboardClient() {
   const [periodLabel, setPeriodLabel] = useState("Apr 2026");
   const [isLoading, setIsLoading] = useState(false);
 
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [trendData, setTrendData] = useState<any[]>([]);
+  const [channelData, setChannelData] = useState<any[]>([]);
+  const [voiceData, setVoiceData] = useState<any>(null);
+  const [csatData, setCsatData] = useState<any>(null);
+
   const ui = useMemo(() => getThemeClass(theme), [theme]);
 
   useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => setIsLoading(false), 650);
-    return () => clearTimeout(timer);
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      try {
+        const [summary, trend, byChannel, voiceSummary, csatSummary] = await Promise.all([
+          getDashboardSummary(),
+          getDashboardTrend(),
+          getDashboardByChannel(),
+          getVoiceSummary(),
+          getCsatSummary(),
+        ]);
+
+        setSummaryData(summary);
+        setTrendData(Array.isArray(trend) ? trend : []);
+        setChannelData(Array.isArray(byChannel) ? byChannel : []);
+        setVoiceData(voiceSummary);
+        setCsatData(csatSummary);
+      } catch (error) {
+        console.error("Failed to load dashboard:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadDashboard();
   }, [activePage, periodMode, periodLabel]);
 
   const pageMeta = useMemo(() => {
@@ -633,10 +627,17 @@ export default function DashboardClient() {
               <DashboardSkeleton ui={ui} />
             ) : (
               <>
-                {activePage === "home" && <HomePage ui={ui} />}
+                {activePage === "home" && (
+                  <HomePage
+                    ui={ui}
+                    summaryData={summaryData}
+                    trendData={trendData}
+                    channelData={channelData}
+                  />
+                )}
                 {activePage === "omnix" && <OmnixPage ui={ui} />}
-                {activePage === "voice" && <VoicePage ui={ui} />}
-                {activePage === "csat" && <CsatPage ui={ui} />}
+                {activePage === "voice" && <VoicePage ui={ui} voiceData={voiceData} />}
+                {activePage === "csat" && <CsatPage ui={ui} csatData={csatData} />}
                 {activePage === "upload" && <UploadPage ui={ui} />}
               </>
             )}
@@ -714,16 +715,58 @@ function NavGroup({
   );
 }
 
-function HomePage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
+function HomePage({
+  ui,
+  summaryData,
+  trendData,
+  channelData,
+}: {
+  ui: ReturnType<typeof getThemeClass>;
+  summaryData: any;
+  trendData: any[];
+  channelData: any[];
+}) {
+  const homeChartData =
+    trendData?.length > 0
+      ? trendData.map((item) => ({
+          label: item.month || item.label || "-",
+          total: (item.voice || 0) + (item.omnix || 0) + (item.csat || 0),
+        }))
+      : [];
+
   return (
     <div className="space-y-8">
       <SectionTitle title="KPI Utama" ui={ui} />
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-        <CompactKpiCard title="Total Ticket" value="20,419" subtitle="Total tiket" tone="blue" ui={ui} />
-        <CompactKpiCard title="AHT" value="3:48" subtitle="Average handling" tone="violet" ui={ui} />
-        <CompactKpiCard title="ART" value="0:52" subtitle="Average response" tone="green" ui={ui} />
+        <CompactKpiCard
+          title="Total Voice"
+          value={String(summaryData?.total_voice_interactions ?? 0)}
+          subtitle="Total voice interactions"
+          tone="blue"
+          ui={ui}
+        />
+        <CompactKpiCard
+          title="Total Omnix"
+          value={String(summaryData?.total_omnix_cases ?? 0)}
+          subtitle="Total omnix cases"
+          tone="violet"
+          ui={ui}
+        />
+        <CompactKpiCard
+          title="Total CSAT"
+          value={String(summaryData?.total_csat_responses ?? 0)}
+          subtitle="Total CSAT responses"
+          tone="green"
+          ui={ui}
+        />
         <CompactKpiCard title="AWT" value="0:24" subtitle="Average waiting" tone="amber" ui={ui} />
-        <CompactKpiCard title="CSAT" value="84.7%" subtitle="Customer satisfaction" tone="green" ui={ui} />
+        <CompactKpiCard
+          title="Average CSAT"
+          value={String(summaryData?.average_csat ?? 0)}
+          subtitle="Average CSAT score"
+          tone="green"
+          ui={ui}
+        />
       </div>
 
       <SectionTitle title="Tabel Meta" ui={ui} />
@@ -731,14 +774,14 @@ function HomePage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
         <CompactMiniTable
           title="Summary by Channel"
           headers={["Channel", "Total"]}
-          rows={homeSummaryByChannel.map((item) => [
+          rows={(channelData?.length > 0 ? channelData : []).map((item) => [
             <div key={item.channel} className="flex items-center gap-3">
               <span className={cn("inline-flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold", ui.primaryBg, ui.primary)}>
-                {item.icon}
+                {String(item.channel || "UN").slice(0, 2).toUpperCase()}
               </span>
               <span className="truncate">{item.channel}</span>
             </div>,
-            formatNumber(item.total),
+            formatNumber(Number(item.total || 0)),
           ])}
           ui={ui}
         />
@@ -762,10 +805,10 @@ function HomePage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
         <div className="col-span-12 lg:col-span-8">
           <SectionTitle title="Chart Interaction" ui={ui} />
           <Card ui={ui} className="mt-4 p-7">
-            <CardHeader title="Daily Chat" subtitle="1 - 30 / 31" ui={ui} compact />
+            <CardHeader title="Daily / Monthly Interaction" subtitle="Data from backend trend" ui={ui} compact />
             <div className="h-[340px] pt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={homeDailyChatData}>
+                <BarChart data={homeChartData}>
                   <CartesianGrid stroke={ui.chartGrid} strokeDasharray="3 3" />
                   <XAxis dataKey="label" stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
                   <YAxis stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
@@ -911,12 +954,24 @@ function OmnixPage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
   );
 }
 
-function VoicePage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
+function VoicePage({
+  ui,
+  voiceData,
+}: {
+  ui: ReturnType<typeof getThemeClass>;
+  voiceData: any;
+}) {
   return (
     <div className="space-y-8">
       <SectionTitle title="KPI Monitoring" ui={ui} />
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <CompactKpiCard title="Total Calls" value="4,821" subtitle="Total panggilan" tone="blue" ui={ui} />
+        <CompactKpiCard
+          title="Total Calls"
+          value={String(voiceData?.total_voice_interactions ?? 4821)}
+          subtitle="Total panggilan"
+          tone="blue"
+          ui={ui}
+        />
         <CompactKpiCard title="Answered" value="4,305" subtitle="Berhasil dijawab" tone="green" ui={ui} />
         <CompactKpiCard title="Abandon" value="516" subtitle="Tidak terjawab" tone="amber" ui={ui} />
         <CompactKpiCard title="AVG Handling" value="03:34" subtitle="Handling time" tone="violet" ui={ui} />
@@ -995,15 +1050,33 @@ function VoicePage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
   );
 }
 
-function CsatPage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
+function CsatPage({
+  ui,
+  csatData,
+}: {
+  ui: ReturnType<typeof getThemeClass>;
+  csatData: any;
+}) {
   return (
     <div className="space-y-8">
       <SectionTitle title="KPI Monitoring" ui={ui} />
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <CompactKpiCard title="Total Response" value="1,268" subtitle="Total survey" tone="blue" ui={ui} />
+        <CompactKpiCard
+          title="Total Response"
+          value={String(csatData?.total_csat_responses ?? 1268)}
+          subtitle="Total survey"
+          tone="blue"
+          ui={ui}
+        />
         <CompactKpiCard title="High Score" value="1,011" subtitle="Rating 4 dan 5" tone="green" ui={ui} />
         <CompactKpiCard title="Low Score" value="257" subtitle="Rating 1 sampai 3" tone="amber" ui={ui} />
-        <CompactKpiCard title="CSAT Score" value="79.7%" subtitle="Customer satisfaction" tone="violet" ui={ui} />
+        <CompactKpiCard
+          title="CSAT Score"
+          value={String(csatData?.average_csat ?? 79.7)}
+          subtitle="Customer satisfaction"
+          tone="violet"
+          ui={ui}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
