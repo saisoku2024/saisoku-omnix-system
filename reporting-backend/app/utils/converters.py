@@ -1,4 +1,3 @@
-from datetime import datetime
 from decimal import Decimal
 import pandas as pd
 
@@ -23,7 +22,10 @@ def safe_datetime(v):
     if pd.isna(v) or v == "":
         return None
     try:
-        return pd.to_datetime(v).to_pydatetime()
+        dt = pd.to_datetime(v)
+        if pd.isna(dt):
+            return None
+        return dt.isoformat()
     except Exception:
         return None
 
