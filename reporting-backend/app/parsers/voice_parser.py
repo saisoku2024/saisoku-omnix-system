@@ -8,14 +8,24 @@ def parse_voice_rows(df, upload_id):
     for _, row in df.iterrows():
         rows.append({
             "upload_id": upload_id,
-            "call_id": safe_str(row.get("Call ID")),
-            "agent_name": safe_str(row.get("Agent Name")),
-            "customer_phone": normalize_phone(row.get("Customer Phone")),
-            "call_date": safe_datetime(row.get("Call Date")),
-            "duration_seconds": duration_to_seconds(row.get("Duration")),
-            "talk_time_seconds": duration_to_seconds(row.get("Talk Time")),
-            "hold_time_seconds": duration_to_seconds(row.get("Hold Time")),
-            "disposition": safe_str(row.get("Disposition")),
+            "interaction_at": safe_datetime(row.get("datetime")),
+            "connected_at": safe_datetime(row.get("datetimeconnect")),
+            "ended_at": safe_datetime(row.get("datetimeend")),
+            "queue_name": safe_str(row.get("queue")),
+            "agent_name": safe_str(row.get("agent")),
+            "call_event": safe_str(row.get("event")),
+            "unique_id": safe_str(row.get("uniqueid")),
+            "clid_raw": safe_str(row.get("clid")),
+            "clid_normalized": normalize_phone(row.get("clid")),
+            "wait_time_sec": duration_to_seconds(row.get("waittime")),
+            "talk_time_sec": duration_to_seconds(row.get("talktime")),
+            "ring_time_sec": duration_to_seconds(row.get("ringtime")),
+            "hold_time_sec": duration_to_seconds(row.get("holdtime")),
+            "dst": safe_str(row.get("dst")),
+            "recording_file": safe_str(row.get("recordingfile")),
+            "rec_ai": safe_str(row.get("rec_ai")),
+            "channel": "voice",
+            "call_status": safe_str(row.get("event")),
         })
 
     return rows
