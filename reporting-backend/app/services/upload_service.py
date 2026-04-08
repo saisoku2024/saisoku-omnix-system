@@ -8,57 +8,59 @@ from app.parsers.csat_parser import parse_csat_rows
 
 
 def process_upload(upload_id: str):
-    # 1) Ambil data upload dari tabel uploads
+    # 1. Ambil metadata upload
     upload_res = supabase.table("uploads").select("*").eq("id", upload_id).single().execute()
     upload = upload_res.data
 
     if not upload:
         raise Exception("Upload not found")
 
-    file_path = upload.get("file_path")
-    data_type = upload.get("data_type")
+    storage_path = upload.get("storage_path")
+    file_type = upload.get("file_type")
 
-    # 2) Update status jadi processing
+    # 2. Update status jadi processing
     supabase.table("uploads").update({
-        "status": "processing"
+        "processing_status": "processing"
     }).eq("id", upload_id).execute()
 
-    # 3) Download file dari Supabase Storage
-    file_bytes = supabase.storage.from_("uploads").download(file_path)
+    # 3. Download file dari Supabase Storage
+    file_bytes = supabase.storage.from_("uploads").download(storage_path)
 
     if not file_bytes:
         raise Exception("Failed to download file")
 
-    # 4) Baca file CSV / Excel
-    if file_path.endswith(".csv"):
+    # 4. Baca file
+    if storage_path.endswith(".csv"):
         df = pd.read_csv(io.BytesIO(file_bytes))
     else:
         df = pd.read_excel(io.BytesIO(file_bytes))
 
-    # 5) Pilih parser berdasarkan data_type
-    if data_type == "omnix":
-        rows = parse_omnix_rows(df, upload_id)
-        target_table = "omnix_data"
-
-    elif data_type == "voice":
+    # 5. Tentukan parser berdasarkan file_type
+    if file_type == "voice":
         rows = parse_voice_rows(df, upload_id)
-        target_table = "voice_data"
+        target_table = "voice_interactions"
 
-    elif data_type == "csat":
+    elif file_type == "omnix":
+        rows = parse_omnix_rows(df, upload_id)
+        target_table = "omnix_cases"
+
+    elif file_type == "csat":
         rows = parse_csat_rows(df, upload_id)
-        target_table = "csat_data"
+        target_table = "csat_responses"
 
     else:
-        raise Exception(f"Unknown data_type: {data_type}")
+        raise Exception(f"Unknown file_type: {file_type}")
 
-    # 6) Insert ke Supabase
+    # 6. Insert data
     if rows:
         supabase.table(target_table).insert(rows).execute()
 
-    # 7) Update status jadi processed
+    # 7. Update upload summary
     supabase.table("uploads").update({
-        "status": "processed",
-        "row_count": len(rows)
+        "processing_status": "processed",
+        "total_rows": len(rows),
+        "valid_rows": len(rows),
+        "invalid_rows": 0
     }).eq("id", upload_id).execute()
 
     return {
