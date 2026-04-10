@@ -14,8 +14,7 @@ from app.services.dashboard_service import (
     get_csat_by_agent,
 )
 
-router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
-
+router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 # =========================================================
 # HOME

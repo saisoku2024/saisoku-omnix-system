@@ -1,7 +1,15 @@
 export const API_BASE = "http://127.0.0.1:8001/api";
 
+const DEFAULT_YEAR = 2026;
+const DEFAULT_GRANULARITY = "month";
+
+function withDefaultQuery(path: string) {
+  const joiner = path.includes("?") ? "&" : "?";
+  return `${path}${joiner}year=${DEFAULT_YEAR}&granularity=${DEFAULT_GRANULARITY}`;
+}
+
 async function apiFetch(path: string) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${withDefaultQuery(path)}`, {
     cache: "no-store",
   });
 
