@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from app.supabase_client import supabase
+from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
 from datetime import datetime
 from collections import defaultdict

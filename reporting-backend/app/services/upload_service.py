@@ -1,7 +1,7 @@
 import io
 import pandas as pd
 
-from app.supabase_client import supabase
+from app.core.supabase import supabase
 from app.parsers.omnix_parser import parse_omnix_rows
 from app.parsers.voice_parser import parse_voice_rows
 from app.parsers.csat_parser import parse_csat_rows
