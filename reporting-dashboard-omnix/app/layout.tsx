@@ -1,6 +1,16 @@
-import Sidebar from "@/components/layout/Sidebar";
+import Sidebar from "../components/layout/Sidebar";
 
-export default function RootLayout({ children }) {
-return ( <html> <body className="bg-slate-900 text-white"> <div className="flex"> <Sidebar /> <div className="flex-1 p-6">{children}</div> </div> </body> </html>
-);
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body className="bg-slate-900 text-white">
+        <div className="flex">
+          <Sidebar />
+          <main className="flex-1 p-6">
+            {children}
+          </main>
+        </div>
+      </body>
+    </html>
+  );
 }
