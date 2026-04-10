@@ -6,7 +6,14 @@ import {
   getDashboardTrend,
   getDashboardByChannel,
   getVoiceSummary,
+  getVoiceDaily,
+  getVoiceByHour,
+  getVoiceByDay,
+  getVoiceByAgent,
   getCsatSummary,
+  getCsatRatingBreakdown,
+  getCsatMonthlyScore,
+  getCsatByAgent,
 } from "@/lib/api";
 import {
   Home,
@@ -381,8 +388,19 @@ export default function DashboardClient() {
   const [summaryData, setSummaryData] = useState<any>(null);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [channelData, setChannelData] = useState<any[]>([]);
+
+  /* VOICE */
   const [voiceData, setVoiceData] = useState<any>(null);
+  const [voiceDailyData, setVoiceDailyData] = useState<any[]>([]);
+  const [voiceHourData, setVoiceHourData] = useState<any[]>([]);
+  const [voiceDayData, setVoiceDayData] = useState<any[]>([]);
+  const [voiceAgentData, setVoiceAgentData] = useState<any[]>([]);
+
+  /* CSAT */
   const [csatData, setCsatData] = useState<any>(null);
+  const [csatBreakdownData, setCsatBreakdownData] = useState<any[]>([]);
+  const [csatMonthlyData, setCsatMonthlyData] = useState<any[]>([]);
+  const [csatAgentData, setCsatAgentData] = useState<any[]>([]);
 
   const ui = useMemo(() => getThemeClass(theme), [theme]);
 
@@ -390,19 +408,52 @@ export default function DashboardClient() {
     const loadDashboard = async () => {
       setIsLoading(true);
       try {
-        const [summary, trend, byChannel, voiceSummary, csatSummary] = await Promise.all([
+        const [
+          summary,
+          trend,
+          byChannel,
+
+          voiceSummary,
+          voiceDaily,
+          voiceByHour,
+          voiceByDay,
+          voiceByAgent,
+
+          csatSummary,
+          csatBreakdown,
+          csatMonthly,
+          csatByAgent,
+        ] = await Promise.all([
           getDashboardSummary(),
           getDashboardTrend(),
           getDashboardByChannel(),
+
           getVoiceSummary(),
+          getVoiceDaily(),
+          getVoiceByHour(),
+          getVoiceByDay(),
+          getVoiceByAgent(),
+
           getCsatSummary(),
+          getCsatRatingBreakdown(),
+          getCsatMonthlyScore(),
+          getCsatByAgent(),
         ]);
 
         setSummaryData(summary);
         setTrendData(Array.isArray(trend) ? trend : []);
         setChannelData(Array.isArray(byChannel) ? byChannel : []);
+
         setVoiceData(voiceSummary);
+        setVoiceDailyData(Array.isArray(voiceDaily) ? voiceDaily : []);
+        setVoiceHourData(Array.isArray(voiceByHour) ? voiceByHour : []);
+        setVoiceDayData(Array.isArray(voiceByDay) ? voiceByDay : []);
+        setVoiceAgentData(Array.isArray(voiceByAgent) ? voiceByAgent : []);
+
         setCsatData(csatSummary);
+        setCsatBreakdownData(Array.isArray(csatBreakdown) ? csatBreakdown : []);
+        setCsatMonthlyData(Array.isArray(csatMonthly) ? csatMonthly : []);
+        setCsatAgentData(Array.isArray(csatByAgent) ? csatByAgent : []);
       } catch (error) {
         console.error("Failed to load dashboard:", error);
       } finally {
@@ -636,8 +687,25 @@ export default function DashboardClient() {
                   />
                 )}
                 {activePage === "omnix" && <OmnixPage ui={ui} />}
-                {activePage === "voice" && <VoicePage ui={ui} voiceData={voiceData} />}
-                {activePage === "csat" && <CsatPage ui={ui} csatData={csatData} />}
+                {activePage === "voice" && (
+                  <VoicePage
+                    ui={ui}
+                    voiceData={voiceData}
+                    voiceDailyData={voiceDailyData}
+                    voiceHourData={voiceHourData}
+                    voiceDayData={voiceDayData}
+                    voiceAgentData={voiceAgentData}
+                  />
+                )}
+                {activePage === "csat" && (
+                  <CsatPage
+                    ui={ui}
+                    csatData={csatData}
+                    csatBreakdownData={csatBreakdownData}
+                    csatMonthlyData={csatMonthlyData}
+                    csatAgentData={csatAgentData}
+                  />
+                )}
                 {activePage === "upload" && <UploadPage ui={ui} />}
               </>
             )}
@@ -957,34 +1025,120 @@ function OmnixPage({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
 function VoicePage({
   ui,
   voiceData,
+  voiceDailyData,
+  voiceHourData,
+  voiceDayData,
+  voiceAgentData,
 }: {
   ui: ReturnType<typeof getThemeClass>;
   voiceData: any;
+  voiceDailyData: any[];
+  voiceHourData: any[];
+  voiceDayData: any[];
+  voiceAgentData: any[];
 }) {
+  const dailyData =
+    voiceDailyData?.length > 0
+      ? voiceDailyData.map((item) => ({
+          label: item.label || item.day || item.date || "-",
+          total: Number(item.total || 0),
+        }))
+      : voiceDailyCallData;
+
+  const hourData =
+    voiceHourData?.length > 0
+      ? voiceHourData.map((item) => ({
+          label: item.label || item.hour || "-",
+          total: Number(item.total || 0),
+        }))
+      : voiceByHourData;
+
+  const dayData =
+    voiceDayData?.length > 0
+      ? voiceDayData.map((item) => ({
+          label: item.label || item.day || "-",
+          total: Number(item.total || 0),
+        }))
+      : voiceByDayData;
+
+  const agentHandlingRows =
+    voiceAgentData?.length > 0
+      ? voiceAgentData.map((item) => [
+          item.agent || "-",
+          formatNumber(Number(item.total_calls || item.total || 0)),
+        ])
+      : agentCallHandling.map((item) => [item.agent, formatNumber(item.total)]);
+
+  const agentAhtRows =
+    voiceAgentData?.length > 0
+      ? voiceAgentData.map((item) => [
+          item.agent || "-",
+          item.avg_handling_time || item.aht || "-",
+        ])
+      : agentAvgHandling.map((item) => [item.agent, item.value]);
+
+  const agentAwtRows =
+    voiceAgentData?.length > 0
+      ? voiceAgentData.map((item) => [
+          item.agent || "-",
+          item.avg_waiting_time || item.awt || "-",
+        ])
+      : agentAvgWaiting.map((item) => [item.agent, item.value]);
+
   return (
     <div className="space-y-8">
       <SectionTitle title="KPI Monitoring" ui={ui} />
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <CompactKpiCard
           title="Total Calls"
-          value={String(voiceData?.total_voice_interactions ?? 4821)}
+          value={String(voiceData?.total_voice_interactions ?? 0)}
           subtitle="Total panggilan"
           tone="blue"
           ui={ui}
         />
-        <CompactKpiCard title="Answered" value="4,305" subtitle="Berhasil dijawab" tone="green" ui={ui} />
-        <CompactKpiCard title="Abandon" value="516" subtitle="Tidak terjawab" tone="amber" ui={ui} />
-        <CompactKpiCard title="AVG Handling" value="03:34" subtitle="Handling time" tone="violet" ui={ui} />
-        <CompactKpiCard title="AVG Waiting" value="00:28" subtitle="Waiting time" tone="amber" ui={ui} />
-        <CompactKpiCard title="SCR" value="89.3%" subtitle="Success rate" tone="green" ui={ui} />
+        <CompactKpiCard
+          title="Answered"
+          value={String(voiceData?.answered_calls ?? 0)}
+          subtitle="Berhasil dijawab"
+          tone="green"
+          ui={ui}
+        />
+        <CompactKpiCard
+          title="Abandon"
+          value={String(voiceData?.abandoned_calls ?? 0)}
+          subtitle="Tidak terjawab"
+          tone="amber"
+          ui={ui}
+        />
+        <CompactKpiCard
+          title="AVG Handling"
+          value={String(voiceData?.avg_handling_time ?? "00:00")}
+          subtitle="Handling time"
+          tone="violet"
+          ui={ui}
+        />
+        <CompactKpiCard
+          title="AVG Waiting"
+          value={String(voiceData?.avg_waiting_time ?? "00:00")}
+          subtitle="Waiting time"
+          tone="amber"
+          ui={ui}
+        />
+        <CompactKpiCard
+          title="SCR"
+          value={String(voiceData?.success_rate ?? "0") + "%"}
+          subtitle="Success rate"
+          tone="green"
+          ui={ui}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
         <Card ui={ui} className="xl:col-span-6 p-7">
-          <CardHeader title="Daily Call" subtitle="1 - 30 / 31" ui={ui} compact />
+          <CardHeader title="Daily Call" subtitle="Data backend" ui={ui} compact />
           <div className="h-[340px] pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={voiceDailyCallData}>
+              <BarChart data={dailyData}>
                 <CartesianGrid stroke={ui.chartGrid} strokeDasharray="3 3" />
                 <XAxis dataKey="label" stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
                 <YAxis stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
@@ -996,10 +1150,10 @@ function VoicePage({
         </Card>
 
         <Card ui={ui} className="xl:col-span-3 p-7">
-          <CardHeader title="Call by Hour" subtitle="00:00 - 24:00" ui={ui} compact />
+          <CardHeader title="Call by Hour" subtitle="Data backend" ui={ui} compact />
           <div className="h-[300px] pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={voiceByHourData}>
+              <BarChart data={hourData}>
                 <CartesianGrid stroke={ui.chartGrid} strokeDasharray="3 3" />
                 <XAxis dataKey="label" stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
                 <YAxis stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
@@ -1011,10 +1165,10 @@ function VoicePage({
         </Card>
 
         <Card ui={ui} className="xl:col-span-3 p-7">
-          <CardHeader title="Call by Day" subtitle="Senin - Minggu" ui={ui} compact />
+          <CardHeader title="Call by Day" subtitle="Data backend" ui={ui} compact />
           <div className="h-[300px] pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={voiceByDayData}>
+              <BarChart data={dayData}>
                 <CartesianGrid stroke={ui.chartGrid} strokeDasharray="3 3" />
                 <XAxis dataKey="label" stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
                 <YAxis stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
@@ -1030,19 +1184,19 @@ function VoicePage({
         <CompactMiniTable
           title="Call Handling per Agent"
           headers={["Agent", "Total"]}
-          rows={agentCallHandling.map((item) => [item.agent, formatNumber(item.total)])}
+          rows={agentHandlingRows}
           ui={ui}
         />
         <CompactMiniTable
           title="AVG Handling Time"
           headers={["Agent", "Time"]}
-          rows={agentAvgHandling.map((item) => [item.agent, item.value])}
+          rows={agentAhtRows}
           ui={ui}
         />
         <CompactMiniTable
           title="AVG Waiting Time"
           headers={["Agent", "Time"]}
-          rows={agentAvgWaiting.map((item) => [item.agent, item.value])}
+          rows={agentAwtRows}
           ui={ui}
         />
       </div>
@@ -1053,26 +1207,80 @@ function VoicePage({
 function CsatPage({
   ui,
   csatData,
+  csatBreakdownData,
+  csatMonthlyData,
+  csatAgentData,
 }: {
   ui: ReturnType<typeof getThemeClass>;
   csatData: any;
+  csatBreakdownData: any[];
+  csatMonthlyData: any[];
+  csatAgentData: any[];
 }) {
+  const ratingData =
+    csatBreakdownData?.length > 0
+      ? csatBreakdownData.map((item) => ({
+          month: item.month || "-",
+          score1: Number(item.score1 || 0),
+          score2: Number(item.score2 || 0),
+          score3: Number(item.score3 || 0),
+          score4: Number(item.score4 || 0),
+          score5: Number(item.score5 || 0),
+        }))
+      : monthlyRatingBreakdown;
+
+  const monthlyScoreData =
+    csatMonthlyData?.length > 0
+      ? csatMonthlyData.map((item) => ({
+          month: item.month || "-",
+          score: Number(item.score || item.csat || 0),
+        }))
+      : monthlyCsatScore;
+
+  const countRows =
+    csatAgentData?.length > 0
+      ? csatAgentData.map((item) => [
+          item.agent || "-",
+          formatNumber(Number(item.total_response || item.total || 0)),
+        ])
+      : csatCountPerAgent.map((item) => [item.agent, formatNumber(item.total)]);
+
+  const scoreRows =
+    csatAgentData?.length > 0
+      ? csatAgentData.map((item) => [
+          item.agent || "-",
+          String(item.score ?? item.csat_score ?? 0),
+        ])
+      : csatScorePerAgent.map((item) => [item.agent, item.score.toFixed(1)]);
+
   return (
     <div className="space-y-8">
       <SectionTitle title="KPI Monitoring" ui={ui} />
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         <CompactKpiCard
           title="Total Response"
-          value={String(csatData?.total_csat_responses ?? 1268)}
+          value={String(csatData?.total_csat_responses ?? 0)}
           subtitle="Total survey"
           tone="blue"
           ui={ui}
         />
-        <CompactKpiCard title="High Score" value="1,011" subtitle="Rating 4 dan 5" tone="green" ui={ui} />
-        <CompactKpiCard title="Low Score" value="257" subtitle="Rating 1 sampai 3" tone="amber" ui={ui} />
+        <CompactKpiCard
+          title="High Score"
+          value={String(csatData?.high_score ?? 0)}
+          subtitle="Rating 4 dan 5"
+          tone="green"
+          ui={ui}
+        />
+        <CompactKpiCard
+          title="Low Score"
+          value={String(csatData?.low_score ?? 0)}
+          subtitle="Rating 1 sampai 3"
+          tone="amber"
+          ui={ui}
+        />
         <CompactKpiCard
           title="CSAT Score"
-          value={String(csatData?.average_csat ?? 79.7)}
+          value={String(csatData?.average_csat ?? 0) + "%"}
           subtitle="Customer satisfaction"
           tone="violet"
           ui={ui}
@@ -1084,7 +1292,7 @@ function CsatPage({
           <CardHeader title="Monthly Rating Breakdown" subtitle="Distribusi rating 1 - 5 per bulan" ui={ui} compact />
           <div className="h-[340px] pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyRatingBreakdown}>
+              <BarChart data={ratingData}>
                 <CartesianGrid stroke={ui.chartGrid} strokeDasharray="3 3" />
                 <XAxis dataKey="month" stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
                 <YAxis stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
@@ -1103,10 +1311,10 @@ function CsatPage({
           <CardHeader title="Monthly CSAT Score" subtitle="Persentase kepuasan bulanan" ui={ui} compact />
           <div className="h-[320px] pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyCsatScore}>
+              <LineChart data={monthlyScoreData}>
                 <CartesianGrid stroke={ui.chartGrid} strokeDasharray="3 3" />
                 <XAxis dataKey="month" stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} />
-                <YAxis stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} domain={[70, 100]} />
+                <YAxis stroke={ui.axis} tick={{ fill: ui.axis, fontSize: 12 }} domain={[0, 100]} />
                 <Tooltip contentStyle={{ background: ui.tooltipBg, border: `1px solid ${ui.tooltipBorder}`, borderRadius: 18 }} />
                 <Line type="monotone" dataKey="score" stroke="#3B82F6" strokeWidth={3} dot={{ r: 3, fill: "#3B82F6" }} activeDot={{ r: 5 }} />
               </LineChart>
@@ -1119,13 +1327,13 @@ function CsatPage({
         <CompactMiniTable
           title="Jumlah CSAT per Agent"
           headers={["Agent", "Total"]}
-          rows={csatCountPerAgent.map((item) => [item.agent, formatNumber(item.total)])}
+          rows={countRows}
           ui={ui}
         />
         <CompactMiniTable
           title="Nilai CSAT per Agent"
           headers={["Agent", "Score"]}
-          rows={csatScorePerAgent.map((item) => [item.agent, item.score.toFixed(1)])}
+          rows={scoreRows}
           ui={ui}
         />
       </div>
@@ -1287,7 +1495,7 @@ function CardHeader({
           </div>
 
           {subtitle && (
-            <div className={cn(compact ? "mt-2 text-[13px] leading-6" : "mt-2.5 text-[14px] leading-7", ui.muted)}>
+            <div className={cn(compact ? "mt-2 text-[13px] leading-6" : "mt-2.5 text-[14px] leading-6", ui.muted)}>
               {subtitle}
             </div>
           )}
@@ -1311,38 +1519,20 @@ function CompactKpiCard({
   ui: ReturnType<typeof getThemeClass>;
 }) {
   const toneMap = {
-    blue: { bar: "bg-[#3B82F6]", soft: "bg-blue-500/10", text: "text-blue-400" },
-    green: { bar: "bg-[#22C55E]", soft: "bg-emerald-500/10", text: "text-emerald-400" },
-    amber: { bar: "bg-[#F59E0B]", soft: "bg-amber-500/10", text: "text-amber-400" },
-    violet: { bar: "bg-[#8B5CF6]", soft: "bg-violet-500/10", text: "text-violet-400" },
+    blue: "from-blue-500/20 to-blue-500/5 text-blue-400",
+    green: "from-emerald-500/20 to-emerald-500/5 text-emerald-400",
+    amber: "from-amber-500/20 to-amber-500/5 text-amber-400",
+    violet: "from-violet-500/20 to-violet-500/5 text-violet-400",
   };
 
   return (
-    <div
-      className={cn(
-        "relative min-h-[160px] overflow-hidden rounded-[28px] border px-6 py-6 transition-all duration-300 hover:-translate-y-[2px]",
-        ui.surface,
-        ui.border,
-        ui.ring,
-        "shadow-[0_12px_40px_rgba(0,0,0,0.18)]"
-      )}
-    >
-      <div className={cn("absolute inset-x-0 top-0 h-[2px]", toneMap[tone].bar)} />
-
-      <div className="flex items-start justify-between">
-        <div>
-          <div className={cn("text-[12px] font-semibold uppercase tracking-[0.14em]", ui.muted)}>{title}</div>
-
-          <div className="mt-5 text-[38px] font-bold leading-none tracking-tight">{value}</div>
-
-          <div className={cn("mt-3 text-[13px] leading-6", ui.muted)}>{subtitle}</div>
-        </div>
-
-        <div className={cn("flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-semibold", toneMap[tone].soft, toneMap[tone].text)}>
-          +2.4%
-        </div>
+    <Card ui={ui} className="p-6">
+      <div className={cn("inline-flex rounded-2xl bg-gradient-to-br px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]", toneMap[tone])}>
+        {title}
       </div>
-    </div>
+      <div className="mt-5 text-[32px] font-bold leading-none tracking-tight">{value}</div>
+      <div className={cn("mt-3 text-[13px]", ui.muted)}>{subtitle}</div>
+    </Card>
   );
 }
 
@@ -1354,53 +1544,28 @@ function CompactMiniTable({
 }: {
   title: string;
   headers: string[];
-  rows: (React.ReactNode | string)[][];
+  rows: any[][];
   ui: ReturnType<typeof getThemeClass>;
 }) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-[30px] border shadow-xl transition-all duration-300 hover:-translate-y-[1px]",
-        ui.surface,
-        ui.border,
-        ui.ring,
-        ui.shadowSoft
-      )}
-    >
-      <div className={cn("border-b px-6 py-5", ui.border)}>
-        <div className="text-[17px] font-bold tracking-tight">{title}</div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full">
-          <thead className={ui.surface2}>
-            <tr className={cn("border-b", ui.border)}>
-              {headers.map((head) => (
-                <th
-                  key={head}
-                  className={cn(
-                    "px-6 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em]",
-                    ui.muted
-                  )}
-                >
-                  {head}
+    <Card ui={ui} className="p-7">
+      <CardHeader title={title} ui={ui} compact />
+      <div className="overflow-hidden rounded-2xl border">
+        <table className="w-full text-left text-[14px]">
+          <thead className={cn(ui.surface3, ui.border)}>
+            <tr>
+              {headers.map((header) => (
+                <th key={header} className="px-4 py-3 font-semibold">
+                  {header}
                 </th>
               ))}
             </tr>
           </thead>
-
           <tbody>
-            {rows.slice(0, 5).map((row, rowIndex) => (
-              <tr
-                key={`${title}-${rowIndex}`}
-                className={cn(
-                  "border-b last:border-b-0 transition-colors duration-200",
-                  ui.divider,
-                  "hover:bg-white/5"
-                )}
-              >
+            {rows.map((row, rowIndex) => (
+              <tr key={rowIndex} className={cn("border-t", ui.border)}>
                 {row.map((cell, cellIndex) => (
-                  <td key={`${title}-${rowIndex}-${cellIndex}`} className="align-middle px-6 py-5 text-[14px] font-medium">
+                  <td key={cellIndex} className="px-4 py-3">
                     {cell}
                   </td>
                 ))}
@@ -1409,53 +1574,22 @@ function CompactMiniTable({
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function DashboardSkeleton({ ui }: { ui: ReturnType<typeof getThemeClass> }) {
   return (
-    <div className="animate-pulse space-y-8">
-      <SectionTitle title="Loading Dashboard" ui={ui} />
-
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <SkeletonCard key={i} ui={ui} className="min-h-[160px]" />
+    <div className="space-y-8">
+      <div className={cn("h-6 w-40 rounded-xl", ui.skeleton)} />
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className={cn("h-36 rounded-[30px]", ui.skeleton)} />
         ))}
       </div>
-
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <SkeletonCard key={i} ui={ui} className="min-h-[260px]" />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-12 gap-5">
-        <SkeletonCard ui={ui} className="col-span-12 min-h-[380px] lg:col-span-8" />
-        <div className="col-span-12 grid grid-cols-1 gap-5 lg:col-span-4">
-          <SkeletonCard ui={ui} className="min-h-[185px]" />
-          <SkeletonCard ui={ui} className="min-h-[185px]" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SkeletonCard({
-  ui,
-  className,
-}: {
-  ui: ReturnType<typeof getThemeClass>;
-  className?: string;
-}) {
-  return (
-    <div className={cn("overflow-hidden rounded-[28px] border p-6 shadow-xl", ui.surface, ui.border, ui.ring, ui.shadowSoft, className)}>
-      <div className={cn("h-3 w-28 rounded-full", ui.skeleton)} />
-      <div className={cn("mt-5 h-10 w-44 rounded-full", ui.skeleton2)} />
-      <div className={cn("mt-5 h-28 w-full rounded-2xl", ui.skeleton)} />
-      <div className="mt-5 space-y-3">
-        <div className={cn("h-3 w-full rounded-full", ui.skeleton)} />
-        <div className={cn("h-3 w-4/5 rounded-full", ui.skeleton)} />
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <div className={cn("h-[360px] rounded-[30px]", ui.skeleton)} />
+        <div className={cn("h-[360px] rounded-[30px]", ui.skeleton)} />
       </div>
     </div>
   );

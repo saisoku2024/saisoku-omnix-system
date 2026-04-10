@@ -1,214 +1,326 @@
-from collections import Counter, defaultdict
-from app.supabase_client import supabase
+from collections import defaultdict
+from datetime import datetime
+from app.core.supabase import supabase
 
 
-def _safe_list(data):
-    return data if isinstance(data, list) else []
-
-
-def _month_key(dt_value):
-    if not dt_value:
-        return None
+def safe_float(value, default=0.0):
     try:
-        return str(dt_value)[:7]
-    except Exception:
-        return None
+        return float(value)
+    except:
+        return default
 
 
-def _apply_date_filter(query, column, start_date, end_date):
-    if start_date:
-        query = query.gte(column, start_date)
-    if end_date:
-        query = query.lte(column, end_date)
-    return query
+def sec_to_mmss(seconds):
+    seconds = int(seconds or 0)
+    minutes = seconds // 60
+    remain = seconds % 60
+    return f"{minutes:02d}:{remain:02d}"
 
 
-# =========================
-# SUMMARY
-# =========================
-def get_dashboard_summary(start_date=None, end_date=None):
-    voice_query = _apply_date_filter(
-        supabase.table("voice_interactions").select("*"),
-        "interaction_at", start_date, end_date
-    )
+# =========================================================
+# HOME
+# =========================================================
 
-    omnix_query = _apply_date_filter(
-        supabase.table("omnix_cases").select("*"),
-        "interaction_at", start_date, end_date
-    )
+def get_dashboard_summary():
+    voice = supabase.table("voice_interactions").select("id", count="exact").execute()
+    omnix = supabase.table("omnix_cases").select("id", count="exact").execute()
+    csat = supabase.table("csat_responses").select("id, rating_csat").execute()
 
-    csat_query = _apply_date_filter(
-        supabase.table("csat_responses").select("*"),
-        "created_at_source", start_date, end_date
-    )
+    total_voice = voice.count or 0
+    total_omnix = omnix.count or 0
+    total_csat = len(csat.data or [])
 
-    voice_rows = _safe_list(voice_query.execute().data)
-    omnix_rows = _safe_list(omnix_query.execute().data)
-    csat_rows = _safe_list(csat_query.execute().data)
-
-    scores = []
-    for row in csat_rows:
-        try:
-            score = row.get("rating_csat") or row.get("score")
-            if score:
-                scores.append(float(score))
-        except:
-            pass
-
-    avg_csat = round(sum(scores) / len(scores), 2) if scores else 0
+    ratings = [safe_float(row.get("rating_csat")) for row in (csat.data or []) if row.get("rating_csat")]
+    avg_csat = round(sum(ratings) / len(ratings), 2) if ratings else 0
 
     return {
-        "total_voice_interactions": len(voice_rows),
-        "total_omnix_cases": len(omnix_rows),
-        "total_csat_responses": len(csat_rows),
-        "average_csat": avg_csat
+        "total_voice_interactions": total_voice,
+        "total_omnix_cases": total_omnix,
+        "total_csat_responses": total_csat,
+        "average_csat": avg_csat,
     }
 
 
-# =========================
-# TREND
-# =========================
-def get_dashboard_trend(start_date=None, end_date=None):
-    voice_rows = _safe_list(
-        _apply_date_filter(
-            supabase.table("voice_interactions").select("interaction_at"),
-            "interaction_at", start_date, end_date
-        ).execute().data
-    )
+def get_dashboard_trend():
+    result = []
 
-    omnix_rows = _safe_list(
-        _apply_date_filter(
-            supabase.table("omnix_cases").select("interaction_at"),
-            "interaction_at", start_date, end_date
-        ).execute().data
-    )
-
-    csat_rows = _safe_list(
-        _apply_date_filter(
-            supabase.table("csat_responses").select("created_at_source"),
-            "created_at_source", start_date, end_date
-        ).execute().data
-    )
+    voice_rows = supabase.table("voice_interactions").select("created_at").execute().data or []
+    omnix_rows = supabase.table("omnix_cases").select("created_at").execute().data or []
+    csat_rows = supabase.table("csat_responses").select("created_at").execute().data or []
 
     trend_map = defaultdict(lambda: {"voice": 0, "omnix": 0, "csat": 0})
 
     for row in voice_rows:
-        key = _month_key(row.get("interaction_at"))
-        if key:
-            trend_map[key]["voice"] += 1
+        created = row.get("created_at")
+        if created:
+            month = str(created)[:7]
+            trend_map[month]["voice"] += 1
 
     for row in omnix_rows:
-        key = _month_key(row.get("interaction_at"))
-        if key:
-            trend_map[key]["omnix"] += 1
+        created = row.get("created_at")
+        if created:
+            month = str(created)[:7]
+            trend_map[month]["omnix"] += 1
 
     for row in csat_rows:
-        key = _month_key(row.get("created_at_source"))
-        if key:
-            trend_map[key]["csat"] += 1
+        created = row.get("created_at")
+        if created:
+            month = str(created)[:7]
+            trend_map[month]["csat"] += 1
 
-    return [
-        {"month": m, **trend_map[m]}
-        for m in sorted(trend_map.keys())
-    ]
+    for month in sorted(trend_map.keys()):
+        result.append({
+            "month": month,
+            "voice": trend_map[month]["voice"],
+            "omnix": trend_map[month]["omnix"],
+            "csat": trend_map[month]["csat"],
+        })
 
-
-# =========================
-# BY CHANNEL
-# =========================
-def get_dashboard_by_channel(start_date=None, end_date=None):
-    rows = []
-
-    rows += _safe_list(_apply_date_filter(
-        supabase.table("omnix_cases").select("channel"),
-        "interaction_at", start_date, end_date
-    ).execute().data)
-
-    rows += _safe_list(_apply_date_filter(
-        supabase.table("voice_interactions").select("channel"),
-        "interaction_at", start_date, end_date
-    ).execute().data)
-
-    rows += _safe_list(_apply_date_filter(
-        supabase.table("csat_responses").select("channel"),
-        "created_at_source", start_date, end_date
-    ).execute().data)
-
-    counter = Counter()
-
-    for r in rows:
-        channel = r.get("channel") or "unknown"
-        counter[channel] += 1
-
-    return [{"channel": k, "total": v} for k, v in counter.items()]
+    return result
 
 
-# =========================
-# VOICE SUMMARY
-# =========================
-def get_voice_summary(start_date=None, end_date=None):
-    rows = _safe_list(
-        _apply_date_filter(
-            supabase.table("voice_interactions").select("*"),
-            "interaction_at", start_date, end_date
-        ).execute().data
-    )
+def get_dashboard_by_channel():
+    result = []
+
+    omnix_rows = supabase.table("omnix_cases").select("channel").execute().data or []
+    csat_rows = supabase.table("csat_responses").select("channel").execute().data or []
+    voice_rows = supabase.table("voice_interactions").select("channel").execute().data or []
+
+    channel_map = defaultdict(int)
+
+    for row in omnix_rows:
+        channel = row.get("channel") or "Unknown"
+        channel_map[channel] += 1
+
+    for row in csat_rows:
+        channel = row.get("channel") or "Unknown"
+        channel_map[channel] += 1
+
+    for row in voice_rows:
+        channel = row.get("channel") or "Voice"
+        channel_map[channel] += 1
+
+    for channel, total in channel_map.items():
+        result.append({
+            "channel": channel,
+            "total": total
+        })
+
+    return result
+
+
+# =========================================================
+# VOICE
+# =========================================================
+
+def get_voice_summary():
+    rows = supabase.table("voice_interactions").select("*").execute().data or []
 
     total_calls = len(rows)
-    talk = sum(int(r.get("talk_time_sec") or 0) for r in rows)
-    wait = sum(int(r.get("wait_time_sec") or 0) for r in rows)
-    hold = sum(int(r.get("hold_time_sec") or 0) for r in rows)
+    answered_calls = sum(1 for r in rows if str(r.get("status", "")).lower() in ["answered", "completed", "success"])
+    abandoned_calls = total_calls - answered_calls
 
-    agent_counter = Counter()
-    queue_counter = Counter()
+    handling_times = [safe_float(r.get("talk_time_sec")) for r in rows if r.get("talk_time_sec") is not None]
+    waiting_times = [safe_float(r.get("wait_time_sec")) for r in rows if r.get("wait_time_sec") is not None]
 
-    for r in rows:
-        agent_counter[r.get("agent_name") or "unknown"] += 1
-        queue_counter[r.get("queue_name") or "unknown"] += 1
+    avg_handling = round(sum(handling_times) / len(handling_times), 2) if handling_times else 0
+    avg_waiting = round(sum(waiting_times) / len(waiting_times), 2) if waiting_times else 0
+
+    success_rate = round((answered_calls / total_calls) * 100, 2) if total_calls else 0
 
     return {
-        "total_calls": total_calls,
-        "avg_talk_time_sec": round(talk / total_calls, 2) if total_calls else 0,
-        "avg_wait_time_sec": round(wait / total_calls, 2) if total_calls else 0,
-        "avg_hold_time_sec": round(hold / total_calls, 2) if total_calls else 0,
-        "top_agents": [{"agent_name": k, "total_calls": v} for k, v in agent_counter.most_common(10)],
-        "top_queues": [{"queue_name": k, "total_calls": v} for k, v in queue_counter.most_common(10)],
+        "total_voice_interactions": total_calls,
+        "answered_calls": answered_calls,
+        "abandoned_calls": abandoned_calls,
+        "avg_handling_time": sec_to_mmss(avg_handling),
+        "avg_waiting_time": sec_to_mmss(avg_waiting),
+        "success_rate": success_rate,
     }
 
 
-# =========================
-# CSAT SUMMARY
-# =========================
-def get_csat_summary(start_date=None, end_date=None):
-    rows = _safe_list(
-        _apply_date_filter(
-            supabase.table("csat_responses").select("*"),
-            "created_at_source", start_date, end_date
-        ).execute().data
-    )
+def get_voice_daily():
+    rows = supabase.table("voice_interactions").select("created_at").execute().data or []
+    daily_map = defaultdict(int)
 
-    ratings = []
-    rating_counter = Counter()
-    channel_counter = Counter()
+    for row in rows:
+        created = row.get("created_at")
+        if created:
+            day = str(created)[8:10]
+            daily_map[day] += 1
 
-    for r in rows:
-        rating = r.get("rating_csat") or r.get("score")
-        channel = r.get("channel") or "unknown"
+    result = [{"label": day, "total": total} for day, total in sorted(daily_map.items())]
+    return result
 
-        if channel:
-            channel_counter[channel] += 1
 
-        try:
-            if rating:
-                val = float(rating)
-                ratings.append(val)
-                rating_counter[str(int(val))] += 1
-        except:
-            pass
+def get_voice_by_hour():
+    rows = supabase.table("voice_interactions").select("created_at").execute().data or []
+    hour_map = defaultdict(int)
+
+    for row in rows:
+        created = row.get("created_at")
+        if created and len(str(created)) >= 13:
+            hour = str(created)[11:13]
+            hour_map[hour] += 1
+
+    result = [{"label": hour, "total": total} for hour, total in sorted(hour_map.items())]
+    return result
+
+
+def get_voice_by_day():
+    rows = supabase.table("voice_interactions").select("created_at").execute().data or []
+    day_map = defaultdict(int)
+
+    day_names = {
+        0: "Sen",
+        1: "Sel",
+        2: "Rab",
+        3: "Kam",
+        4: "Jum",
+        5: "Sab",
+        6: "Min",
+    }
+
+    for row in rows:
+        created = row.get("created_at")
+        if created:
+            try:
+                dt = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
+                day_map[day_names[dt.weekday()]] += 1
+            except:
+                pass
+
+    ordered_days = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
+    result = [{"label": d, "total": day_map.get(d, 0)} for d in ordered_days]
+    return result
+
+
+def get_voice_by_agent():
+    rows = supabase.table("voice_interactions").select("agent_name, talk_time_sec, wait_time_sec").execute().data or []
+
+    agent_map = defaultdict(lambda: {"total": 0, "talk_sum": 0, "wait_sum": 0})
+
+    for row in rows:
+        agent = row.get("agent_name") or "Unknown"
+        agent_map[agent]["total"] += 1
+        agent_map[agent]["talk_sum"] += safe_float(row.get("talk_time_sec"))
+        agent_map[agent]["wait_sum"] += safe_float(row.get("wait_time_sec"))
+
+    result = []
+    for agent, data in agent_map.items():
+        total = data["total"]
+        avg_talk = data["talk_sum"] / total if total else 0
+        avg_wait = data["wait_sum"] / total if total else 0
+
+        result.append({
+            "agent": agent,
+            "total_calls": total,
+            "avg_handling_time": sec_to_mmss(avg_talk),
+            "avg_waiting_time": sec_to_mmss(avg_wait),
+        })
+
+    result.sort(key=lambda x: x["total_calls"], reverse=True)
+    return result
+
+
+# =========================================================
+# CSAT
+# =========================================================
+
+def get_csat_summary():
+    rows = supabase.table("csat_responses").select("*").execute().data or []
+
+    total = len(rows)
+    ratings = [safe_float(r.get("rating_csat")) for r in rows if r.get("rating_csat")]
+    avg = round(sum(ratings) / len(ratings), 2) if ratings else 0
+
+    high_score = sum(1 for r in ratings if r >= 4)
+    low_score = sum(1 for r in ratings if r <= 3)
 
     return {
-        "total_responses": len(rows),
-        "average_rating": round(sum(ratings)/len(ratings), 2) if ratings else 0,
-        "rating_distribution": [{"rating": k, "total": v} for k, v in rating_counter.items()],
-        "channel_distribution": [{"channel": k, "total": v} for k, v in channel_counter.items()],
+        "total_csat_responses": total,
+        "average_csat": avg,
+        "high_score": high_score,
+        "low_score": low_score,
     }
+
+
+def get_csat_rating_breakdown():
+    rows = supabase.table("csat_responses").select("created_at, rating_csat").execute().data or []
+
+    month_map = defaultdict(lambda: {"score1": 0, "score2": 0, "score3": 0, "score4": 0, "score5": 0})
+
+    for row in rows:
+        created = row.get("created_at")
+        rating = str(row.get("rating_csat") or "").strip()
+
+        if created:
+            month = str(created)[:7]
+            if rating == "1":
+                month_map[month]["score1"] += 1
+            elif rating == "2":
+                month_map[month]["score2"] += 1
+            elif rating == "3":
+                month_map[month]["score3"] += 1
+            elif rating == "4":
+                month_map[month]["score4"] += 1
+            elif rating == "5":
+                month_map[month]["score5"] += 1
+
+    result = []
+    for month in sorted(month_map.keys()):
+        result.append({
+            "month": month,
+            **month_map[month]
+        })
+
+    return result
+
+
+def get_csat_monthly_score():
+    rows = supabase.table("csat_responses").select("created_at, rating_csat").execute().data or []
+
+    month_map = defaultdict(list)
+
+    for row in rows:
+        created = row.get("created_at")
+        rating = safe_float(row.get("rating_csat"))
+
+        if created:
+            month = str(created)[:7]
+            month_map[month].append(rating)
+
+    result = []
+    for month in sorted(month_map.keys()):
+        ratings = month_map[month]
+        avg = round(sum(ratings) / len(ratings), 2) if ratings else 0
+        score_percent = round((avg / 5) * 100, 2) if avg else 0
+
+        result.append({
+            "month": month,
+            "score": score_percent
+        })
+
+    return result
+
+
+def get_csat_by_agent():
+    rows = supabase.table("csat_responses").select("account, rating_csat").execute().data or []
+
+    agent_map = defaultdict(list)
+
+    for row in rows:
+        agent = row.get("account") or "Unknown"
+        rating = safe_float(row.get("rating_csat"))
+        agent_map[agent].append(rating)
+
+    result = []
+    for agent, ratings in agent_map.items():
+        avg = round(sum(ratings) / len(ratings), 2) if ratings else 0
+        result.append({
+            "agent": agent,
+            "total_response": len(ratings),
+            "score": avg
+        })
+
+    result.sort(key=lambda x: x["total_response"], reverse=True)
+    return result
