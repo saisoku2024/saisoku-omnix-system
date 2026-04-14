@@ -33,16 +33,34 @@ def safe_datetime(v):
 def duration_to_seconds(v):
     if pd.isna(v) or v == "":
         return None
+
     try:
+        # angka langsung
         if isinstance(v, (int, float, Decimal)):
             return int(float(v))
-        parts = str(v).split(":")
+
+        # pandas timedelta
+        if isinstance(v, pd.Timedelta):
+            return int(v.total_seconds())
+
+        value = str(v)
+
+        # format "0 days 00:05:30"
+        if "days" in value:
+            td = pd.to_timedelta(value)
+            return int(td.total_seconds())
+
+        parts = value.split(":")
+
         if len(parts) == 3:
-            h, m, s = map(int, parts)
-            return h * 3600 + m * 60 + s
+            h, m, s = parts
+            return int(h) * 3600 + int(m) * 60 + int(float(s))
+
         if len(parts) == 2:
-            m, s = map(int, parts)
-            return m * 60 + s
-        return int(float(v))
+            m, s = parts
+            return int(m) * 60 + int(float(s))
+
+        return int(float(value))
+
     except Exception:
         return None
