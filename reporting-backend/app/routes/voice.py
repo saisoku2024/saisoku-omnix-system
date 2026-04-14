@@ -4,7 +4,7 @@ from app.utils.date_filter import get_date_range
 from datetime import datetime
 from collections import defaultdict
 
-router = APIRouter(prefix="/api/dashboard/voice", tags=["voice"])
+router = APIRouter(prefix="/dashboard/voice", tags=["voice"])
 
 
 def safe_float(value, default=0.0):

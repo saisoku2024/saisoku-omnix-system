@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException, Query
-ffrom app.core.supabase import supabase
+from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
 from datetime import datetime
 from collections import defaultdict
 from typing import Any
 
-router = APIRouter(prefix="/api/dashboard/csat", tags=["csat"])
-
+router = APIRouter(prefix="/dashboard/csat", tags=["csat"])
 
 def safe_float(value, default=0.0):
     try:
