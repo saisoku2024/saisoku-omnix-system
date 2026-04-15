@@ -1,26 +1,36 @@
-import Sidebar from "@/components/Sidebar"
-import "./globals.css"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
-import { cn } from "@/lib/utils"
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    "./app/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./lib/**/*.{ts,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        border: "oklch(var(--border))",
+        input: "oklch(var(--input))",
+        ring: "oklch(var(--ring))",
+        background: "oklch(var(--background))",
+        foreground: "oklch(var(--foreground))",
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html
-      lang="en"
-      className={cn("dark", GeistSans.variable, GeistMono.variable)}
-    >
-      <body className="flex min-h-screen bg-background text-foreground m-0 p-0 overflow-hidden font-sans">
-        <Sidebar />
+        card: "oklch(var(--card))",
+        "card-foreground": "oklch(var(--card-foreground))",
 
-        <main className="flex-1 h-screen overflow-y-auto relative bg-background">
-          {children}
-        </main>
-      </body>
-    </html>
-  )
-}
+        primary: "oklch(var(--primary))",
+        "primary-foreground": "oklch(var(--primary-foreground))",
+
+        secondary: "oklch(var(--secondary))",
+        "secondary-foreground": "oklch(var(--secondary-foreground))",
+
+        muted: "oklch(var(--muted))",
+        "muted-foreground": "oklch(var(--muted-foreground))",
+
+        accent: "oklch(var(--accent))",
+        "accent-foreground": "oklch(var(--accent-foreground))",
+      },
+    },
+  },
+  plugins: [],
+};
