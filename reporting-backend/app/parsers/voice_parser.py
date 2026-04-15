@@ -6,9 +6,15 @@ def parse_voice_rows(df, upload_id):
     rows = []
 
     for _, row in df.iterrows():
+        created_at = safe_datetime(row.get("datetime"))
+
         rows.append({
             "upload_id": upload_id,
-            "interaction_at": safe_datetime(row.get("datetime")),
+
+            # 🔥 FIX UTAMA
+            "interaction_at": created_at,
+            "created_at": created_at,
+
             "connected_at": safe_datetime(row.get("datetimeconnect")),
             "ended_at": safe_datetime(row.get("datetimeend")),
             "queue_name": safe_str(row.get("queue")),

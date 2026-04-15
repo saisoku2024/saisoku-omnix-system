@@ -6,10 +6,16 @@ def parse_omnix_rows(df, upload_id):
     rows = []
 
     for _, row in df.iterrows():
+        created_at = safe_datetime(row.get("date_origin_interaction"))
+
         rows.append({
             "upload_id": upload_id,
             "ticket_id": safe_str(row.get("ticketId_masking")),
-            "interaction_at": safe_datetime(row.get("date_origin_interaction")),
+
+            # 🔥 FIX UTAMA
+            "interaction_at": created_at,
+            "created_at": created_at,
+
             "customer_name": safe_str(row.get("customer_name")),
             "channel": safe_str(row.get("source_name")),
             "main_category": safe_str(row.get("mainCategory")),

@@ -5,6 +5,8 @@ def parse_csat_rows(df, upload_id):
     rows = []
 
     for _, row in df.iterrows():
+        created_at = safe_datetime(row.get("Create At"))
+
         rows.append({
             "upload_id": upload_id,
             "source_id": safe_str(row.get("ID")),
@@ -19,7 +21,11 @@ def parse_csat_rows(df, upload_id):
             "feedback": safe_str(row.get("Aditional Message → Feedback")),
             "flow_token": safe_str(row.get("Aditional Message → Flow Token")),
             "rating_csat": safe_str(row.get("Aditional Message → Rating Csat")),
-            "created_at_source": safe_datetime(row.get("Create At")),
+
+            # 🔥 FIX UTAMA
+            "created_at_source": created_at,
+            "created_at": created_at,
+
             "updated_at_source": safe_datetime(row.get("Update At")),
         })
 
