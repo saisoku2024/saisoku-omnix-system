@@ -1,14 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getVoiceDaily } from "@/lib/api";
+import UnderConstruction from "@/components/UnderConstruction";
 
 export default function VoicePage() {
-const [data, setData] = useState([]);
-
-useEffect(() => {
-getVoiceDaily().then(setData);
-}, []);
-
-return <pre>{JSON.stringify(data, null, 2)}</pre>;
+  return <UnderConstruction title="VOICE MONITORING" />;
 }

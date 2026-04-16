@@ -18,13 +18,16 @@ def safe_numeric(v):
         return None
 
 
+# 🔥 FIX UTAMA DI SINI
 def safe_datetime(v):
     if pd.isna(v) or v == "":
         return None
     try:
-        dt = pd.to_datetime(v)
+        dt = pd.to_datetime(v, dayfirst=True, errors="coerce")
+
         if pd.isna(dt):
             return None
+
         return dt.isoformat()
     except Exception:
         return None
@@ -35,17 +38,14 @@ def duration_to_seconds(v):
         return None
 
     try:
-        # angka langsung
         if isinstance(v, (int, float, Decimal)):
             return int(float(v))
 
-        # pandas timedelta
         if isinstance(v, pd.Timedelta):
             return int(v.total_seconds())
 
         value = str(v)
 
-        # format "0 days 00:05:30"
         if "days" in value:
             td = pd.to_timedelta(value)
             return int(td.total_seconds())

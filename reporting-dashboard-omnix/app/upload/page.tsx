@@ -44,8 +44,16 @@ export default function UploadPage() {
       }
 
       const json = await res.json()
+      
+      // ✅ SUCCESS HANDLER
       setProgress(100)
       setMessage(`✅ Success! ${json.rows_inserted} rows synchronized.`)
+      
+      // 🔥 AUTO-RESET UI
+      setFile(null); // Kosongkan state file
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = ""; // Reset input HTML agar bisa pilih file yang sama lagi
+
     } catch (err) {
       clearInterval(interval)
       setMessage("❌ Connection error or server rejected.")
@@ -80,7 +88,6 @@ export default function UploadPage() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 blur-[120px] rounded-full" />
       </div>
 
-      {/* 🔥 ONLY CHANGE HERE */}
       <div className="relative z-10 max-w-5xl mx-auto scale-[0.9] origin-top">
         
         {/* HEADER SECTION */}
@@ -97,9 +104,9 @@ export default function UploadPage() {
           </p>
         </header>
 
-        {/* MAIN CONTENT (UNCHANGED) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom duration-1000">
           
+          {/* CONFIGURATION PANEL */}
           <div className="lg:col-span-1 p-6 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-xl">
             <h2 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" /> Configuration
@@ -129,6 +136,7 @@ export default function UploadPage() {
             </div>
           </div>
 
+          {/* UPLOAD REPOSITORY */}
           <div className="lg:col-span-2 p-6 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-xl flex flex-col">
             <h2 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" /> File Repository
@@ -152,11 +160,15 @@ export default function UploadPage() {
 
               <div className="text-center">
                 {file ? (
-                  <div>
-                    <p className="text-white font-bold text-sm">{file.name}</p>
+                  <div className="animate-in zoom-in duration-300">
+                    <p className="text-white font-bold text-sm mb-1">{file.name}</p>
+                    <p className="text-[10px] text-cyan-400 uppercase tracking-widest">Ready to sync</p>
                   </div>
                 ) : (
-                  <label htmlFor="file-upload" className="cursor-pointer">
+                  <label htmlFor="file-upload" className="cursor-pointer group">
+                    <div className="mb-4 w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto group-hover:bg-cyan-500/20 transition-colors">
+                        <span className="text-slate-400 group-hover:text-cyan-400">+</span>
+                    </div>
                     <p className="text-sm text-slate-300">Click or drop file</p>
                   </label>
                 )}
@@ -167,21 +179,36 @@ export default function UploadPage() {
               <button
                 onClick={handleUpload}
                 disabled={loading || !file}
-                className="w-full py-4 bg-cyan-500 text-black font-black rounded-xl"
+                className={`w-full py-4 font-black rounded-xl transition-all duration-300 ${
+                    loading || !file 
+                    ? 'bg-white/5 text-slate-500 cursor-not-allowed' 
+                    : 'bg-cyan-500 text-black hover:shadow-[0_0_30px_rgba(6,182,212,0.3)] active:scale-[0.98]'
+                }`}
               >
                 {loading ? "SYNCHRONIZING..." : "SYNC TO CLOUD"}
               </button>
 
               {loading && (
-                <div className="mt-4">
-                  <div className="h-1 bg-white/10">
-                    <div style={{ width: `${progress}%` }} className="h-1 bg-cyan-400" />
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-between text-[10px] font-bold text-cyan-400">
+                    <span>PROGRESS</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                        style={{ width: `${progress}%` }} 
+                        className="h-full bg-cyan-400 transition-all duration-300" 
+                    />
                   </div>
                 </div>
               )}
 
               {message && (
-                <div className="mt-4 text-xs">
+                <div className={`mt-4 p-3 rounded-lg text-xs font-medium animate-in fade-in slide-in-from-bottom-2 ${
+                    message.includes('Success') 
+                    ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                }`}>
                   {message}
                 </div>
               )}
@@ -189,8 +216,9 @@ export default function UploadPage() {
           </div>
         </div>
 
-        <footer className="mt-12 text-xs text-slate-600">
-          G-CLOUD ENGINE v2.4
+        <footer className="mt-12 text-xs text-slate-600 flex justify-between">
+          <span>G-CLOUD ENGINE v2.4</span>
+          <span>SYSTEM STATUS: OPTIMAL</span>
         </footer>
       </div>
     </div>

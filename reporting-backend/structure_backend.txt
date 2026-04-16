@@ -1,0 +1,59 @@
+Folder PATH listing for volume Windows
+Volume serial number is F6C8-8803
+C:\USERS\ITSUP\SAISOKU-OMNIX-APP\REPORTING-BACKEND\APP
+¦   __init__.py
+¦   
++---core
+¦   ¦   supabase.py
+¦   ¦   
+¦   +---__pycache__
+¦           supabase.cpython-310.pyc
+¦           
++---parsers
+¦   ¦   csat_parser.py
+¦   ¦   omnix_parser.py
+¦   ¦   voice_parser.py
+¦   ¦   
+¦   +---__pycache__
+¦           csat_parser.cpython-310.pyc
+¦           omnix_parser.cpython-310.pyc
+¦           voice_parser.cpython-310.pyc
+¦           
++---routes
+¦   ¦   csat.py
+¦   ¦   dashboard.py
+¦   ¦   upload.py
+¦   ¦   voice.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           csat.cpython-310.pyc
+¦           dashboard.cpython-310.pyc
+¦           upload.cpython-310.pyc
+¦           voice.cpython-310.pyc
+¦           __init__.cpython-310.pyc
+¦           
++---services
+¦   ¦   analytics_service.py
+¦   ¦   dashboard_service.py
+¦   ¦   upload_service.py
+¦   ¦   
+¦   +---__pycache__
+¦           dashboard_service.cpython-310.pyc
+¦           upload_service.cpython-310.pyc
+¦           
++---utils
+¦   ¦   converters.py
+¦   ¦   date_filter.py
+¦   ¦   normalizers.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---__pycache__
+¦           converters.cpython-310.pyc
+¦           date_filter.cpython-310.pyc
+¦           normalizers.cpython-310.pyc
+¦           __init__.cpython-310.pyc
+¦           
++---__pycache__
+        __init__.cpython-310.pyc
+        

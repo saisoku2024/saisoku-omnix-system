@@ -2,45 +2,49 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from app.routes.dashboard import router as dashboard_router
-from app.routes.upload import router as upload_router
-from app.routes.voice import router as voice_router
-from app.routes.csat import router as csat_router
+# Import routers dengan penamaan yang selaras
+from app.routes import (
+    dashboard,
+    upload,
+    voice,
+    csat,
+    omnix  # Pastikan file omnix.py sudah ada di folder routes
+)
 
 # Load environment variables
-
 load_dotenv()
 
 app = FastAPI(
-title="SAISOKU OMNIX Backend",
-version="1.0.0",
+    title="SAISOKU OMNIX Backend",
+    version="1.0.0",
 )
 
 # CORS configuration
-
 app.add_middleware(
-CORSMiddleware,
-allow_origins=[
-"http://localhost:3002",
-"http://127.0.0.1:3002",
-],
-allow_credentials=True,
-allow_methods=["*"],
-allow_headers=["*"],
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000", # Tambahkan port 3000 jika perlu
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Register routers
-
-app.include_router(dashboard_router, prefix="/api")
-app.include_router(upload_router, prefix="/api")
-app.include_router(voice_router, prefix="/api")
-app.include_router(csat_router, prefix="/api")
+# Register routers menggunakan objek .router dari tiap modul
+app.include_router(dashboard.router, prefix="/api")
+app.include_router(upload.router, prefix="/api")
+app.include_router(voice.router, prefix="/api")
+app.include_router(csat.router, prefix="/api")
+app.include_router(omnix.router, prefix="/api") # Tambahkan ini
 
 # Root endpoint
-
 @app.get("/")
 def root():
-	return {
-		"status": "backend ready",
-		"service": "SAISOKU OMNIX Backend"
-	}
+    return {
+        "status": "backend ready",
+        "service": "SAISOKU OMNIX Backend",
+        "version": "1.0.0"
+    }
