@@ -176,6 +176,16 @@ def get_dashboard_new_customer(mode, period, year):
         print(f"ERROR NEW CUSTOMER SQL: {e}")
         return {"total": 0}
 
+def get_dashboard_all(mode, period, year):
+    return {
+        "summary": get_dashboard_summary(mode, period, year),
+        "trend": get_dashboard_trend(mode, period, year),
+        "channel": get_dashboard_by_channel(mode, period, year),
+        "category": get_dashboard_by_category(mode, period, year),
+        "brand": get_dashboard_by_brand(mode, period, year),
+        "customer": get_dashboard_customer(mode, period, year),
+        "new_customer": get_dashboard_new_customer(mode, period, year),
+    }
 
 # =========================
 # AVAILABLE YEARS
@@ -188,3 +198,5 @@ def get_dashboard_years():
     except Exception as e:
         print(f"ERROR YEARS SQL: {e}")
         return [2026]
+    
+    
