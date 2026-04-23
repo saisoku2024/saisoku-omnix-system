@@ -14,14 +14,20 @@ async def upload_file(
     file: UploadFile = File(...),
     type: str = Form(...)
 ):
+    upload_id = str(uuid.uuid4())
     try:
-        upload_id = str(uuid.uuid4())
+        # 1. READ CONTENT
         content = await file.read()
+        file_bytes = io.BytesIO(content)
         
-        # Fix FutureWarning: wrap bytes with BytesIO
-        df = pd.read_excel(io.BytesIO(content))
+        # 2. DETECT FORMAT (CSV vs EXCEL)
+        if file.filename.lower().endswith('.csv'):
+            df = pd.read_csv(file_bytes)
+        else:
+            # Pastikan library 'openpyxl' sudah terinstall untuk .xlsx
+            df = pd.read_excel(file_bytes)
         
-        # INSERT LOG (Dengan storage_path agar tidak Error)
+        # 3. INITIAL LOG TO SUPABASE
         supabase.table("uploads").insert({
             "id": upload_id,
             "file_name": file.filename,
@@ -30,6 +36,7 @@ async def upload_file(
             "processing_status": "processing"
         }).execute()
 
+        # 4. CHOOSE PARSER
         if type == "voice":
             rows = parse_voice_rows(df, upload_id)
             table_name = "voice_interactions"
@@ -40,23 +47,47 @@ async def upload_file(
             rows = parse_csat_rows(df, upload_id)
             table_name = "csat_responses"
         else:
-            return {"error": "Invalid type"}
+            return {"error": f"Invalid type: {type}"}
 
-        # BATCHING ENGINE
+        # 5. FILTER VALID ROWS (Mencegah baris kosong/null masuk database)
+        valid_rows = [
+            row for row in rows 
+            if any(v not in [None, "", []] for k, v in row.items() if k != "upload_id")
+        ]
+
+        if not valid_rows:
+            raise Exception("File kosong atau tidak ditemukan data yang valid.")
+
+        # 6. BATCHING ENGINE (Kirim per 100 baris agar stabil)
         batch_size = 100
-        for i in range(0, len(rows), batch_size):
-            batch = rows[i:i + batch_size]
+        for i in range(0, len(valid_rows), batch_size):
+            batch = valid_rows[i:i + batch_size]
             supabase.table(table_name).insert(batch).execute()
-            print(f"DEBUG: Sukses kirim batch {i//batch_size + 1}")
+            print(f"DEBUG: Sukses kirim batch {i//batch_size + 1} ke {table_name}")
 
-        # Final Update Status
+        # 7. FINAL UPDATE STATUS
         supabase.table("uploads").update({
             "processing_status": "success",
-            "total_rows": len(rows)
+            "total_rows": len(valid_rows)
         }).eq("id", upload_id).execute()
 
-        return {"status": "ok", "rows_inserted": len(rows)}
+        return {
+            "status": "ok", 
+            "rows_inserted": len(valid_rows),
+            "target_table": table_name
+        }
 
     except Exception as e:
-        print(f"UPLOAD ERROR: {str(e)}")
-        return {"error": str(e)}
+        error_msg = str(e)
+        print(f"UPLOAD ERROR: {error_msg}")
+        
+        # Update status gagal jika upload_id sudah terbuat
+        try:
+            supabase.table("uploads").update({
+                "processing_status": "failed",
+                "error_summary": error_msg[:500]
+            }).eq("id", upload_id).execute()
+        except:
+            pass
+            
+        return {"error": error_msg}

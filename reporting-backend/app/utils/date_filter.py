@@ -1,9 +1,9 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from calendar import monthrange
 from typing import Tuple
 
-def get_date_range(granularity: str, period: str, year: int) -> Tuple[date, date]:
-    # 1. Normalisasi Granularity (Biar 'monthly' gak error lagi)
+
+def get_date_range(granularity: str, period: str, year: int) -> Tuple[str, str]:
     granularity = granularity.lower()
     if granularity == "monthly":
         granularity = "month"
@@ -12,37 +12,42 @@ def get_date_range(granularity: str, period: str, year: int) -> Tuple[date, date
     elif granularity == "yearly":
         granularity = "year"
 
-    # 2. Logika untuk BULAN (contoh period: "Apr" atau "04")
+    def to_iso(d: date, end=False) -> str:
+        """Convert date ke ISO 8601 UTC string untuk Supabase filter"""
+        if end:
+            # End = hari berikutnya jam 00:00 (exclusive upper bound)
+            from datetime import timedelta
+            d = d + timedelta(days=1)
+        return datetime(d.year, d.month, d.day, tzinfo=timezone.utc).isoformat()
+
+    # ── MONTH ──────────────────────────────────────────────────────────────
     if granularity == "month":
         try:
-            # Jika period berupa nama bulan (Apr, May, etc)
             month = datetime.strptime(period, "%b").month
         except ValueError:
             try:
-                # Jika period berupa angka (04, 4)
                 month = int(period)
             except ValueError:
                 raise ValueError(f"Invalid month period: {period}")
-        
-        start_date = date(year, month, 1)
-        end_date = date(year, month, monthrange(year, month)[1])
-        return start_date, end_date
 
-    # 3. Logika untuk QUARTER (contoh period: "Q1", "Q2")
+        start_date = date(year, month, 1)
+        end_date   = date(year, month, monthrange(year, month)[1])
+        return to_iso(start_date), to_iso(end_date, end=True)
+
+    # ── QUARTER ────────────────────────────────────────────────────────────
     if granularity == "quarter":
-        # Ambil angka dari "Q1" -> 1
         q_num = int(''.join(filter(str.isdigit, period)))
         if q_num not in [1, 2, 3, 4]:
             raise ValueError("Quarter must be 1, 2, 3, or 4")
 
         start_month = (q_num - 1) * 3 + 1
-        end_month = start_month + 2
-        start_date = date(year, start_month, 1)
-        end_date = date(year, end_month, monthrange(year, end_month)[1])
-        return start_date, end_date
+        end_month   = start_month + 2
+        start_date  = date(year, start_month, 1)
+        end_date    = date(year, end_month, monthrange(year, end_month)[1])
+        return to_iso(start_date), to_iso(end_date, end=True)
 
-    # 4. Logika untuk TAHUN
+    # ── YEAR ───────────────────────────────────────────────────────────────
     if granularity == "year":
-        return date(year, 1, 1), date(year, 12, 31)
+        return to_iso(date(year, 1, 1)), to_iso(date(year, 12, 31), end=True)
 
     raise ValueError("granularity must be 'month', 'quarter', or 'year'")
