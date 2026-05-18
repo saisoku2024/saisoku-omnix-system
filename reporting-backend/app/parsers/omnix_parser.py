@@ -32,9 +32,7 @@ def parse_omnix_rows(df, upload_id):
             # ── Category Hierarchy ────────────────────────────
             "main_category":       safe_str(row.get("mainCategory")),
             "category":            safe_str(row.get("category")),
-            "subcategory":         safe_str(row.get("subCategory")),
-            # Menambahkan kolom sub_category1
-            "sub_category1":       safe_str(row.get("subCategory")), 
+            "subcategory":         safe_str(row.get("subCategory")),         
             "detail_subcategory":  safe_str(row.get("detailSubCategory")),
             "detail_subcategory2": safe_str_raw(row.get("detailSubCategory2")),
 

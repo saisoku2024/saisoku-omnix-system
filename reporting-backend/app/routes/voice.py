@@ -1,14 +1,28 @@
 from fastapi import APIRouter, Query
 from app.services.voice_service import VoiceService
 
-# Nama variabel 'router' selaras dengan modul lainnya
 router = APIRouter(prefix="/voice", tags=["Voice"])
 
-@router.get("/stats")
-async def get_voice_stats(
+
+# =========================
+# SUMMARY
+# =========================
+@router.get("/summary")
+def voice_summary(
     mode: str = Query("monthly"),
-    period: str = Query("Apr"),
-    year: int = Query(2026)
+    period: str = Query("Jan"),
+    year: int = Query(2026),
 ):
-    # Mengambil data summary, daily, dan agent performance sekaligus
-    return VoiceService.get_stats(mode, period, year)
+    return VoiceService.get_summary(mode, period, year)
+
+
+# =========================
+# MASTER ENDPOINT 🔥
+# =========================
+@router.get("/all")
+def voice_all(
+    mode: str = Query("monthly"),
+    period: str = Query("Jan"),
+    year: int = Query(2026),
+):
+    return VoiceService.get_all(mode, period, year)
