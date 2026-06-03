@@ -1,13 +1,20 @@
 from fastapi import APIRouter, UploadFile, File, Form
 from app.core.supabase import supabase
-from app.parsers.voice_parser import parse_voice_rows
 from app.parsers.omnix_parser import parse_omnix_rows
+from app.parsers.voice_parser import parse_voice_rows
 from app.parsers.csat_parser import parse_csat_rows
 import pandas as pd
 import uuid
 import io
+import json # <-- Ditambahkan di sini
 
 router = APIRouter(tags=["Upload"])
+
+def safe_str_raw(val):
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return None
+    s = str(val).strip()
+    return s if s != "" else None
 
 @router.post("/upload")
 async def upload_file(
@@ -20,13 +27,16 @@ async def upload_file(
         content = await file.read()
         file_bytes = io.BytesIO(content)
         
-        # 2. DETECT FORMAT (CSV vs EXCEL)
+        # 2. DETECT FORMAT
         if file.filename.lower().endswith('.csv'):
             df = pd.read_csv(file_bytes)
         else:
-            # Pastikan library 'openpyxl' sudah terinstall untuk .xlsx
             df = pd.read_excel(file_bytes)
         
+        total_rows = len(df)
+        if total_rows == 0:
+            raise Exception("Uploaded file is empty")
+
         # 3. INITIAL LOG TO SUPABASE
         supabase.table("uploads").insert({
             "id": upload_id,
@@ -39,55 +49,168 @@ async def upload_file(
         # 4. CHOOSE PARSER
         if type == "voice":
             rows = parse_voice_rows(df, upload_id)
-            table_name = "voice_interactions"
+            target_table = "voice_interactions"
         elif type == "omnix":
             rows = parse_omnix_rows(df, upload_id)
-            table_name = "omnix_cases"
+            target_table = "omnix_cases"
         elif type == "csat":
             rows = parse_csat_rows(df, upload_id)
-            table_name = "csat_responses"
+            target_table = "csat_responses"
         else:
-            return {"error": f"Invalid type: {type}"}
+            raise Exception(f"Invalid type: {type}")
 
-        # 5. FILTER VALID ROWS (Mencegah baris kosong/null masuk database)
-        valid_rows = [
-            row for row in rows 
-            if any(v not in [None, "", []] for k, v in row.items() if k != "upload_id")
-        ]
+        # 5. VALIDATION
+        invalid_rows = 0
 
-        if not valid_rows:
-            raise Exception("File kosong atau tidak ditemukan data yang valid.")
+        if type == "csat":
+            valid_rows = rows
 
-        # 6. BATCHING ENGINE (Kirim per 100 baris agar stabil)
-        batch_size = 100
-        for i in range(0, len(valid_rows), batch_size):
-            batch = valid_rows[i:i + batch_size]
-            supabase.table(table_name).insert(batch).execute()
-            print(f"DEBUG: Sukses kirim batch {i//batch_size + 1} ke {table_name}")
+        elif type == "voice":
+            valid_rows = []
+            for row in rows:
+                unique_id = row.get("unique_id")
+                if unique_id is None:
+                    invalid_rows += 1
+                    continue
 
-        # 7. FINAL UPDATE STATUS
+                unique_id = str(unique_id).strip()
+                if unique_id.lower() in ["", "nan", "none", "null"]:
+                    invalid_rows += 1
+                    continue
+
+                row["unique_id"] = unique_id
+                valid_rows.append(row)
+
+        else: # OMNIX
+            valid_rows = []
+            for row in rows:
+                raw_ticket_id = row.get("ticket_id")
+                if pd.isna(raw_ticket_id):
+                    invalid_rows += 1
+                    continue
+
+                ticket_id = str(raw_ticket_id).strip()
+                if not ticket_id or ticket_id.lower() in ["nan", "none", "null"]:
+                    invalid_rows += 1
+                    continue
+
+                row["ticket_id"] = ticket_id
+                valid_rows.append(row)
+
+        # 6. INTERNAL DEDUPLICATION
+        duplicate_rows = 0
+
+        if type == "csat":
+            deduped_rows = valid_rows
+
+        elif type == "voice":
+            seen_ids = set()
+            deduped_rows = []
+            for row in valid_rows:
+                uid = row["unique_id"]
+                if uid in seen_ids:
+                    duplicate_rows += 1
+                    continue
+
+                seen_ids.add(uid)
+                deduped_rows.append(row)
+
+        else: # OMNIX
+            seen_ticket_ids = set()
+            deduped_rows = []
+            for row in valid_rows:
+                if row["ticket_id"] in seen_ticket_ids:
+                    duplicate_rows += 1
+                    continue
+
+                seen_ticket_ids.add(row["ticket_id"])
+                deduped_rows.append(row)
+
+        # 7. DATABASE DEDUPLICATION
+        inserted_candidates = []
+
+        if target_table == "omnix_cases" and deduped_rows:
+            existing_res = (
+                supabase
+                .table("omnix_cases")
+                .select("ticket_id")
+                .in_("ticket_id", [r["ticket_id"] for r in deduped_rows])
+                .execute()
+            )
+            existing_ids = {r["ticket_id"] for r in existing_res.data}
+            for row in deduped_rows:
+                if row["ticket_id"] in existing_ids:
+                    duplicate_rows += 1
+                else:
+                    inserted_candidates.append(row)
+
+        elif target_table == "voice_interactions" and deduped_rows:
+            existing_res = (
+                supabase
+                .table("voice_interactions")
+                .select("unique_id")
+                .in_("unique_id", [r["unique_id"] for r in deduped_rows])
+                .execute()
+            )
+            existing_ids = {r["unique_id"] for r in existing_res.data}
+            for row in deduped_rows:
+                if row["unique_id"] in existing_ids:
+                    duplicate_rows += 1
+                else:
+                    inserted_candidates.append(row)
+
+        else: # CSAT
+            inserted_candidates = deduped_rows
+
+        # 8. INSERT
+        inserted_rows = 0
+        if inserted_candidates:
+            # --- BLOK DEBUGGING DITAMBAHKAN DI SINI ---
+            print("TOTAL =", len(inserted_candidates))
+            print("FIRST ROW =", inserted_candidates[0])
+
+            try:
+                json.dumps(inserted_candidates[0], default=str)
+                print("JSON OK")
+            except Exception as e:
+                print("JSON ERROR =", e)
+            # ------------------------------------------
+
+            try:
+                supabase.table(target_table).insert(inserted_candidates).execute()
+                inserted_rows = len(inserted_candidates)
+            except Exception as e:
+                if "duplicate key value" in str(e):
+                    duplicate_rows += len(inserted_candidates)
+                    inserted_rows = 0
+                else:
+                    raise
+                
+        # 9. FINAL UPDATE STATUS
         supabase.table("uploads").update({
             "processing_status": "success",
-            "total_rows": len(valid_rows)
+            "total_rows": total_rows,
+            "inserted_rows": inserted_rows,
+            "duplicate_rows": duplicate_rows,
+            "invalid_rows": invalid_rows
         }).eq("id", upload_id).execute()
 
         return {
-            "status": "ok", 
-            "rows_inserted": len(valid_rows),
-            "target_table": table_name
+            "success": True,
+            "total_rows": total_rows,
+            "inserted_rows": inserted_rows,
+            "duplicate_rows": duplicate_rows,
+            "invalid_rows": invalid_rows,
+            "target_table": target_table
         }
 
     except Exception as e:
-        error_msg = str(e)
-        print(f"UPLOAD ERROR: {error_msg}")
-        
-        # Update status gagal jika upload_id sudah terbuat
+        print(f"UPLOAD ERROR: {str(e)}")
         try:
             supabase.table("uploads").update({
-                "processing_status": "failed",
-                "error_summary": error_msg[:500]
+                "processing_status": "failed", 
+                "error_summary": str(e)[:500]
             }).eq("id", upload_id).execute()
         except:
             pass
-            
-        return {"error": error_msg}
+        return {"success": False, "error": str(e)}

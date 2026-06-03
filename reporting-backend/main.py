@@ -2,14 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# Import routers dengan penamaan yang selaras
+# Import routers
 from app.routes import (
     dashboard,
     upload,
     voice,
     csat,
-    omnix  # Pastikan file omnix.py sudah ada di folder routes
+    omnix
 )
+
+# Principal Report
+from app.routes.principal import router as principal_router
 
 # Load environment variables
 load_dotenv()
@@ -22,18 +25,21 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # 🔥 buka semua dulu
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers menggunakan objek .router dari tiap modul
+# Register routers
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(csat.router, prefix="/api")
-app.include_router(omnix.router, prefix="/api") # Tambahkan ini
+app.include_router(omnix.router, prefix="/api")
+
+# Principal Report Export
+app.include_router(principal_router, prefix="/api")
 
 # Root endpoint
 @app.get("/")

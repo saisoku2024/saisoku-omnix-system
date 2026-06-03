@@ -42,11 +42,17 @@ class OmnixService:
 
 
     # =========================
-    # DAILY CHART
+    # DAILY CHART (ADAPTIVE TREND)
     # =========================
     @staticmethod
     def get_daily(mode, period, year):
-        start, end = get_date_range(mode, period, year)
+        # SIVA FIX: Jika kuartal/tahun, paksa tarik 12 bulan (Jan-Dec) agar grafik utuh
+        if mode in ["quarterly", "yearly"]:
+            start = f"{year}-01-01"
+            end = f"{int(year) + 1}-01-01"
+        else:
+            # Mode bulanan tetap tarik aslinya agar menghasilkan harian (01-31)
+            start, end = get_date_range(mode, period, year)
 
         try:
             res = supabase.rpc(
@@ -55,14 +61,13 @@ class OmnixService:
             ).execute()
 
             return [
-                {"date": str(r["date"]), "count": r["total"]}
+                {"label": str(r["label"]), "count": int(r["total"] or 0)}
                 for r in (res.data or [])
             ]
 
         except Exception as e:
             print(f"ERROR OMNIX DAILY: {e}")
             return []
-
 
     # =========================
     # HOURLY CHART
@@ -180,6 +185,30 @@ class OmnixService:
 
 
     # =========================
+    # BY CUSTOMER (TOTAL & NEW)
+    # =========================
+    @staticmethod
+    def get_customer(mode, period, year):
+        # SIVA FIX: Selalu tarik 1 tahun penuh agar sumbu X selalu berisi 12 Bulan (Jan - Dec)
+        start = f"{year}-01-01"
+        end = f"{int(year) + 1}-01-01"
+
+        try:
+            res = supabase.rpc(
+                "kpi_omnix_customers",
+                {"start_date": start, "end_date": end}
+            ).execute()
+
+            return [
+                {"label": str(r["label"]), "total": int(r["total"] or 0), "new": int(r["new"] or 0)}
+                for r in (res.data or [])
+            ]
+
+        except Exception as e:
+            print(f"ERROR OMNIX CUSTOMERS: {e}")
+            return []
+
+    # =========================
     # MASTER (ALL)
     # =========================
     @staticmethod
@@ -192,4 +221,5 @@ class OmnixService:
             "channel": OmnixService.get_by_channel(mode, period, year),
             "category": OmnixService.get_by_category(mode, period, year),
             "product": OmnixService.get_by_product(mode, period, year),
+            "customer": OmnixService.get_customer(mode, period, year), # SIVA Fix: Integrasi RPC baru
         }

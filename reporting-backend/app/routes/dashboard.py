@@ -1,14 +1,12 @@
 from fastapi import APIRouter, Query
 from app.services.dashboard_service import (
+    get_dashboard_all,
     get_dashboard_summary,
     get_dashboard_trend,
     get_dashboard_by_channel,
     get_dashboard_by_category,
     get_dashboard_by_brand,
-    get_dashboard_customer,
-    get_dashboard_new_customer,
     get_dashboard_years,
-    get_dashboard_all,
 )
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])

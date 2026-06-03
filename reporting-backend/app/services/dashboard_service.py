@@ -1,6 +1,5 @@
 from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
-from datetime import timedelta   # 🔥 FIX tambahan (biar trend nggak error)
 
 
 # =========================
@@ -19,33 +18,34 @@ def get_dashboard_summary(mode: str, period: str, year: int):
 
         aht = int(float(data.get("avg_aht") or 0))
         art = int(float(data.get("avg_art") or 0))
-        awt = int(float(data.get("avg_awt") or 0))   # 🔥 TAMBAHAN
+        awt = int(float(data.get("avg_awt") or 0))
 
         m_aht, s_aht = divmod(aht, 60)
         m_art, s_art = divmod(art, 60)
-        m_awt, s_awt = divmod(awt, 60)   # 🔥 TAMBAHAN
+        m_awt, s_awt = divmod(awt, 60)
 
         return {
             "total_ticket": f"{int(data.get('total_ticket') or 0):,}",
             "aht": f"{m_aht}m {s_aht}s",
             "art": f"{m_art}m {s_art}s",
-            "awt": f"{m_awt}m {s_awt}s",   # 🔥 FIX
+            "awt": f"{m_awt}m {s_awt}s",
             "csat": str(data.get("csat") or 0)
         }
 
     except Exception as e:
         print(f"ERROR SUMMARY SQL: {e}")
+
         return {
             "total_ticket": "0",
             "aht": "0m 0s",
             "art": "0m 0s",
-            "awt": "0m 0s",   # 🔥 biar konsisten
+            "awt": "0m 0s",
             "csat": "0"
         }
 
 
 # =========================
-# DAILY TREND 🔥 FINAL (CLEAN & SAFE)
+# DAILY TREND
 # =========================
 def get_dashboard_trend(mode, period, year):
     start, end = get_date_range(mode, period, year)
@@ -58,20 +58,19 @@ def get_dashboard_trend(mode, period, year):
         }
 
         fn = fn_map.get(mode)
+
         if not fn:
-            print(f"[TREND] invalid mode: {mode}")
             return []
 
-        res = supabase.rpc(fn, {
-            "start_date": start,
-            "end_date": end
-        }).execute()
+        res = supabase.rpc(
+            fn,
+            {
+                "start_date": start,
+                "end_date": end
+            }
+        ).execute()
 
-        data = res.data or []
-
-        print(f"[TREND {mode.upper()}] rows:", len(data))
-
-        return data
+        return res.data or []
 
     except Exception as e:
         print(f"ERROR TREND SQL ({mode}): {e}")
@@ -91,7 +90,10 @@ def get_dashboard_by_channel(mode, period, year):
         ).execute()
 
         return [
-            {"name": r.get("name"), "count": int(r.get("total") or 0)}
+            {
+                "name": r.get("name"),
+                "count": int(r.get("total") or 0)
+            }
             for r in (res.data or [])
         ]
 
@@ -113,7 +115,10 @@ def get_dashboard_by_category(mode, period, year):
         ).execute()
 
         return [
-            {"name": r.get("name"), "count": int(r.get("total") or 0)}
+            {
+                "name": r.get("name"),
+                "count": int(r.get("total") or 0)
+            }
             for r in (res.data or [])
         ]
 
@@ -149,57 +154,70 @@ def get_dashboard_by_brand(mode, period, year):
 
 
 # =========================
-# TOTAL CUSTOMER
+# CUSTOMER SUMMARY
 # =========================
-def get_dashboard_customer(mode, period, year):
+def get_dashboard_customer_summary(mode, period, year):
     start, end = get_date_range(mode, period, year)
 
     try:
         res = supabase.rpc(
-            "kpi_customer",
-            {"start_date": start, "end_date": end}
+            "kpi_omnix_customers",
+            {
+                "start_date": start,
+                "end_date": end
+            }
         ).execute()
 
-        return {"total": int(res.data[0]["total"]) if res.data else 0}
+        rows = res.data or []
+
+        total_customer = sum(int(r.get("total") or 0) for r in rows)
+        total_new_customer = sum(int(r.get("new") or 0) for r in rows)
+
+        return {
+            "customer": {
+                "total": total_customer
+            },
+            "new_customer": {
+                "total": total_new_customer
+            }
+        }
 
     except Exception as e:
-        print(f"ERROR CUSTOMER SQL: {e}")
-        return {"total": 0}
+        print(f"ERROR CUSTOMER SUMMARY SQL: {e}")
+
+        return {
+            "customer": {
+                "total": 0
+            },
+            "new_customer": {
+                "total": 0
+            }
+        }
 
 
 # =========================
-# NEW CUSTOMER
-# =========================
-def get_dashboard_new_customer(mode, period, year):
-    start, end = get_date_range(mode, period, year)
-
-    try:
-        res = supabase.rpc(
-            "kpi_new_customer",
-            {"start_date": start, "end_date": end}
-        ).execute()
-
-        return {"total": int(res.data[0]["total"]) if res.data else 0}
-
-    except Exception as e:
-        print(f"ERROR NEW CUSTOMER SQL: {e}")
-        return {"total": 0}
-
-
-# =========================
-# MASTER ENDPOINT 🔥
+# MASTER ENDPOINT
 # =========================
 def get_dashboard_all(mode, period, year):
     try:
+        customer_summary = get_dashboard_customer_summary(
+            mode,
+            period,
+            year
+        )
+
         return {
             "summary": get_dashboard_summary(mode, period, year),
             "trend": get_dashboard_trend(mode, period, year),
             "channel": get_dashboard_by_channel(mode, period, year),
             "category": get_dashboard_by_category(mode, period, year),
             "brand": get_dashboard_by_brand(mode, period, year),
-            "customer": get_dashboard_customer(mode, period, year),
-            "new_customer": get_dashboard_new_customer(mode, period, year),
+
+            # AMBIL DARI SOURCE YANG SAMA DENGAN OMNIX
+            "customer": customer_summary["customer"],
+            "new_customer": customer_summary["new_customer"],
         }
+
     except Exception as e:
         print(f"ERROR DASHBOARD ALL: {e}")
         return {}

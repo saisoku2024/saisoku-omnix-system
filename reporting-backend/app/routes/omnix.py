@@ -89,7 +89,7 @@ def omnix_by_product(
 
 
 # =========================
-# MASTER ENDPOINT 🔥
+# MASTER ENDPOINT
 # =========================
 @router.get("/all")
 def omnix_all(
@@ -97,4 +97,22 @@ def omnix_all(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_all(mode, period, year)
+    raw = OmnixService.get_all(mode, period, year)
+
+    # SIVA Fix: Langsung ambil data dari service, karena format sudah sempurna dari DB
+    trend = raw.get("daily") or []
+
+    return {
+        "summary": raw.get("summary") or {
+            "total_ticket": 0,
+            "aht": "0m 0s",
+            "art": "0m 0s",
+            "awt": "0m 0s",
+        },
+        "trend": trend,
+        "channel": raw.get("channel") or [],
+        "category": raw.get("category") or [],
+        "product": raw.get("product") or [],
+        "customer": raw.get("customer") or [],
+        "top_cases": [],
+    }
