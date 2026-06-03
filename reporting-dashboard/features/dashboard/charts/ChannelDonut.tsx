@@ -21,25 +21,15 @@ type Props = {
   onActiveChange: (idx: number | null) => void
 }
 
-type ActiveShapeProps = {
-  cx: number
-  cy: number
-  innerRadius: number
-  outerRadius: number
-  startAngle: number
-  endAngle: number
-  fill: string
-}
-
-const renderActiveShape = (props: ActiveShapeProps) => {
+const renderActiveShape = (props: any) => {
   const {
-    cx,
-    cy,
-    innerRadius,
-    outerRadius,
-    startAngle,
-    endAngle,
-    fill,
+    cx = 0,
+    cy = 0,
+    innerRadius = 0,
+    outerRadius = 0,
+    startAngle = 0,
+    endAngle = 0,
+    fill = "#22c55e",
   } = props
 
   return (
@@ -60,34 +50,31 @@ const renderActiveShape = (props: ActiveShapeProps) => {
 }
 
 type LabelProps = {
-  cx: number
-  cy: number
+  cx?: number
+  cy?: number
   midAngle?: number
-  outerRadius: number
-  percent: number
+  outerRadius?: number
+  percent?: number
 }
 
-const renderLabel = ({
-  cx,
-  cy,
-  midAngle,
-  outerRadius,
-  percent,
-}: LabelProps) => {
+const renderLabel = (props: LabelProps) => {
+  const {
+    cx = 0,
+    cy = 0,
+    midAngle,
+    outerRadius = 0,
+    percent = 0,
+  } = props
 
   if (midAngle === undefined || percent < 0.04) {
     return null
   }
 
   const RADIAN = Math.PI / 180
-
   const radius = outerRadius + 20
 
-  const x =
-    cx + radius * Math.cos(-midAngle * RADIAN)
-
-  const y =
-    cy + radius * Math.sin(-midAngle * RADIAN)
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
 
   return (
     <text
@@ -114,51 +101,33 @@ const ChannelDonut = memo(function ChannelDonut({
   activeIndex,
   onActiveChange,
 }: Props) {
-
   return (
-    <div className="h-[150px] w-full">
+    <div className="h-37.5 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-
           <Pie
             data={data}
             dataKey="count"
             nameKey="name"
-
             cx="50%"
             cy="50%"
-
             innerRadius={54}
             outerRadius={70}
-
             paddingAngle={2.5}
             cornerRadius={8}
-
             stroke="none"
-
-            activeIndex={activeIndex ?? undefined}
-            activeShape={renderActiveShape}
-
-            onMouseEnter={(_, index) =>
-              onActiveChange(index)
-            }
-
-            onMouseLeave={() =>
-              onActiveChange(null)
-            }
-
+            {...(typeof activeIndex === "number" ? { activeIndex } : {})}
+            activeShape={renderActiveShape as any}
+            onMouseEnter={(_, index) => onActiveChange(index)}
+            onMouseLeave={() => onActiveChange(null)}
             label={renderLabel}
-
             labelLine={{
               stroke: "rgba(255,255,255,0.08)",
               strokeWidth: 1,
             }}
           >
-
             {data.map((entry, i) => {
-
-              const isMax =
-                entry.count === maxCount
+              const isMax = entry.count === maxCount
 
               const isInactive =
                 activeIndex !== null &&
@@ -176,9 +145,7 @@ const ChannelDonut = memo(function ChannelDonut({
                   style={{
                     transition:
                       "all 220ms cubic-bezier(0.4,0,0.2,1)",
-
                     cursor: "pointer",
-
                     filter:
                       activeIndex === i
                         ? `drop-shadow(0 0 12px ${fill}90)`
@@ -187,17 +154,14 @@ const ChannelDonut = memo(function ChannelDonut({
                 />
               )
             })}
-
           </Pie>
 
-          {/* CENTER LABEL */}
           <text
             x="50%"
             y="50%"
             textAnchor="middle"
             dominantBaseline="central"
           >
-
             <tspan
               x="50%"
               dy="-6"
@@ -218,9 +182,7 @@ const ChannelDonut = memo(function ChannelDonut({
             >
               TOTAL TICKET
             </tspan>
-
           </text>
-
         </PieChart>
       </ResponsiveContainer>
     </div>

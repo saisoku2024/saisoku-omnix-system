@@ -115,9 +115,13 @@ const TrendChart = memo(function TrendChart({
               dataKey="count"
               position="top"
               style={{ fontSize: 9, fontWeight: 600, fill: tickColor }}
-              formatter={(val: number) =>
-                val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val
-              }
+              formatter={(val: any) =>
+  typeof val === "number"
+    ? val >= 1000
+      ? `${(val / 1000).toFixed(1)}k`
+      : val
+    : val
+}
             />
           </Bar>
         </BarChart>

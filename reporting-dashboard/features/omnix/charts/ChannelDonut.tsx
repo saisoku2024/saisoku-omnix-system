@@ -54,7 +54,7 @@ const ChannelDonut = memo(function ChannelDonut({
   const totalDisplay = total >= 1000 ? `${(total / 1000).toFixed(1)}k` : String(total)
 
   return (
-    <div className="h-[150px] w-full">
+    <div className="h-37.5 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -69,8 +69,8 @@ const ChannelDonut = memo(function ChannelDonut({
             stroke="none"
             onMouseEnter={(_, i) => onActiveChange(i)}
             onMouseLeave={() => onActiveChange(null)}
-            activeIndex={activeIndex ?? undefined}
-            activeShape={renderActiveShape}
+              {...(activeIndex !== null ? { activeIndex } : {})}
+            activeShape={renderActiveShape as any}
           >
             {data.map((_, i) => (
               <Cell
