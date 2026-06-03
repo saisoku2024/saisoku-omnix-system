@@ -1,0 +1,51 @@
+import React from "react"
+import { Users } from "lucide-react"
+
+import { formatCount } from "@/features/dashboard/utils/format"
+
+type Props = {
+  customer: number
+  newCustomer: any
+  periodLabel: string
+}
+
+export default function CustomerSummaryBar({
+  customer,
+  newCustomer,
+  periodLabel
+}: Props) {
+
+  console.log("NEW CUSTOMER =", newCustomer)
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-[9px] border border-[var(--c-border)] bg-[var(--c-surface)] px-3.5 py-2 text-[11px] text-[var(--c-muted)]">
+      <Users size={12} className="flex-shrink-0" />
+
+      <span>
+        Customer:{" "}
+        <strong className="tabular-nums text-[var(--c-text)]">
+          {formatCount(Number(customer) || 0)}
+        </strong>
+      </span>
+
+      <span className="mx-1.5 opacity-30">|</span>
+
+      <span>
+        New:{" "}
+        <strong className="tabular-nums text-[#0ea5e9]">
+          {formatCount(
+            Number(
+              typeof newCustomer === "object"
+                ? newCustomer?.total
+                : newCustomer
+            ) || 0
+          )}
+        </strong>
+      </span>
+
+      <span className="ml-auto tabular-nums">
+        {periodLabel}
+      </span>
+    </div>
+  )
+}

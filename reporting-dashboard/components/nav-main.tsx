@@ -1,0 +1,190 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar"
+import { ChevronRightIcon } from "lucide-react"
+
+export function NavMain({
+  items,
+  isDark = true,
+}: {
+  items: any[]
+  isDark?: boolean
+}) {
+  const pathname = usePathname()
+
+  const textMuted = isDark
+    ? "text-gray-400"
+    : "text-gray-500"
+
+  const textActive = isDark
+    ? "text-white"
+    : "text-gray-900"
+
+  const hoverText = isDark
+    ? "hover:text-white"
+    : "hover:text-gray-900"
+
+  const hoverBg = isDark
+    ? "hover:bg-white/5"
+    : "hover:bg-black/5"
+
+  const activeBg = isDark
+    ? "bg-white/10"
+    : "bg-black/10"
+
+  const labelColor = isDark
+    ? "text-gray-500"
+    : "text-gray-400"
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel
+        className={`text-xs px-2 ${labelColor}`}
+      >
+        Platform
+      </SidebarGroupLabel>
+
+      <SidebarMenu className="space-y-1">
+        {items.map((item: any) => {
+          const hasChildren =
+            item.items && item.items.length > 0
+
+          const isParentActive =
+            item.items?.some((sub: any) =>
+              pathname.startsWith(sub.url)
+            ) || false
+
+          // MENU TANPA SUBMENU
+          if (!hasChildren) {
+            const isActive = pathname === item.url
+
+            return (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  asChild
+                  data-active={isActive}
+                  className={`
+                    relative flex items-center gap-2
+                    px-3 py-2 rounded-lg transition-all
+                    ${textMuted}
+                    ${hoverText}
+                    ${hoverBg}
+                    data-[active=true]:${textActive}
+                    data-[active=true]:${activeBg}
+                  `}
+                >
+                  <Link href={item.url}>
+                    {item.icon}
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          }
+
+          // MENU DENGAN SUBMENU
+          return (
+            <Collapsible
+              key={item.title}
+              defaultOpen={isParentActive}
+              className="group/collapsible"
+            >
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <div
+                    className={`
+                      relative flex items-center
+                      w-full px-3 py-2 rounded-lg
+                      transition-all cursor-pointer
+                      ${textMuted}
+                      ${hoverText}
+                      ${hoverBg}
+                      ${
+                        isParentActive
+                          ? `${activeBg} ${textActive}`
+                          : ""
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2 flex-1">
+                      {item.icon}
+                      <span>{item.title}</span>
+                    </div>
+
+                    <ChevronRightIcon
+                      className="
+                        h-4 w-4
+                        transition-transform
+                        duration-200
+                        group-data-[state=open]/collapsible:rotate-90
+                        opacity-40
+                      "
+                    />
+                  </div>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <SidebarMenuSub className="mt-1 space-y-1 pl-6">
+                    {item.items?.map((subItem: any) => {
+                      const isActive =
+                        pathname === subItem.url
+
+                      return (
+                        <SidebarMenuSubItem
+                          key={subItem.title}
+                        >
+                          <SidebarMenuSubButton
+                            asChild
+                            data-active={isActive}
+                            className={`
+                              flex items-center gap-2
+                              px-3 py-2 rounded-md
+                              transition-all
+                              ${textMuted}
+                              ${hoverText}
+                              ${hoverBg}
+                              data-[active=true]:${textActive}
+                              data-[active=true]:${activeBg}
+                            `}
+                          >
+                            <Link
+                              href={subItem.url}
+                              onClick={(e) =>
+                                e.stopPropagation()
+                              }
+                            >
+                              {subItem.icon}
+                              <span>
+                                {subItem.title}
+                              </span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )
+                    })}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          )
+        })}
+      </SidebarMenu>
+    </SidebarGroup>
+  )
+}
