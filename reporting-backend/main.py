@@ -25,7 +25,10 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000", # Untuk testing di laptop
+        "https://saisoku-omnix-system.vercel.app" # Ganti dengan URL Vercel kamu yang sebenarnya jika beda
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
