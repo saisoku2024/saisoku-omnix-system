@@ -8,10 +8,7 @@
 // ============================================================
 
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL
-    ? `${process.env.NEXT_PUBLIC_API_URL}/api/omnix`
-    : process.env.NEXT_PUBLIC_API_BASE_URL_OMNIX ||
-      "http://localhost:8001/api/omnix";
+  "https://saisoku-omnix-system.onrender.com/api/omnix";
 
 // DEBUG LOGS
 if (typeof window !== "undefined") {
