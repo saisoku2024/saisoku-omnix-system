@@ -12,7 +12,6 @@ type Props = {
   Icon: LucideIcon
   color: string
   loading: boolean
-  trend?: number
 }
 
 const EMPTY_VALUES = new Set([
@@ -37,14 +36,12 @@ export default function KpiCard({
   Icon,
   color,
   loading,
-  trend,
 }: Props) {
 
   const empty = !loading && isEmpty(value)
 
   return (
     <Card>
-
       <div
         className="
           group
@@ -63,7 +60,6 @@ export default function KpiCard({
           hover:border-white/[0.06]
         "
       >
-
         {/* TOP GLOW */}
         <div
           className="
@@ -133,7 +129,6 @@ export default function KpiCard({
                 boxShadow: `0 0 24px ${color}20`,
               }}
             >
-
               <div
                 className="
                   absolute
@@ -166,9 +161,7 @@ export default function KpiCard({
             <Skeleton w={80} h={28} />
           ) : (
             <div className="flex flex-col">
-
               <div className="flex items-end gap-2">
-
                 <span
                   className="
                     text-[24px]
@@ -185,38 +178,7 @@ export default function KpiCard({
                 >
                   {value}
                 </span>
-
               </div>
-
-              {/* TREND */}
-              {typeof trend === "number" && (
-                <div
-                  className="mt-2 flex items-center gap-1"
-                  style={{
-                    color:
-                      trend >= 0
-                        ? "#22c55e"
-                        : "#ef4444",
-                  }}
-                >
-
-                  <span className="text-[12px] font-bold">
-                    {trend >= 0 ? "↑" : "↓"}
-                  </span>
-
-                  <span
-                    className="
-                      text-[11px]
-                      font-semibold
-                      tabular-nums
-                    "
-                  >
-                    {Math.abs(trend).toFixed(1)}%
-                  </span>
-
-                </div>
-              )}
-
             </div>
           )}
 
@@ -232,7 +194,6 @@ export default function KpiCard({
               background: `${color}14`,
             }}
           >
-
             <div
               className="
                 h-full
@@ -247,12 +208,10 @@ export default function KpiCard({
                 boxShadow: `0 0 18px ${color}66`,
               }}
             />
-
           </div>
 
         </div>
       </div>
-
     </Card>
   )
 }

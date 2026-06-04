@@ -169,7 +169,7 @@ export default function DashboardPage() {
                 className="
                   text-[18px]
                   font- font-extrabold
-                  tracking-[-0.05em]
+                  tracking-tighter
                   text-(--c-text)
                 "
               >
@@ -281,35 +281,18 @@ export default function DashboardPage() {
   />
 </div>
         {/* KPI CARDS */}
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-
-          {KPI_CONFIG.map((kpi, index) => (
-
-            <KpiCard
-              key={kpi.key}
-              label={kpi.label}
-              value={stats[kpi.key as keyof StatsData]}
-              Icon={kpi.icon}
-              color={kpi.color}
-              loading={loading}
-
-              trend={
-                index === 0
-                  ? 12.4
-                  : index === 1
-                  ? -3.2
-                  : index === 2
-                  ? 8.7
-                  : index === 3
-                  ? -1.9
-                  : 4.3
-              }
-            />
-
-          ))}
-
-        </div>
-
+<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+  {KPI_CONFIG.map((kpi) => (
+    <KpiCard
+      key={kpi.key}
+      label={kpi.label}
+      value={stats[kpi.key as keyof StatsData]}
+      Icon={kpi.icon}
+      color={kpi.color}
+      loading={loading}
+    />
+  ))}
+</div>
         {/* TREND CHART */}
         <Card>
 
