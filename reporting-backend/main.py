@@ -22,33 +22,42 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS configuration
+# ============================================================
+# CORS
+# ============================================================
+# Sementara dibuka penuh untuk debugging.
+# Setelah semua page stabil, bisa diperketat lagi.
+# ============================================================
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", # Untuk testing di laptop
-        "https://saisoku-omnix-system.vercel.app" # Ganti dengan URL Vercel kamu yang sebenarnya jika beda
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
+# ============================================================
+# REGISTER ROUTERS
+# ============================================================
+
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(csat.router, prefix="/api")
 app.include_router(omnix.router, prefix="/api")
 
-# Principal Report Export
+# Principal Report
 app.include_router(principal_router, prefix="/api")
 
-# Root endpoint
+# ============================================================
+# ROOT ENDPOINT
+# ============================================================
+
 @app.get("/")
 def root():
     return {
         "status": "backend ready",
         "service": "SAISOKU OMNIX Backend",
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
