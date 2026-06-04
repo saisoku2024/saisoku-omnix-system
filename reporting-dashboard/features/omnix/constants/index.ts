@@ -7,14 +7,40 @@
 // Endpoint /api/omnix/* dimiliki oleh omnix.py yang kita maintain.
 // ============================================================
 
-export const API_BASE = 
-  process.env.NEXT_PUBLIC_API_URL 
-    ? `${process.env.NEXT_PUBLIC_API_URL}/api/omnix` 
-    : process.env.NEXT_PUBLIC_API_BASE_URL_OMNIX || "http://localhost:8001/api/omnix";
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/omnix`
+    : process.env.NEXT_PUBLIC_API_BASE_URL_OMNIX ||
+      "http://localhost:8001/api/omnix";
+
+// DEBUG LOGS
+if (typeof window !== "undefined") {
+  console.log(
+    "NEXT_PUBLIC_API_URL =",
+    process.env.NEXT_PUBLIC_API_URL
+  );
+
+  console.log(
+    "NEXT_PUBLIC_API_BASE_URL_OMNIX =",
+    process.env.NEXT_PUBLIC_API_BASE_URL_OMNIX
+  );
+
+  console.log("API_BASE =", API_BASE);
+}
 
 export const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 export const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
