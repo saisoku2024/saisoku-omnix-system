@@ -8,7 +8,10 @@ type Props = {
   limit?: number
 }
 
-export default function BrandList({ items, limit = 7 }: Props) {
+export default function BrandList({
+  items,
+  limit = 7,
+}: Props) {
   const rows = items.slice(0, limit)
 
   return (
@@ -17,24 +20,69 @@ export default function BrandList({ items, limit = 7 }: Props) {
         const color = PALETTE[i % PALETTE.length]
 
         return (
-          <li key={b.name} className="flex items-center gap-2.5">
-            <span className="w-4 flex-shrink-0 text-center text-[10px] font-extrabold tabular-nums text-[var(--c-muted)]">
+          <li
+            key={b.name}
+            className="flex items-center gap-2.5"
+          >
+            {/* Rank */}
+            <span
+              className="
+                w-4
+                shrink-0
+                text-center
+                text-[10px]
+                font-extrabold
+                tabular-nums
+                text-(--c-muted)]
+              "
+            >
               {i + 1}
             </span>
 
+            {/* Content */}
             <div className="min-w-0 flex-1">
-              <div className="mb-1 flex justify-between text-[11px]">
-                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[var(--c-text)]">
+              <div
+                className="
+                  mb-1
+                  flex
+                  items-center
+                  justify-between
+                  gap-2
+                  text-[11px]
+                "
+              >
+                <span
+                  title={b.name}
+                  className="
+                    min-w-0
+                    flex-1
+                    truncate
+                    text-(--c-text)]
+                  "
+                >
                   {b.name}
                 </span>
-                <span className="ml-1.5 flex-shrink-0 tabular-nums text-[var(--c-muted)]">
+
+                <span
+                  className="
+                    shrink-0
+                    tabular-nums
+                    text-(--c-muted)]
+                  "
+                >
                   {b.pct}%
                 </span>
               </div>
 
-              <div className="h-1 overflow-hidden rounded-full bg-[var(--c-border)]">
+              <div className="h-1 overflow-hidden rounded-full bg-(--c-border)]">
                 <div
-                  className="h-full rounded-full transition-[width] duration-500 ease-out"
+                  className="
+                    h-full
+                    rounded-full
+                    transition-[width]
+                    duration-500
+                    ease-out
+                  "
                   style={{
                     width: `${b.pct}%`,
                     background: color,
@@ -43,7 +91,18 @@ export default function BrandList({ items, limit = 7 }: Props) {
               </div>
             </div>
 
-            <span className="w-9 flex-shrink-0 text-right text-[11px] font-bold tabular-nums text-[var(--c-text)]">
+            {/* Count */}
+            <span
+              className="
+                w-10
+                shrink-0
+                text-right
+                text-[11px]
+                font-bold
+                tabular-nums
+                text-(--c-text)]
+              "
+            >
               {b.count.toLocaleString()}
             </span>
           </li>

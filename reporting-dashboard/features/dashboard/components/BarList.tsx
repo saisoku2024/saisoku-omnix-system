@@ -24,16 +24,32 @@ export default function BarList({ items, limit = 7 }: Props) {
 
         return (
           <li key={item.name}>
-            <div className="mb-1 flex justify-between text-[11px]">
-              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[var(--c-muted)]">
+            <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+              <span
+                title={item.name}
+                className="
+                  min-w-0
+                  flex-1
+                  truncate
+                  text-(--c-muted)]
+                "
+              >
                 {item.name}
               </span>
-              <span className="ml-2 flex-shrink-0 font-bold tabular-nums text-[var(--c-text)]">
+
+              <span
+                className="
+                  shrink-0
+                  font-bold
+                  tabular-nums
+                  text-(--c-text)]
+                "
+              >
                 {item.count.toLocaleString()}
               </span>
             </div>
 
-            <div className="h-[5px] overflow-hidden rounded-full bg-[var(--c-border)]">
+            <div className="h-1.25 overflow-hidden rounded-full bg-(--c-border)]">
               <div
                 className="h-full rounded-full transition-[width] duration-500 ease-out"
                 style={{
