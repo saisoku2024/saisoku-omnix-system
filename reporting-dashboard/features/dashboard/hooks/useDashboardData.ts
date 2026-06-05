@@ -9,7 +9,10 @@ import type {
   PieItemWithPct 
 } from "../types/dashboard"
 
-const API_BASE = "http://127.0.0.1:8001/api/dashboard"
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/dashboard`
+    : "https://saisoku-omnix-system.onrender.com/api/dashboard";
 const EMPTY_STATS: StatsData = { total_ticket: "–", aht: "–", art: "–", awt: "–", csat: "–" }
 
 // Helpers internal
