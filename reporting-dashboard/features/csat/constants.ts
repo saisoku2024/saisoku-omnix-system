@@ -1,5 +1,7 @@
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001/api/csat"
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/voice`
+    : "https://saisoku-omnix-system.onrender.com/api/voice";
 
 export const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",

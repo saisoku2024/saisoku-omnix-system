@@ -1,5 +1,7 @@
 export const API_BASE =
-  "http://127.0.0.1:8001/api/voice"
+  process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/voice`
+    : "https://saisoku-omnix-system.onrender.com/api/voice";
 
 export const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
