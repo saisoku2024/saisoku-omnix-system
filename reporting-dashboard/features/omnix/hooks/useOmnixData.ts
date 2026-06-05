@@ -156,7 +156,14 @@ export function useOmnixData(
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
       const json: OmnixResponse = await res.json()
-      console.log("OMNIX RESPONSE:", json)
+      console.log("OMNIX RESPONSE =", json)
+
+setSummary(sanitizeSummary(json.summary))
+
+console.log(
+  "SUMMARY AFTER SANITIZE =",
+  sanitizeSummary(json.summary)
+)
 
       // Sanitize semuanya
       setSummary(sanitizeSummary(json.summary))
@@ -206,3 +213,4 @@ export function useOmnixData(
     refetch: fetchData,
   }
 }
+

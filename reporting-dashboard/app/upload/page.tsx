@@ -71,9 +71,9 @@ interface UploadMetrics {
    CONSTANTS
    ============================================================ */
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001/api"
-).replace(/\/$/, "")
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://saisoku-omnix-system.onrender.com/api";
 
 const ALLOWED_TYPES = [
   "text/csv",
@@ -434,6 +434,13 @@ function useFileUpload(
           xhrRef.current = null
           resolve({ ok: false, error: "aborted" })
         })
+        
+        console.log("UPLOAD API =", API_BASE)
+console.log("UPLOAD URL =", `${API_BASE}/upload`)
+console.log("FILE =", file.name)
+console.log("TYPE =", type)
+
+xhr.open("POST", `${API_BASE}/upload`)
 
         xhr.open("POST", `${API_BASE}/upload`)
         xhr.send(formData)
