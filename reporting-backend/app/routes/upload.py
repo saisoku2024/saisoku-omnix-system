@@ -172,31 +172,7 @@ async def upload_file(
                 .execute()
             )
 
-            # ================= DEBUG =================
-            print("\n========== CSAT DEBUG ==========")
-            print("SOURCE IDS FROM EXCEL:")
-            print([r["source_id"] for r in deduped_rows][:10])
-
-            print("\nFOUND IN DATABASE:")
-            print(existing_res.data)
-
-            print("================================\n")
-            # =========================================
-
-            existing_ids = {
-                r["source_id"]
-                for r in existing_res.data
-            }
-
-            for row in deduped_rows:
-                if row["source_id"] in existing_ids:
-                    duplicate_rows += 1
-                else:
-                    inserted_candidates.append(row)
-
-        else:
-            inserted_candidates = deduped_rows
-
+           
         # 8. INSERT
         inserted_rows = 0
         if inserted_candidates:
