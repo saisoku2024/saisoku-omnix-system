@@ -6,7 +6,7 @@ from app.parsers.csat_parser import parse_csat_rows
 import pandas as pd
 import uuid
 import io
-import json # <-- Ditambahkan di sini
+import json
 
 router = APIRouter(tags=["Upload"])
 
@@ -63,7 +63,18 @@ async def upload_file(
         invalid_rows = 0
 
         if type == "csat":
-            valid_rows = rows
+            valid_rows = []
+            for row in rows:
+                source_id = row.get("source_id")
+                if source_id is None:
+                    invalid_rows += 1
+                    continue
+                source_id = str(source_id).strip()
+                if source_id.lower() in ["", "nan", "none", "null"]:
+                    invalid_rows += 1
+                    continue
+                row["source_id"] = source_id
+                valid_rows.append(row)
 
         elif type == "voice":
             valid_rows = []
@@ -72,12 +83,10 @@ async def upload_file(
                 if unique_id is None:
                     invalid_rows += 1
                     continue
-
                 unique_id = str(unique_id).strip()
                 if unique_id.lower() in ["", "nan", "none", "null"]:
                     invalid_rows += 1
                     continue
-
                 row["unique_id"] = unique_id
                 valid_rows.append(row)
 
@@ -88,12 +97,10 @@ async def upload_file(
                 if pd.isna(raw_ticket_id):
                     invalid_rows += 1
                     continue
-
                 ticket_id = str(raw_ticket_id).strip()
                 if not ticket_id or ticket_id.lower() in ["nan", "none", "null"]:
                     invalid_rows += 1
                     continue
-
                 row["ticket_id"] = ticket_id
                 valid_rows.append(row)
 
@@ -101,7 +108,15 @@ async def upload_file(
         duplicate_rows = 0
 
         if type == "csat":
-            deduped_rows = valid_rows
+            seen_source_ids = set()
+            deduped_rows = []
+            for row in valid_rows:
+                source_id = row["source_id"]
+                if source_id in seen_source_ids:
+                    duplicate_rows += 1
+                    continue
+                seen_source_ids.add(source_id)
+                deduped_rows.append(row)
 
         elif type == "voice":
             seen_ids = set()
@@ -111,7 +126,6 @@ async def upload_file(
                 if uid in seen_ids:
                     duplicate_rows += 1
                     continue
-
                 seen_ids.add(uid)
                 deduped_rows.append(row)
 
@@ -122,7 +136,6 @@ async def upload_file(
                 if row["ticket_id"] in seen_ticket_ids:
                     duplicate_rows += 1
                     continue
-
                 seen_ticket_ids.add(row["ticket_id"])
                 deduped_rows.append(row)
 
@@ -130,13 +143,7 @@ async def upload_file(
         inserted_candidates = []
 
         if target_table == "omnix_cases" and deduped_rows:
-            existing_res = (
-                supabase
-                .table("omnix_cases")
-                .select("ticket_id")
-                .in_("ticket_id", [r["ticket_id"] for r in deduped_rows])
-                .execute()
-            )
+            existing_res = supabase.table("omnix_cases").select("ticket_id").in_("ticket_id", [r["ticket_id"] for r in deduped_rows]).execute()
             existing_ids = {r["ticket_id"] for r in existing_res.data}
             for row in deduped_rows:
                 if row["ticket_id"] in existing_ids:
@@ -145,13 +152,7 @@ async def upload_file(
                     inserted_candidates.append(row)
 
         elif target_table == "voice_interactions" and deduped_rows:
-            existing_res = (
-                supabase
-                .table("voice_interactions")
-                .select("unique_id")
-                .in_("unique_id", [r["unique_id"] for r in deduped_rows])
-                .execute()
-            )
+            existing_res = supabase.table("voice_interactions").select("unique_id").in_("unique_id", [r["unique_id"] for r in deduped_rows]).execute()
             existing_ids = {r["unique_id"] for r in existing_res.data}
             for row in deduped_rows:
                 if row["unique_id"] in existing_ids:
@@ -159,23 +160,21 @@ async def upload_file(
                 else:
                     inserted_candidates.append(row)
 
-        else: # CSAT
+        elif target_table == "csat_responses" and deduped_rows:
+            existing_res = supabase.table("csat_responses").select("source_id").in_("source_id", [r["source_id"] for r in deduped_rows]).execute()
+            existing_ids = {r["source_id"] for r in existing_res.data}
+            for row in deduped_rows:
+                if row["source_id"] in existing_ids:
+                    duplicate_rows += 1
+                else:
+                    inserted_candidates.append(row)
+
+        else:
             inserted_candidates = deduped_rows
 
         # 8. INSERT
         inserted_rows = 0
         if inserted_candidates:
-            # --- BLOK DEBUGGING DITAMBAHKAN DI SINI ---
-            print("TOTAL =", len(inserted_candidates))
-            print("FIRST ROW =", inserted_candidates[0])
-
-            try:
-                json.dumps(inserted_candidates[0], default=str)
-                print("JSON OK")
-            except Exception as e:
-                print("JSON ERROR =", e)
-            # ------------------------------------------
-
             try:
                 supabase.table(target_table).insert(inserted_candidates).execute()
                 inserted_rows = len(inserted_candidates)
