@@ -4,7 +4,7 @@ import "./globals.css"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
+import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { ThemeProvider } from "@/contexts/theme-context"
 
 const geistSans = Geist({
