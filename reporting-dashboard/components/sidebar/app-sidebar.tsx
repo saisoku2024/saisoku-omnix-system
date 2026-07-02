@@ -14,17 +14,8 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-import {
-  PieChartIcon,
-  TerminalSquareIcon,
-  AudioLinesIcon,
-  BotIcon,
-  UploadIcon,
-  ActivityIcon,
-  FileSpreadsheetIcon,
-} from "lucide-react"
-
 import { useTheme } from "@/contexts/theme-context"
+import { sidebarMenu } from "@/components/sidebar/menu"
 
 const data = {
   user: {
@@ -85,54 +76,6 @@ const data = {
       plan: "Analytics Platform",
     },
   ],
-
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: <PieChartIcon />,
-      isActive: true,
-    },
-
-    {
-      title: "Detail Monitoring",
-      url: "#",
-      icon: <ActivityIcon />,
-      
-
-      items: [
-        {
-          title: "Omnix",
-          url: "/monitoring/omnix",
-          icon: <TerminalSquareIcon />,
-        },
-
-        {
-          title: "Voice",
-          url: "/monitoring/voice",
-          icon: <AudioLinesIcon />,
-        },
-
-        {
-          title: "CSAT",
-          url: "/monitoring/csat",
-          icon: <BotIcon />,
-        },
-      ],
-    },
-
-    {
-      title: "Principal Report",
-      url: "/reports/principal",
-      icon: <FileSpreadsheetIcon />,
-    },
-
-    {
-      title: "Upload Data",
-      url: "/upload",
-      icon: <UploadIcon />,
-    },
-  ],
 }
 
 export function AppSidebar(
@@ -161,7 +104,7 @@ export function AppSidebar(
 
       <SidebarContent className="px-2 py-1">
         <NavMain
-          items={data.navMain}
+          items={sidebarMenu}
           isDark={isDark}
         />
       </SidebarContent>
