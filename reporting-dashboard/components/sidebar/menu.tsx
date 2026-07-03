@@ -14,32 +14,32 @@ export const sidebarMenu: SidebarMenuItem[] = [
   {
     title: "Dashboard",
     url: "/dashboard",
-    icon: PieChartIcon,
+    icon: <PieChartIcon />,
     isActive: true,
   },
 
   {
     title: "Detail Monitoring",
     url: "#",
-    icon: ActivityIcon,
+    icon: <ActivityIcon />,
 
     items: [
       {
         title: "Omnix",
         url: "/monitoring/omnix",
-        icon: TerminalSquareIcon,
+        icon: <TerminalSquareIcon />,
       },
 
       {
         title: "Voice",
         url: "/monitoring/voice",
-        icon: AudioLinesIcon,
+        icon: <AudioLinesIcon />,
       },
 
       {
         title: "CSAT",
         url: "/monitoring/csat",
-        icon: BotIcon,
+        icon: <BotIcon />,
       },
     ],
   },
@@ -47,12 +47,12 @@ export const sidebarMenu: SidebarMenuItem[] = [
   {
     title: "Principal Report",
     url: "/reports/principal",
-    icon: FileSpreadsheetIcon,
+    icon: <FileSpreadsheetIcon />,
   },
 
   {
     title: "Upload Data",
     url: "/upload",
-    icon: UploadIcon,
+    icon: <UploadIcon />,
   },
 ]

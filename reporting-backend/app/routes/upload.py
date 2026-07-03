@@ -1,21 +1,11 @@
 from fastapi import APIRouter, UploadFile, File, Form
 from app.core.supabase import supabase
-from app.parsers.omnix_parser import parse_omnix_rows
-from app.parsers.voice_parser import parse_voice_rows
-from app.parsers.csat_parser import parse_csat_rows
 from app.services.upload_service import UploadService
 import pandas as pd
 import uuid
 import io
-import json
 
 router = APIRouter(tags=["Upload"])
-
-def safe_str_raw(val):
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return None
-    s = str(val).strip()
-    return s if s != "" else None
 
 @router.post("/upload")
 async def upload_file(
@@ -54,153 +44,43 @@ async def upload_file(
         rows = parser(df, upload_id)
 
         # 5. VALIDATION
-        invalid_rows = 0
+        unique_key = config["unique_key"]
 
-        if type == "csat":
-            valid_rows = []
-            for row in rows:
-                source_id = row.get("source_id")
-                if source_id is None:
-                    invalid_rows += 1
-                    continue
-                source_id = str(source_id).strip()
-                if source_id.lower() in ["", "nan", "none", "null"]:
-                    invalid_rows += 1
-                    continue
-                row["source_id"] = source_id
-                valid_rows.append(row)
-
-        elif type == "voice":
-            valid_rows = []
-            for row in rows:
-                unique_id = row.get("unique_id")
-                if unique_id is None:
-                    invalid_rows += 1
-                    continue
-                unique_id = str(unique_id).strip()
-                if unique_id.lower() in ["", "nan", "none", "null"]:
-                    invalid_rows += 1
-                    continue
-                row["unique_id"] = unique_id
-                valid_rows.append(row)
-
-        else: # OMNIX
-            valid_rows = []
-            for row in rows:
-                raw_ticket_id = row.get("ticket_id")
-                if pd.isna(raw_ticket_id):
-                    invalid_rows += 1
-                    continue
-                ticket_id = str(raw_ticket_id).strip()
-                if not ticket_id or ticket_id.lower() in ["nan", "none", "null"]:
-                    invalid_rows += 1
-                    continue
-                row["ticket_id"] = ticket_id
-                valid_rows.append(row)
+        valid_rows, invalid_rows = UploadService.validate_rows(
+            rows,
+            unique_key
+        )
 
         # 6. INTERNAL DEDUPLICATION
-        duplicate_rows = 0
-
-        if type == "csat":
-            seen_source_ids = set()
-            deduped_rows = []
-            for row in valid_rows:
-                source_id = row["source_id"]
-                if source_id in seen_source_ids:
-                    duplicate_rows += 1
-                    continue
-                seen_source_ids.add(source_id)
-                deduped_rows.append(row)
-
-        elif type == "voice":
-            seen_ids = set()
-            deduped_rows = []
-            for row in valid_rows:
-                uid = row["unique_id"]
-                if uid in seen_ids:
-                    duplicate_rows += 1
-                    continue
-                seen_ids.add(uid)
-                deduped_rows.append(row)
-
-        else: # OMNIX
-            seen_ticket_ids = set()
-            deduped_rows = []
-            for row in valid_rows:
-                if row["ticket_id"] in seen_ticket_ids:
-                    duplicate_rows += 1
-                    continue
-                seen_ticket_ids.add(row["ticket_id"])
-                deduped_rows.append(row)
+        deduped_rows, duplicate_rows = UploadService.internal_deduplicate(
+            valid_rows,
+            unique_key
+        )
 
         # 7. DATABASE DEDUPLICATION
-        inserted_candidates = []
-
-        if target_table == "omnix_cases" and deduped_rows:
-            existing_res = supabase.table("omnix_cases").select("ticket_id").in_("ticket_id", [r["ticket_id"] for r in deduped_rows]).execute()
-            existing_ids = {r["ticket_id"] for r in existing_res.data}
-            for row in deduped_rows:
-                if row["ticket_id"] in existing_ids:
-                    duplicate_rows += 1
-                else:
-                    inserted_candidates.append(row)
-
-        elif target_table == "voice_interactions" and deduped_rows:
-            existing_res = supabase.table("voice_interactions").select("unique_id").in_("unique_id", [r["unique_id"] for r in deduped_rows]).execute()
-            existing_ids = {r["unique_id"] for r in existing_res.data}
-            for row in deduped_rows:
-                if row["unique_id"] in existing_ids:
-                    duplicate_rows += 1
-                else:
-                    inserted_candidates.append(row)
-
-        elif target_table == "csat_responses" and deduped_rows:
-            existing_res = (
-                supabase
-                .table("csat_responses")
-                .select("source_id")
-                .in_(
-                    "source_id",
-                    [r["source_id"] for r in deduped_rows]
-                )
-                .execute()
+        inserted_candidates, duplicate_rows = (
+            UploadService.database_deduplicate(
+                target_table,
+                deduped_rows,
+                unique_key,
+                duplicate_rows,
             )
-
-            existing_ids = {
-                r["source_id"]
-                for r in existing_res.data
-            }
-
-            for row in deduped_rows:
-                if row["source_id"] in existing_ids:
-                    duplicate_rows += 1
-                else:
-                    inserted_candidates.append(row)
-        
-        else:
-            inserted_candidates = deduped_rows
+        )
             
         # 8. INSERT
-        inserted_rows = 0
-        if inserted_candidates:
-            try:
-                supabase.table(target_table).insert(inserted_candidates).execute()
-                inserted_rows = len(inserted_candidates)
-            except Exception as e:
-                if "duplicate key value" in str(e):
-                    duplicate_rows += len(inserted_candidates)
-                    inserted_rows = 0
-                else:
-                    raise
+        inserted_rows = UploadService.bulk_insert(
+            target_table,
+            inserted_candidates
+        )
                 
         # 9. FINAL UPDATE STATUS
-        supabase.table("uploads").update({
-            "processing_status": "success",
-            "total_rows": total_rows,
-            "inserted_rows": inserted_rows,
-            "duplicate_rows": duplicate_rows,
-            "invalid_rows": invalid_rows
-        }).eq("id", upload_id).execute()
+        UploadService.update_upload_status(
+            upload_id,
+            total_rows,
+            inserted_rows,
+            duplicate_rows,
+            invalid_rows,
+        )
 
         return {
             "success": True,
@@ -214,10 +94,10 @@ async def upload_file(
     except Exception as e:
         print(f"UPLOAD ERROR: {str(e)}")
         try:
-            supabase.table("uploads").update({
-                "processing_status": "failed", 
-                "error_summary": str(e)[:500]
-            }).eq("id", upload_id).execute()
+            UploadService.update_upload_failed(
+                upload_id,
+                e,
+            )
         except:
             pass
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e)}..
