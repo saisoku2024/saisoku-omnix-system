@@ -15,11 +15,10 @@ export const sidebarMenu: SidebarMenuItem[] = [
     title: "Dashboard",
     url: "/dashboard",
     icon: <PieChartIcon />,
-    isActive: true,
   },
 
   {
-    title: "Detail Monitoring",
+    title: "Monitoring",
     url: "#",
     icon: <ActivityIcon />,
 
@@ -45,14 +44,48 @@ export const sidebarMenu: SidebarMenuItem[] = [
   },
 
   {
-    title: "Principal Report",
-    url: "/reports/principal",
+    title: "Analytics & Reporting",
+    url: "#",
     icon: <FileSpreadsheetIcon />,
+
+    items: [
+      {
+        title: "Principal Report",
+        url: "/reports/principal",
+        icon: <FileSpreadsheetIcon />,
+      },
+
+      {
+        title: "Infomedia Reporting",
+        url: "#",
+        icon: <FileSpreadsheetIcon />,
+      },
+
+      {
+        title: "Custom Report Builder",
+        url: "#",
+        icon: <FileSpreadsheetIcon />,
+      },
+    ],
   },
 
   {
-    title: "Upload Data",
-    url: "/upload",
+    title: "Data Management",
+    url: "#",
     icon: <UploadIcon />,
+
+    items: [
+      {
+        title: "Upload Data",
+        url: "/upload",
+        icon: <UploadIcon />,
+      },
+
+      {
+        title: "Customer Journey",
+        url: "#",
+        icon: <TerminalSquareIcon />,
+      },
+    ],
   },
 ]
