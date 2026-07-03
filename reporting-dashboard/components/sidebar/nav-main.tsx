@@ -18,12 +18,13 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { ChevronRightIcon } from "lucide-react"
+import type { SidebarMenuItem as SidebarMenuItemType } from "@/components/sidebar/types"
 
 export function NavMain({
   items,
   isDark = true,
 }: {
-  items: any[]
+  items: SidebarMenuItemType[]
   isDark?: boolean
 }) {
   const pathname = usePathname()
@@ -52,6 +53,14 @@ export function NavMain({
     ? "text-gray-500"
     : "text-gray-400"
 
+  const menuStateClass = `
+    ${textMuted}
+    ${hoverText}
+    ${hoverBg}
+    data-[active=true]:${textActive}
+    data-[active=true]:${activeBg}
+  `
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel
@@ -61,18 +70,20 @@ export function NavMain({
       </SidebarGroupLabel>
 
       <SidebarMenu className="space-y-1">
-        {items.map((item: any) => {
-          const hasChildren =
-            item.items && item.items.length > 0
+        {items.map((item) => {
+          const hasChildren = !!item.items?.length
 
           const isParentActive =
-            item.items?.some((sub: any) =>
+            item.items?.some((sub) =>
               pathname.startsWith(sub.url)
             ) || false
 
           // MENU TANPA SUBMENU
           if (!hasChildren) {
-            const isActive = pathname === item.url
+            const isActive =
+              item.url === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.url)
 
             return (
               <SidebarMenuItem key={item.title}>
@@ -82,11 +93,7 @@ export function NavMain({
                   className={`
                     relative flex items-center gap-2
                     px-3 py-2 rounded-lg transition-all
-                    ${textMuted}
-                    ${hoverText}
-                    ${hoverBg}
-                    data-[active=true]:${textActive}
-                    data-[active=true]:${activeBg}
+                    ${menuStateClass}
                   `}
                 >
                   <Link href={item.url}>
@@ -112,9 +119,7 @@ export function NavMain({
                       relative flex items-center
                       w-full px-3 py-2 rounded-lg
                       transition-all cursor-pointer
-                      ${textMuted}
-                      ${hoverText}
-                      ${hoverBg}
+                      ${menuStateClass}
                       ${
                         isParentActive
                           ? `${activeBg} ${textActive}`
@@ -141,9 +146,11 @@ export function NavMain({
 
                 <CollapsibleContent>
                   <SidebarMenuSub className="mt-1 space-y-1 pl-6">
-                    {item.items?.map((subItem: any) => {
+                    {item.items?.map((subItem) => {
                       const isActive =
-                        pathname === subItem.url
+                        subItem.url === "/"
+                          ? pathname === "/"
+                          : pathname.startsWith(subItem.url)
 
                       return (
                         <SidebarMenuSubItem
@@ -156,19 +163,10 @@ export function NavMain({
                               flex items-center gap-2
                               px-3 py-2 rounded-md
                               transition-all
-                              ${textMuted}
-                              ${hoverText}
-                              ${hoverBg}
-                              data-[active=true]:${textActive}
-                              data-[active=true]:${activeBg}
+                              ${menuStateClass}
                             `}
                           >
-                            <Link
-                              href={subItem.url}
-                              onClick={(e) =>
-                                e.stopPropagation()
-                              }
-                            >
+                            <Link href={subItem.url}>
                               {subItem.icon}
                               <span>
                                 {subItem.title}

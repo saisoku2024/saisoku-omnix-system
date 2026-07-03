@@ -3,8 +3,9 @@
 import * as React from "react"
 
 import { NavMain } from "@/components/sidebar/nav-main"
-import { NavUser } from "@/components/sidebar/nav-user"
-import { TeamSwitcher } from "@/components/sidebar/team-switcher"
+import { SidebarLogo } from "@/components/sidebar/sidebar-logo"
+import { SidebarFooterContent } from "@/components/sidebar/sidebar-footer"
+import { SearchSidebar } from "@/components/sidebar/search-sidebar"
 
 import {
   Sidebar,
@@ -99,20 +100,26 @@ export function AppSidebar(
       <SidebarHeader
         className={`border-b ${borderClass} px-3 py-2.5`}
       >
-        <TeamSwitcher teams={data.teams} />
+        <SidebarLogo teams={data.teams} />
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-1">
-        <NavMain
-          items={sidebarMenu}
-          isDark={isDark}
-        />
-      </SidebarContent>
+      <SidebarContent>
+
+  <SearchSidebar />
+
+  <div className="px-2 py-1">
+    <NavMain
+      items={sidebarMenu}
+      isDark={isDark}
+    />
+  </div>
+
+</SidebarContent>
 
       <SidebarFooter
         className={`border-t ${borderClass} px-3 py-2`}
       >
-        <NavUser user={data.user} />
+        <SidebarFooterContent user={data.user} />
       </SidebarFooter>
 
       <SidebarRail />

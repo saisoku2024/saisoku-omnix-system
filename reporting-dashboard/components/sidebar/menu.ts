@@ -8,7 +8,9 @@ import {
   UploadIcon,
 } from "lucide-react"
 
-export const sidebarMenu = [
+import type { SidebarMenuItem } from "./types"
+
+export const sidebarMenu: SidebarMenuItem[] = [
   {
     title: "Dashboard",
     url: "/dashboard",

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import type { Team } from "@/components/sidebar/types"
 
 import {
   DropdownMenu,
@@ -19,17 +20,17 @@ import {
 } from "@/components/ui/sidebar"
 import { ChevronsUpDownIcon, PlusIcon } from "lucide-react"
 
+interface TeamSwitcherProps {
+  teams: Team[]
+}
+
 export function TeamSwitcher({
   teams,
-}: {
-  teams: {
-    name: string
-    logo: React.ReactNode
-    plan: string
-  }[]
-}) {
+}: TeamSwitcherProps) {
   const { isMobile } = useSidebar()
-  const [activeTeam, setActiveTeam] = React.useState(teams[0])
+  const [activeTeam, setActiveTeam] = React.useState<Team | undefined>(
+    teams[0]
+  )
 
   if (!activeTeam) {
     return null
@@ -55,7 +56,7 @@ export function TeamSwitcher({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
