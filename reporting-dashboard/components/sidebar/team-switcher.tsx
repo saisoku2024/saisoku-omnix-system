@@ -9,7 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -37,7 +36,7 @@ export function TeamSwitcher({
   }
 
   return (
-    <SidebarMenu>
+    <SidebarMenu className="gap-2">
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -46,59 +45,115 @@ export function TeamSwitcher({
               className="
                 h-14
                 rounded-xl
+
                 border
                 border-border/50
-                bg-background/60
+
+                bg-background/70
                 backdrop-blur-sm
+
+                shadow-sm
 
                 transition-all
                 duration-200
 
                 hover:bg-accent
                 hover:border-primary/40
+                hover:shadow-md
+                hover:scale-[1.01]
 
                 data-[state=open]:bg-accent
                 data-[state=open]:border-primary
+                data-[state=open]:shadow-lg
               "
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              <div 
+                className="
+                  flex
+                  size-10
+                  items-center
+                  justify-center
+
+                  rounded-xl
+
+                  bg-sky-500/10
+                  text-sky-500
+
+                  ring-1
+                  ring-sky-500/20
+
+                  transition-all
+                  duration-200
+                "
+              >
                 {activeTeam.logo}
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{activeTeam.name}</span>
-                <span className="truncate text-xs">{activeTeam.plan}</span>
+              <div className="grid flex-1 text-left leading-tight">
+                <span className="truncate text-[13px] font-semibold tracking-tight">
+                  {activeTeam.name}
+                </span>
+                <span className="truncate text-[11px] text-muted-foreground">
+                  {activeTeam.plan}
+                </span>
               </div>
-              <ChevronsUpDownIcon className="ml-auto" />
+              <ChevronsUpDownIcon 
+                className="
+                  ml-auto
+                  h-4
+                  w-4
+                  opacity-60
+                  transition-transform
+                  duration-200
+                " 
+              />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="
+              w-[--radix-dropdown-menu-trigger-width]
+              min-w-60
+              rounded-xl
+              border
+              shadow-xl
+              backdrop-blur-sm
+            "
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Teams
+              Workspace
             </DropdownMenuLabel>
-            {teams.map((team, index) => (
+            {teams.map((team) => (
               <DropdownMenuItem
                 key={team.name}
                 onClick={() => setActiveTeam(team)}
-                className="gap-2 p-2"
+                className="
+                  gap-3
+                  rounded-lg
+                  px-2
+                  py-2
+                "
               >
-                <div className="flex size-6 items-center justify-center rounded-md border">
+                <div className="flex size-8 items-center justify-center rounded-lg border">
                   {team.logo}
                 </div>
                 {team.name}
-                <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <PlusIcon className="size-4" />
+            <DropdownMenuItem 
+              className="
+                gap-3
+                rounded-lg
+                px-2
+                py-2
+              "
+            >
+              <div className="flex size-8 items-center justify-center rounded-lg border bg-transparent">
+                <PlusIcon className="size-4 text-muted-foreground" />
               </div>
-              <div className="font-medium text-muted-foreground">Add team</div>
+              <div className="font-medium text-muted-foreground">Create Workspace</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
