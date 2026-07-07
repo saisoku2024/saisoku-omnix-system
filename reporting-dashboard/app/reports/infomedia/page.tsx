@@ -1,81 +1,258 @@
-"use client"
+"use client";
 
-import React from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react";
 import {
-  Rocket,
-  Sparkles,
-  ArrowLeft,
-} from "lucide-react"
+  FileSpreadsheet,
+  CalendarDays,
+  Smartphone,
+  Headphones,
+  Download,
+  Eye,
+  RotateCcw,
+  History,
+} from "lucide-react";
 
-export default function UnderConstructionPage() {
-  const router = useRouter()
+export default function ReportCenterPage() {
+  const [module, setModule] = useState<"digital" | "voice">("digital");
 
   return (
-    <div className="relative flex min-h-[80vh] items-center justify-center overflow-hidden bg-background px-6">
+    <div className="space-y-6">
 
-      {/* Background */}
-      <div className="absolute inset-0">
-        <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-[350px] w-[350px] rounded-full bg-violet-500/10 blur-3xl" />
+      {/* Header */}
+      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="flex items-center gap-2 text-3xl font-bold">
+              <FileSpreadsheet className="h-8 w-8 text-sky-500" />
+              Report Center
+            </h1>
 
-        {/* Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#64748b12_1px,transparent_1px),linear-gradient(to_bottom,#64748b12_1px,transparent_1px)] bg-[size:32px_32px]" />
+            <p className="mt-2 text-muted-foreground">
+              Generate and export operational reports in Microsoft Excel format.
+            </p>
+          </div>
+
+          <button className="flex items-center gap-2 rounded-lg border px-4 py-2 hover:bg-accent">
+            <History className="h-4 w-4" />
+            Export History
+          </button>
+        </div>
       </div>
 
-      <div className="relative w-full max-w-2xl">
+      {/* Module */}
+      <div className="grid grid-cols-2 gap-5">
 
-        <div className="rounded-3xl border border-border/60 bg-card/70 p-12 text-center shadow-2xl backdrop-blur-xl">
+        <button
+          onClick={() => setModule("digital")}
+          className={`rounded-2xl border p-6 text-left transition
+          ${
+            module === "digital"
+              ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20"
+              : "hover:bg-accent"
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            <Smartphone className="h-8 w-8 text-sky-500" />
+            <div>
+              <h2 className="font-semibold text-lg">
+                Digital Traffic
+              </h2>
 
-          {/* Badge */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-sm font-medium text-sky-600 dark:text-sky-400">
-            <Sparkles className="h-4 w-4" />
-            SAISOKU OMNIX
+              <p className="text-sm text-muted-foreground">
+                Omnichannel Report
+              </p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setModule("voice")}
+          className={`rounded-2xl border p-6 text-left transition
+          ${
+            module === "voice"
+              ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20"
+              : "hover:bg-accent"
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            <Headphones className="h-8 w-8 text-sky-500" />
+            <div>
+              <h2 className="font-semibold text-lg">
+                Voice Traffic
+              </h2>
+
+              <p className="text-sm text-muted-foreground">
+                Call Center Report
+              </p>
+            </div>
+          </div>
+        </button>
+
+      </div>
+
+      {/* Configuration */}
+      <div className="rounded-2xl border bg-card p-6">
+
+        <h2 className="mb-6 text-xl font-semibold">
+          Report Configuration
+        </h2>
+
+        <div className="grid gap-5 md:grid-cols-2">
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Report Type
+            </label>
+
+            <select className="w-full rounded-lg border bg-background px-3 py-2">
+              <option>Traffic</option>
+
+              {module === "digital" && (
+                <>
+                  <option>KPI</option>
+                  <option>CSAT</option>
+                  <option>NPS</option>
+                </>
+              )}
+
+              {module === "voice" && (
+                <>
+                  <option>KPI</option>
+                  <option>QM Score</option>
+                  <option>CSAT</option>
+                </>
+              )}
+            </select>
           </div>
 
-          {/* Icon */}
-          <div className="mx-auto mb-8 flex h-28 w-28 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/25">
-            <Rocket className="h-14 w-14 text-white" />
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Channel
+            </label>
+
+            <select className="w-full rounded-lg border bg-background px-3 py-2">
+              <option>All Channel</option>
+              <option>WhatsApp</option>
+              <option>Instagram</option>
+              <option>Voice</option>
+              <option>Email</option>
+              <option>Live Chat</option>
+            </select>
           </div>
 
-          {/* Title */}
-          <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground">
-            Under Construction
-          </h1>
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Brand
+            </label>
 
-          {/* Description */}
-          <p className="mx-auto mb-10 max-w-xl text-lg leading-8 text-muted-foreground">
-            Halaman ini masih dalam tahap pengembangan.
-            Kami sedang mempersiapkan pengalaman terbaik untuk
-            Dashboard <span className="font-semibold text-sky-500">SAISOKU OMNIX</span>.
-            Silakan kembali beberapa saat lagi.
-          </p>
-
-          {/* Status */}
-          <div className="mx-auto mb-8 flex max-w-sm items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4">
-            <div className="mr-3 h-3 w-3 animate-pulse rounded-full bg-emerald-500" />
-            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-              Development in Progress
-            </span>
+            <select className="w-full rounded-lg border bg-background px-3 py-2">
+              <option>All Brand</option>
+            </select>
           </div>
 
-          {/* Button */}
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-medium text-white transition-all duration-300 hover:-translate-y-1 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-500/30 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Go Back
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Main Category
+            </label>
+
+            <select className="w-full rounded-lg border bg-background px-3 py-2">
+              <option>All Category</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Start Date
+            </label>
+
+            <div className="relative">
+              <CalendarDays className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
+              <input
+                type="date"
+                className="w-full rounded-lg border bg-background py-2 pl-10 pr-3"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              End Date
+            </label>
+
+            <div className="relative">
+              <CalendarDays className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+
+              <input
+                type="date"
+                className="w-full rounded-lg border bg-background py-2 pl-10 pr-3"
+              />
+            </div>
+          </div>
+
+        </div>
+
+        <div className="mt-8 flex justify-end gap-3">
+
+          <button className="rounded-lg border px-5 py-2 hover:bg-accent flex items-center gap-2">
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </button>
+
+          <button className="rounded-lg border px-5 py-2 hover:bg-accent flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            Preview
+          </button>
+
+          <button className="rounded-lg bg-green-600 px-5 py-2 text-white hover:bg-green-700 flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Export Excel
           </button>
 
         </div>
 
-        {/* Footer */}
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          © 2026 SAISOKU OMNIX Dashboard
-        </p>
+      </div>
+
+      {/* Report Information */}
+      <div className="rounded-2xl border bg-card p-6">
+
+        <h2 className="mb-5 text-xl font-semibold">
+          Report Information
+        </h2>
+
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+
+          <InfoCard title="Selected Report" value="Traffic Inbound" />
+          <InfoCard title="Output Format" value="Microsoft Excel (.xlsx)" />
+          <InfoCard title="Source" value="Omnix Cases" />
+          <InfoCard title="Estimated Rows" value="15,240" />
+          <InfoCard title="Generated By" value="Admin" />
+          <InfoCard title="Last Generated" value="07 Jul 2026 16:25" />
+
+        </div>
 
       </div>
+
     </div>
-  )
+  );
+}
+
+function InfoCard({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-muted/30 p-4">
+      <div className="text-sm text-muted-foreground">
+        {title}
+      </div>
+
+      <div className="mt-2 text-lg font-semibold">
+        {value}
+      </div>
+    </div>
+  );
 }
