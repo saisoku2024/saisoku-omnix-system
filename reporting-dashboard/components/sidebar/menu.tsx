@@ -1,3 +1,5 @@
+// file: components/sidebar/menu.ts
+
 import {
   ActivityIcon,
   AudioLinesIcon,
@@ -57,13 +59,13 @@ export const sidebarMenu: SidebarMenuItem[] = [
 
       {
         title: "Infomedia Reporting",
-        url: "#",
+        url: "/under-construction",
         icon: <FileSpreadsheetIcon />,
       },
 
       {
         title: "Custom Report Builder",
-        url: "#",
+        url: "/under-construction",
         icon: <FileSpreadsheetIcon />,
       },
     ],
@@ -83,7 +85,7 @@ export const sidebarMenu: SidebarMenuItem[] = [
 
       {
         title: "Customer Journey",
-        url: "#",
+        url: "/under-construction",
         icon: <TerminalSquareIcon />,
       },
     ],
