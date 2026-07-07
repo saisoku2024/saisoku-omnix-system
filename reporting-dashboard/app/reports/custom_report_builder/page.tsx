@@ -3,7 +3,7 @@
 import React from "react"
 import { useRouter } from "next/navigation"
 import {
-  HardHat,
+  Rocket,
   Sparkles,
   ArrowLeft,
 } from "lucide-react"
@@ -35,7 +35,7 @@ export default function UnderConstructionPage() {
 
           {/* Icon */}
           <div className="mx-auto mb-8 flex h-28 w-28 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/25">
-            <HardHat className="h-14 w-14 text-white" />
+            <Rocket className="h-14 w-14 text-white" />
           </div>
 
           {/* Title */}
