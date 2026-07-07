@@ -84,9 +84,7 @@ export function AppSidebar(
   props: React.ComponentProps<typeof Sidebar>
 ) {
   const { isDark } = useTheme()
-  
-  // Mengambil state bawaan shadcn untuk mengetahui posisi terbuka/tertutup
-  const { toggleSidebar, state } = useSidebar() 
+  const { toggleSidebar, state } = useSidebar()
 
   const bgClass = isDark
     ? "bg-[#0d1117]"
@@ -99,7 +97,7 @@ export function AppSidebar(
   return (
     <Sidebar
       {...props}
-      className={`${bgClass} border-r ${borderClass} transition-colors duration-300 font-sans antialiased tracking-tight relative`}
+      className={`${bgClass} border-r ${borderClass} transition-colors duration-300 font-sans antialiased tracking-tight`}
     >
       <SidebarHeader
         className={`border-b ${borderClass} px-3 py-2.5 flex flex-row items-center justify-between`}
@@ -122,14 +120,13 @@ export function AppSidebar(
         <SidebarFooterContent user={data.user} />
       </SidebarFooter>
 
-      {/* Tombol Toggle Gaya UltraViewer Melayang di Kanan Bawah */}
       <button
         onClick={toggleSidebar}
-        className={`absolute -right-3.5 bottom-12 z-50 flex h-7 w-7 items-center justify-center rounded-full border ${borderClass} ${bgClass} shadow-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-all duration-200 cursor-pointer`}
+        className={`absolute -right-4 top-1/2 z-50 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border ${borderClass} ${bgClass} shadow-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-all duration-200 cursor-pointer`}
         title="Toggle Sidebar"
       >
         <ChevronLeft 
-          className={`w-4 h-4 transition-transform duration-200 ${state === "collapsed" ? "rotate-180" : ""}`} 
+          className={`w-5 h-5 transition-transform duration-200 ${state === "collapsed" ? "rotate-180" : ""}`} 
         />
       </button>
 
