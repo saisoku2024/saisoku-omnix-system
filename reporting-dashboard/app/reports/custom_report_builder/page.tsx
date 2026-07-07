@@ -1,4 +1,7 @@
+"use client"
+
 import React from "react"
+import { useRouter } from "next/navigation"
 import {
   HardHat,
   Sparkles,
@@ -6,6 +9,8 @@ import {
 } from "lucide-react"
 
 export default function UnderConstructionPage() {
+  const router = useRouter()
+
   return (
     <div className="relative flex min-h-[80vh] items-center justify-center overflow-hidden bg-background px-6">
 
@@ -56,8 +61,8 @@ export default function UnderConstructionPage() {
 
           {/* Button */}
           <button
-            onClick={() => history.back()}
-            className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-medium text-white transition-all duration-300 hover:-translate-y-1 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-500/30"
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-medium text-white transition-all duration-300 hover:-translate-y-1 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-500/30 cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
             Go Back
