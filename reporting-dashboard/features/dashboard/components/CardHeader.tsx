@@ -7,13 +7,12 @@ type Props = {
 
 export default function CardHeader({ title, badge }: Props) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--c-border)] px-4 py-3">
-      <span className="text-xs font-bold tracking-wide text-[var(--c-text)]">
+    <div className="flex items-center justify-between border-b border-(--c-border) px-3 py-2">
+      <span className="text-xs font-bold tracking-wide text-(--c-text)">
         {title}
       </span>
-
       {badge && (
-        <span className="rounded-full bg-[rgba(14,165,233,0.12)] px-2.5 py-0.5 text-[9px] font-extrabold tracking-wider text-[#0ea5e9]">
+        <span className="rounded-full bg-[rgba(14,165,233,0.12)] px-2 py-0.5 text-[9px] font-extrabold tracking-wider text-[#0ea5e9]">
           {badge}
         </span>
       )}

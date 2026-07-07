@@ -28,7 +28,7 @@ export default function BarTooltip({
         overflow-hidden
         rounded-2xl
         border
-        border-white/[0.06]
+        border-white/6
         bg-[rgba(15,23,42,0.88)]
         px-3.5
         py-3
@@ -43,8 +43,8 @@ export default function BarTooltip({
           absolute
           inset-x-0
           top-0
-          h-[2px]
-          bg-gradient-to-r
+          h-[0.5]
+          bg-linear-to-r
           from-cyan-400/0
           via-cyan-400
           to-cyan-400/0
@@ -59,7 +59,7 @@ export default function BarTooltip({
           font-semibold
           uppercase
           tracking-[0.12em]
-          text-[var(--c-muted)]
+          text-(--c-muted)]
         "
       >
         {label}
@@ -71,7 +71,7 @@ export default function BarTooltip({
         <span
           className="
             text-[24px]
-            font-[800]
+            font-[extra-bold]
             leading-none
             tracking-[-0.04em]
             text-cyan-400
@@ -83,10 +83,10 @@ export default function BarTooltip({
 
         <span
           className="
-            pb-[2px]
+            pb-[0,5]
             text-[11px]
             font-semibold
-            text-[var(--c-muted)]
+            text-(--c-muted)]
           "
         >
           tickets

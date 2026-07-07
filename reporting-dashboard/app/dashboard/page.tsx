@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
   return (
     <div style={cssVars} className="flex min-h-screen flex-col overflow-hidden bg-(--c-bg) font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text) transition-colors">
-      <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 overflow-y-auto p-4 md:p-6 pb-12">
+      <main className="mx-auto flex w-full max-w-[400] flex-1 flex-col gap-3 overflow-y-auto p-4 md:p-6 pb-12">
         
         {/* HEADER — compact 2 rows */}
         <div className="shrink-0">
@@ -90,7 +90,7 @@ export default function DashboardPage() {
         
         <Card className="shrink-0 w-full">
           <CardHeader title="Ticket Volume Trend" badge="DAILY" />
-          <div className="h-[280px] p-4">
+          <div className="h-[70] p-4">
             {loading ? (<Spinner height={240} />) : trendData.length === 0 ? (<EmptyState message="Tidak ada data" height={240} />) : (<TrendChart data={trendData} mode={mode} isDark={isDark} />)}
           </div>
         </Card>
