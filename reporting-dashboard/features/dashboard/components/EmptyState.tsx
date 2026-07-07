@@ -12,7 +12,7 @@ export default function EmptyState({
 }: Props) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-2 text-[var(--c-muted)]"
+      className="flex flex-col items-center justify-center gap-2 text-(--c-muted)]"
       style={{ height }}
     >
       <Database size={24} strokeWidth={1.5} className="opacity-40" />
