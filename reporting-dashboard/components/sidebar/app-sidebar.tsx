@@ -6,7 +6,6 @@ import { PanelLeft } from "lucide-react"
 import { NavMain } from "@/components/sidebar/nav-main"
 import { SidebarLogo } from "@/components/sidebar/sidebar-logo"
 import { SidebarFooterContent } from "@/components/sidebar/sidebar-footer"
-import { SearchSidebar } from "@/components/sidebar/search-sidebar"
 
 import {
   Sidebar,
@@ -115,8 +114,6 @@ export function AppSidebar(
       </SidebarHeader>
 
       <SidebarContent>
-
-  <SearchSidebar />
 
   <div className="px-2 py-1">
     <NavMain
