@@ -60,17 +60,11 @@ const LIGHT_VARS: React.CSSProperties = {
 } as React.CSSProperties
 
 export default function DashboardPage() {
-
   const { isDark, toggleTheme } = useTheme()
 
-  const [mode, setMode] =
-    useState<ModeType>("monthly")
-
-  const [period, setPeriod] =
-    useState("Jan")
-
-  const [year, setYear] =
-    useState(2026)
+  const [mode, setMode] = useState<ModeType>("monthly")
+  const [period, setPeriod] = useState("Jan")
+  const [year, setYear] = useState(2026)
 
   const {
     loading,
@@ -83,54 +77,26 @@ export default function DashboardPage() {
     newCustomer,
   } = useDashboardData(mode, period, year)
 
-  const cssVars =
-    isDark ? DARK_VARS : LIGHT_VARS
+  const cssVars = isDark ? DARK_VARS : LIGHT_VARS
 
   const periodOptions = useMemo(
-    () => (
-      mode === "monthly"
-        ? MONTHS
-        : QUARTERS
-    ),
+    () => (mode === "monthly" ? MONTHS : QUARTERS),
     [mode]
   )
 
   const handleModeChange = (v: string) => {
-
-    const m =
-      v.toLowerCase() as ModeType
-
+    const m = v.toLowerCase() as ModeType
     setMode(m)
-
-    setPeriod(
-      m === "yearly"
-        ? "all"
-        : m === "quarterly"
-        ? "Q1"
-        : "Jan"
-    )
+    setPeriod(m === "yearly" ? "all" : m === "quarterly" ? "Q1" : "Jan")
   }
 
-  const periodLabel =
-    mode !== "yearly"
-      ? `${period} ${year}`
-      : String(year)
+  const periodLabel = mode !== "yearly" ? `${period} ${year}` : String(year)
 
   return (
     <div
       style={cssVars}
-      className="
-        flex
-        min-h-screen
-        flex-col
-        overflow-hidden
-        bg-(--c-bg)
-        font-[Plus_Jakarta_Sans,Inter,sans-serif]
-        text-(--c-text)
-        transition-colors
-      "
+      className="flex min-h-screen flex-col overflow-hidden bg-(--c-bg) font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text) transition-colors"
     >
-
       <DashboardHeader
         mode={mode}
         period={period}
@@ -143,203 +109,90 @@ export default function DashboardPage() {
         onToggleTheme={toggleTheme}
       />
 
-      <main
-        className="
-          mx-auto
-          flex
-          w-full
-          max-w-350
-        
-          flex-1
-          flex-col
-          gap-2
-          p-4
-        "
-      >
-
+      <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 overflow-y-auto p-4 md:p-6 pb-12">
         {/* PREMIUM HEADER */}
-        <div className="mb-1">
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-
+        <div className="mb-1 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             {/* LEFT */}
             <div>
-
-              <div
-                className="
-                  text-[18px]
-                  font- font-extrabold
-                  tracking-tighter
-                  text-(--c-text)
-                "
-              >
+              <div className="text-[18px] font-extrabold tracking-tighter text-(--c-text)">
                 Good Afternoon, Admin 👋
               </div>
-
-              <div
-                className="
-                  mt-0
-                  text-[8px]
-                  text-(--c-muted)
-                "
-              >
-                Monitor Customer Support Analytics & Pperational Performance
+              <div className="mt-0.5 text-[10px] sm:text-[11px] text-(--c-muted)">
+                Monitor Customer Support Analytics & Operational Performance
               </div>
-
             </div>
 
             {/* RIGHT */}
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                rounded-2xl
-                border
-                border-white/5
-                bg-white/2
-                px-3
-                py-2
-                backdrop-blur-xl
-              "
-            >
-
+            <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/2 px-4 py-2.5 backdrop-blur-xl">
               {/* LIVE STATUS */}
-              <div className="flex items-center gap-2">
-
-                <div
-                  className="
-                    h-2
-                    w-2
-                    rounded-full
-                    bg-emerald-400
-                    shadow-[0_0_12px_rgba(74,222,128,0.9)]
-                    animate-pulse
-                  "
-                />
-
+              <div className="flex items-center gap-2.5">
+                <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)] animate-pulse" />
                 <div className="flex flex-col leading-none">
-
-                  <span
-                    className="
-                      text-[9px]
-                      font-bold
-                      uppercase
-                      tracking-[0.12em]
-                      text-(--c-muted)
-                    "
-                  >
+                  <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-(--c-muted)">
                     System Status
                   </span>
-
-                  <span
-                    className="
-                      mt-1
-                      text-[12px]
-                      font-bold
-                      text-emerald-400
-                    "
-                  >
+                  <span className="mt-1 text-[12px] font-bold text-emerald-400">
                     Operational
                   </span>
-
                 </div>
-
               </div>
 
               {/* DIVIDER */}
-              <div className="h-7 w-px bg-white/6" />
+              <div className="h-7 w-px bg-white/10" />
 
               {/* REALTIME CLOCK */}
               <RealtimeClock />
-
             </div>
-
           </div>
 
           {/* SEPARATOR */}
-          <div
-            className="
-              mt-1.5
-              h-px
-              w-full
-              bg-linear-to-r
-              from-transparent
-              via-white/6
-              to-transparent
-            "
-          />
-
+          <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-black/10 dark:via-white/10 to-transparent" />
         </div>
 
         {/* CUSTOMER SUMMARY */}
-        <div className="-mt-1">
-  <CustomerSummaryBar
-    customer={customer}
-    newCustomer={newCustomer}
-    periodLabel={periodLabel}
-  />
-</div>
-        {/* KPI CARDS */}
-<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-  {KPI_CONFIG.map((kpi) => (
-    <KpiCard
-      key={kpi.key}
-      label={kpi.label}
-      value={stats[kpi.key as keyof StatsData]}
-      Icon={kpi.icon}
-      color={kpi.color}
-      loading={loading}
-    />
-  ))}
-</div>
-        {/* TREND CHART */}
-        <Card>
-
-          <CardHeader
-            title="Ticket Volume Trend"
-            badge="DAILY"
+        <div className="shrink-0">
+          <CustomerSummaryBar
+            customer={customer}
+            newCustomer={newCustomer}
+            periodLabel={periodLabel}
           />
+        </div>
 
-          <div className="h-60 p-3.5">
+        {/* KPI CARDS */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 shrink-0">
+          {KPI_CONFIG.map((kpi) => (
+            <KpiCard
+              key={kpi.key}
+              label={kpi.label}
+              value={stats[kpi.key as keyof StatsData]}
+              Icon={kpi.icon}
+              color={kpi.color}
+              loading={loading}
+            />
+          ))}
+        </div>
 
+        {/* TREND CHART */}
+        <Card className="shrink-0">
+          <CardHeader title="Ticket Volume Trend" badge="DAILY" />
+          <div className="h-[280px] p-4">
             {loading ? (
-              <Spinner height={180} />
+              <Spinner height={240} />
             ) : trendData.length === 0 ? (
-              <EmptyState
-                message="Tidak ada data"
-                height={180}
-              />
+              <EmptyState message="Tidak ada data" height={240} />
             ) : (
-              <TrendChart
-                data={trendData}
-                mode={mode}
-                isDark={isDark}
-              />
+              <TrendChart data={trendData} mode={mode} isDark={isDark} />
             )}
-
           </div>
-
         </Card>
 
         {/* LOWER SECTION */}
-        <div
-          className="
-            grid
-            grid-cols-1
-            gap-2
-            md:grid-cols-2
-            lg:grid-cols-3
-          "
-        >
-
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 shrink-0">
           {/* CHANNEL */}
           <Card>
-
             <CardHeader title="Channel" />
-
-            <div className="p-3.5">
-
+            <div className="p-4">
               {loading ? (
                 <BarListSkeleton rows={5} />
               ) : channelPie.length === 0 ? (
@@ -347,18 +200,13 @@ export default function DashboardPage() {
               ) : (
                 <ChannelBreakdown data={channelPie} />
               )}
-
             </div>
-
           </Card>
 
           {/* CATEGORY */}
           <Card>
-
             <CardHeader title="Category" />
-
-            <div className="p-3.5">
-
+            <div className="p-4">
               {loading ? (
                 <BarListSkeleton rows={6} />
               ) : category.length === 0 ? (
@@ -366,18 +214,13 @@ export default function DashboardPage() {
               ) : (
                 <BarList items={category} />
               )}
-
             </div>
-
           </Card>
 
           {/* BRAND */}
           <Card>
-
             <CardHeader title="Brand" />
-
-            <div className="p-3.5">
-
+            <div className="p-4">
               {loading ? (
                 <BarListSkeleton rows={6} />
               ) : brand.length === 0 ? (
@@ -385,17 +228,12 @@ export default function DashboardPage() {
               ) : (
                 <BrandList items={brand} />
               )}
-
             </div>
-
           </Card>
-
         </div>
-
       </main>
 
       <FooterBrand isDark={isDark} />
-
     </div>
   )
 }
