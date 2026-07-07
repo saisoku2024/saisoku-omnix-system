@@ -1,6 +1,7 @@
+from datetime import datetime, timedelta
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from app.services.principal_service import get_principal_report
+from app.services.principal_service import get_principal_report, get_principal_summary
 import pandas as pd
 import io
 
@@ -9,11 +10,21 @@ router = APIRouter(
     tags=["Principal Report"]
 )
 
+
+def _make_end_date_inclusive(end_date: str) -> str:
+    """Geser end_date +1 hari supaya seluruh tanggal akhir ikut terhitung
+    (filter SQL pakai '<' bukan '<=')."""
+    return (
+        datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+
 @router.get("/export")
 def export_principal_report(start_date: str, end_date: str):
-    
+    end_date_inclusive = _make_end_date_inclusive(end_date)
+
     # 1. Ambil data dengan fallback jika None
-    data = get_principal_report(start_date, end_date)
+    data = get_principal_report(start_date, end_date_inclusive)
     if not data:
         data = []
 
@@ -31,7 +42,6 @@ def export_principal_report(start_date: str, end_date: str):
 
     # 3. Handle jika data dari database kosong
     if df.empty:
-        # Buat dataframe kosong tapi tetap memiliki header agar Excel rapi
         df = pd.DataFrame(columns=final_columns)
     else:
         # ==========================================
@@ -42,7 +52,7 @@ def export_principal_report(start_date: str, end_date: str):
             "date_first_response_interaction",
             "date_end_interaction"
         ]
-        
+
         for col in date_cols:
             if col in df.columns:
                 df[col] = (
@@ -119,7 +129,6 @@ def export_principal_report(start_date: str, end_date: str):
         df.to_excel(writer, index=False, sheet_name="Principal Report")
         worksheet = writer.sheets["Principal Report"]
 
-        # Auto-adjust lebar kolom
         for column in worksheet.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -132,10 +141,8 @@ def export_principal_report(start_date: str, end_date: str):
 
             worksheet.column_dimensions[column_letter].width = min(max_length + 3, 60)
 
-    # Kembalikan pointer file ke awal
     output.seek(0)
 
-    # Format header dipasang kutip agar aman
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -144,32 +151,18 @@ def export_principal_report(start_date: str, end_date: str):
         }
     )
 
+
 @router.get("/summary")
-def get_summary(
-    start_date: str,
-    end_date: str
-):
-    data = get_principal_report(
-        start_date,
-        end_date
-    )
+def get_summary(start_date: str, end_date: str):
+    end_date_inclusive = _make_end_date_inclusive(end_date)
+    row = get_principal_summary(start_date, end_date_inclusive)
 
-    total_ticket = len(data)
-
-    csat_response = len([
-        x for x in data
-        if str(
-            x.get("csat_response_status", "")
-        ).upper() == "Y"
-    ])
+    total_ticket = row["total_ticket"]
+    csat_response = row["csat_response"]
 
     response_rate = (
-        round(
-            (csat_response / total_ticket) * 100,
-            2
-        )
-        if total_ticket > 0
-        else 0
+        round((csat_response / total_ticket) * 100, 2)
+        if total_ticket > 0 else 0
     )
 
     return {
