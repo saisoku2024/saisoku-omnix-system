@@ -19,14 +19,14 @@ export default function BarList({ items, limit = 7 }: Props) {
   )
 
   return (
-    <ul className="m-0 flex list-none flex-col gap-[11px] p-0">
+    <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
       {rows.map((item, i) => {
         const pct = maxCount ? (item.count / maxCount) * 100 : 0
         const color = PALETTE[i % PALETTE.length]
 
         return (
           <li key={item.name}>
-            <div className="mb-1.5 flex justify-between text-[11px]">
+            <div className="mb-0.5 flex justify-between text-[10px]">
               <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[var(--c-muted)]">
                 {item.name}
               </span>
@@ -35,7 +35,7 @@ export default function BarList({ items, limit = 7 }: Props) {
               </span>
             </div>
 
-            <div className="h-[5px] overflow-hidden rounded-full bg-[var(--c-border)]">
+            <div className="h-1 overflow-hidden rounded-full bg-[var(--c-border)]">
               <div
                 className="h-full rounded-full transition-[width] duration-500 ease-out"
                 style={{

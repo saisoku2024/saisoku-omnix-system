@@ -28,7 +28,7 @@ import BarList from "@/features/omnix/components/BarList"
 import ChannelBreakdown from "@/features/omnix/components/ChannelBreakdown"
 
 import TrendChart from "@/features/omnix/charts/TrendChart"
-import CustomerBarChart from "@/features/omnix/charts/CustomerBarChart" 
+import CustomerBarChart from "@/features/omnix/charts/CustomerBarChart"
 import NewCustomerBarChart from "@/features/omnix/charts/NewCustomerBarChart"
 
 // ============================================================
@@ -62,15 +62,15 @@ const LIGHT_VARS: React.CSSProperties = {
 // ============================================================
 function getHighlightedMonths(mode: string, period: string): string[] {
   if (mode === "monthly") {
-    return [period];
+    return [period]
   }
   if (mode === "quarterly") {
-    if (period === "Q1") return ["Jan", "Feb", "Mar"];
-    if (period === "Q2") return ["Apr", "May", "Jun"];
-    if (period === "Q3") return ["Jul", "Aug", "Sep"];
-    if (period === "Q4") return ["Oct", "Nov", "Dec"];
+    if (period === "Q1") return ["Jan", "Feb", "Mar"]
+    if (period === "Q2") return ["Apr", "May", "Jun"]
+    if (period === "Q3") return ["Jul", "Aug", "Sep"]
+    if (period === "Q4") return ["Oct", "Nov", "Dec"]
   }
-  return []; // Jika "yearly", kembalikan array kosong (biarkan komponen yang tangani "all highlighted")
+  return []
 }
 
 // ============================================================
@@ -102,7 +102,6 @@ export default function OmnixPage() {
     customer,
   } = useOmnixData(mode, period, year)
 
-  // SIVA FIX: Hitung bulan mana saja yang perlu disorot berdasarkan filter aktif
   const highlightedMonths = useMemo(
     () => getHighlightedMonths(mode, period),
     [mode, period]
@@ -122,9 +121,10 @@ export default function OmnixPage() {
     () => [
       {
         label: "Total Ticket",
-        value: (summary && typeof summary.total_ticket === 'number') 
-          ? fmt(summary.total_ticket) 
-          : "0",
+        value:
+          summary && typeof summary.total_ticket === "number"
+            ? fmt(summary.total_ticket)
+            : "0",
         rawValue: summary?.total_ticket ?? 0,
         color: "#0ea5e9",
         Icon: TicketCheck,
@@ -151,7 +151,6 @@ export default function OmnixPage() {
     [summary]
   )
 
-  // Empty state detection
   const isTrendEmpty = !loading && (!trend || trend.every((d) => d.count === 0))
   const isChannelEmpty = !loading && (!channel || channel.length === 0)
   const isCategoryEmpty = !loading && (!category || category.length === 0)
@@ -161,7 +160,7 @@ export default function OmnixPage() {
   return (
     <div
       style={cssVars}
-      className="flex min-h-screen flex-col overflow-x-hidden bg-(--c-bg)] font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text)] transition-colors"
+      className="flex min-h-screen flex-col overflow-x-hidden bg-(--c-bg) font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text) transition-colors"
     >
       <OmnixHeader
         mode={mode}
@@ -175,14 +174,14 @@ export default function OmnixPage() {
         onToggleTheme={toggleTheme}
       />
 
-      <main className="mx-auto flex w-full max-w-350 flex-1 flex-col gap-3.5 p-5">
+      <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-3 p-5">
         {error && (
           <div className="rounded-[10px] border border-red-500/20 bg-red-500/10 p-3 text-[13px] font-semibold text-red-500">
             Failed to fetch data: {error}
           </div>
         )}
 
-        {/* KPI CARDS — 4 cards responsif */}
+        {/* KPI CARDS */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {KPI_CARDS.map((kpi) => (
             <KpiCard
@@ -197,20 +196,20 @@ export default function OmnixPage() {
           ))}
         </div>
 
-        {/* INTERACTION TREND — full width */}
+        {/* INTERACTION TREND */}
         <Card>
           <CardHeader
             title="Interaction Trend"
             badge={loading ? undefined : "LIVE"}
             extra={
               !loading && (
-                <span className="text-[10px] text-(--c-muted)]">
+                <span className="text-[10px] text-(--c-muted)">
                   Peak highlighted
                 </span>
               )
             }
           />
-          <div className="h-70 p-4,5">
+          <div className="h-[280px] p-4.5">
             {loading ? (
               <ChartSkeleton bars={12} />
             ) : isTrendEmpty ? (
@@ -221,18 +220,17 @@ export default function OmnixPage() {
                 gridColor={gridColor}
                 tickColor={tickColor}
                 isDark={isDark}
-                // SIVA FIX: Pass highlight ke TrendChart (kecuali mode bulanan karena harian)
                 highlightedMonths={mode === "monthly" ? [] : highlightedMonths}
               />
             )}
           </div>
         </Card>
 
-        {/* CHANNEL | CATEGORY | PRODUCT — responsif */}
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 lg:grid-cols-3">
+        {/* CHANNEL | CATEGORY | PRODUCT */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader title="Channel" />
-            <div className="p-4,5">
+            <div className="p-4.5">
               {loading ? (
                 <>
                   <DonutSkeleton />
@@ -250,7 +248,7 @@ export default function OmnixPage() {
 
           <Card>
             <CardHeader title="Category" />
-            <div className="p-4,5">
+            <div className="p-4.5">
               {loading ? (
                 <BarListSkeleton rows={6} />
               ) : isCategoryEmpty ? (
@@ -263,7 +261,7 @@ export default function OmnixPage() {
 
           <Card>
             <CardHeader title="Product" />
-            <div className="p-4,5">
+            <div className="p-4.5">
               {loading ? (
                 <BarListSkeleton rows={6} />
               ) : isProductEmpty ? (
@@ -275,11 +273,11 @@ export default function OmnixPage() {
           </Card>
         </div>
 
-        {/* CUSTOMER SECTION — 2 kolom di lg, stack di mobile */}
-        <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+        {/* CUSTOMER SECTION */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           <Card>
             <CardHeader title="Total Customer" />
-            <div className="h-60 p-4,5">
+            <div className="h-[240px] p-4.5">
               {loading ? (
                 <ChartSkeleton bars={12} />
               ) : hasCustomer ? (
@@ -288,7 +286,7 @@ export default function OmnixPage() {
                   gridColor={gridColor}
                   tickColor={tickColor}
                   isDark={isDark}
-                  highlightedMonths={highlightedMonths} // SIVA FIX: Pass prop ke komponen
+                  highlightedMonths={highlightedMonths}
                 />
               ) : (
                 <EmptyState message="No customer data" />
@@ -298,7 +296,7 @@ export default function OmnixPage() {
 
           <Card>
             <CardHeader title="New Customer" />
-            <div className="h-60 p-4,5">
+            <div className="h-[240px] p-4.5">
               {loading ? (
                 <ChartSkeleton bars={12} />
               ) : hasCustomer ? (
@@ -307,7 +305,7 @@ export default function OmnixPage() {
                   gridColor={gridColor}
                   tickColor={tickColor}
                   isDark={isDark}
-                  highlightedMonths={highlightedMonths} // SIVA FIX: Pass prop ke komponen
+                  highlightedMonths={highlightedMonths}
                 />
               ) : (
                 <EmptyState message="No new customer data" />
