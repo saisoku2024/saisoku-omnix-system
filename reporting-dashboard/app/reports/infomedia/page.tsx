@@ -4,16 +4,22 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { 
   FileSpreadsheet, Smartphone, Headphones, 
-  Download, Eye, RotateCcw, History 
+  Download, RotateCcw, History 
 } from "lucide-react"
 
 import Card from "@/shared/ui/Card"
 import CardHeader from "@/features/omnix/components/CardHeader"
-import { useTheme } from "@/contexts/theme-context"
 
 const ITEM_VARIANTS = {
   hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } }
+  show: { 
+    opacity: 1, 
+    y: 0, 
+    transition: { 
+      duration: 0.45, 
+      ease: [0.25, 0.46, 0.45, 0.94] as const 
+    } 
+  }
 }
 
 export default function ReportCenterPage() {
@@ -70,16 +76,16 @@ export default function ReportCenterPage() {
               <label className="text-[10px] font-bold uppercase tracking-widest text-(--c-muted)">{label}</label>
               <input 
                 type={label.includes("Date") ? "date" : "text"} 
-                className="w-full rounded-lg border border-(--c-border) bg-(--c-control) p-2.5 text-sm text-(--c-text) focus:ring-1 focus:ring-(--c-accent) outline-none" 
+                className="w-full rounded-lg border border-(--c-border) bg-(--c-control) p-2.5 text-sm text-(--c-text) focus:ring-1 focus:ring-(--c-accent) outline-none transition-all" 
               />
             </div>
           ))}
         </div>
         <div className="flex justify-end gap-3 p-6 pt-0">
-          <button className="flex items-center gap-2 rounded-xl bg-(--c-surface) px-5 py-2.5 text-sm border border-(--c-border) text-(--c-text-soft)">
+          <button className="flex items-center gap-2 rounded-xl bg-(--c-surface) px-5 py-2.5 text-sm border border-(--c-border) text-(--c-text-soft) hover:border-(--c-accent)">
             <RotateCcw size={16} /> Reset
           </button>
-          <button className="flex items-center gap-2 rounded-xl bg-(--c-accent) px-5 py-2.5 text-sm text-white">
+          <button className="flex items-center gap-2 rounded-xl bg-(--c-accent) px-5 py-2.5 text-sm text-white hover:opacity-90">
             <Download size={16} /> Export Excel
           </button>
         </div>
