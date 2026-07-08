@@ -28,7 +28,7 @@ export default function ReportCenterPage() {
             Report Center
           </h1>
           <p className="mt-1 text-[12px] text-(--c-muted)">
-            Generate and export operational reports in Microsoft Excel format.
+            Generate and export operational reports in Microsoft Excel.
           </p>
         </div>
 
