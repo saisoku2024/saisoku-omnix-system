@@ -2,14 +2,17 @@
 
 import { useState } from "react"
 import { 
-  FileSpreadsheet, Smartphone, Headphones, 
-  Download, RotateCcw, History, LayoutDashboard 
+  FileSpreadsheet, 
+  Smartphone, 
+  Headphones, 
+  RotateCcw, 
+  History,
 } from "lucide-react"
 
 import Card from "@/shared/ui/Card"
 import CardHeader from "@/features/omnix/components/CardHeader"
 
-// Komponen KPI yang rapi dengan fixed padding dan alignment
+// Komponen KPI yang rapi
 function KpiInfoCard({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-lg border border-(--c-border) bg-(--c-control) p-4">
@@ -23,36 +26,54 @@ export default function ReportCenterPage() {
   const [module, setModule] = useState<"digital" | "voice">("digital")
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
       {/* HEADER */}
-      <div className="flex items-center justify-between border-b border-(--c-border) pb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-(--c-text) flex items-center gap-3">
-            <LayoutDashboard className="text-sky-500" /> Report Center
-          </h1>
+      <Card>
+        <div className="flex items-center justify-between p-6">
+          <div>
+            <h1 className="flex items-center gap-3 text-3xl font-bold text-(--c-text)">
+              <FileSpreadsheet className="h-8 w-8 text-sky-500" />
+              Report Center
+            </h1>
+            <p className="mt-2 text-sm text-(--c-muted)">
+              Generate and export operational reports in Microsoft Excel format.
+            </p>
+          </div>
+
+          <button className="flex items-center gap-2 rounded-xl border border-(--c-border) bg-(--c-control) px-4 py-2.5 text-sm font-medium transition-colors hover:bg-(--c-surface)">
+            <History className="h-4 w-4" />
+            Export History
+          </button>
         </div>
-        <button className="flex items-center gap-2 rounded-lg border border-(--c-border) bg-(--c-surface) px-4 py-2 text-sm font-semibold hover:bg-(--c-control)">
-          <History size={16} /> Export History
-        </button>
-      </div>
+      </Card>
 
       {/* MODULE SELECTOR */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {[
-          { id: "digital", label: "Digital Traffic", desc: "Omnichannel analytics" },
-          { id: "voice", label: "Voice Traffic", desc: "Call center metrics" }
+          { id: "digital", label: "Digital Traffic", desc: "Omnichannel Report", icon: Smartphone },
+          { id: "voice", label: "Voice Traffic", desc: "Call Center Report", icon: Headphones },
         ].map((item) => (
           <button
             key={item.id}
-            onClick={() => setModule(item.id as any)}
-            className={`p-6 rounded-xl border-2 text-left transition-all ${
-              module === item.id 
-                ? "border-sky-500 bg-sky-500/5" 
-                : "border-(--c-border) bg-(--c-surface) hover:border-sky-500/30"
-            }`}
+            onClick={() => setModule(item.id as "digital" | "voice")}
+            className={`
+              group rounded-xl border p-5 text-left transition-all
+              ${
+                module === item.id
+                  ? "border-sky-500 bg-sky-500/10"
+                  : "border-(--c-border) bg-(--c-surface) hover:border-sky-500/40 hover:bg-(--c-control)"
+              }
+            `}
           >
-            <h2 className="text-lg font-bold text-(--c-text)">{item.label}</h2>
-            <p className="text-sm text-(--c-muted) mt-1">{item.desc}</p>
+            <div className="flex items-center gap-4">
+              <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${module === item.id ? "bg-sky-500/15" : "bg-(--c-control)"}`}>
+                <item.icon className="h-6 w-6 text-sky-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-(--c-text)">{item.label}</h2>
+                <p className="mt-1 text-sm text-(--c-muted)">{item.desc}</p>
+              </div>
+            </div>
           </button>
         ))}
       </div>
@@ -66,13 +87,13 @@ export default function ReportCenterPage() {
               <label className="text-xs font-semibold uppercase text-(--c-muted)">{label}</label>
               <input 
                 type={label.includes("Date") ? "date" : "text"} 
-                className="w-full rounded-lg border border-(--c-border) bg-(--c-control) p-3 text-sm outline-none focus:border-sky-500" 
+                className="w-full rounded-lg border border-(--c-border) bg-(--c-control) p-3 text-sm outline-none focus:border-sky-500 transition-all" 
               />
             </div>
           ))}
         </div>
         
-        {/* REPORT INFO KPI - Ini bagian yang Anda maksud berantakan */}
+        {/* REPORT INFO KPI */}
         <div className="px-6 pb-6 pt-0">
           <div className="text-xs font-bold uppercase text-(--c-muted) mb-4">Report Preview Stats</div>
           <div className="grid grid-cols-4 gap-4">
@@ -84,8 +105,8 @@ export default function ReportCenterPage() {
         </div>
 
         <div className="flex justify-end gap-3 p-6 pt-0 border-t border-(--c-border) pt-6">
-          <button className="px-6 py-2.5 rounded-lg border border-(--c-border) font-semibold text-sm">Reset</button>
-          <button className="px-6 py-2.5 rounded-lg bg-sky-600 text-white font-semibold text-sm">Export Excel</button>
+          <button className="px-6 py-2.5 rounded-lg border border-(--c-border) font-semibold text-sm hover:bg-(--c-control)">Reset</button>
+          <button className="px-6 py-2.5 rounded-lg bg-sky-600 text-white font-semibold text-sm hover:bg-sky-700">Export Excel</button>
         </div>
       </Card>
     </div>
