@@ -53,6 +53,9 @@ export default function ReportCenterPage() {
     async function fetchOptions() {
       try {
         const data = await loadOptions()
+
+        console.log("API RESULT:", data)
+
         setOptions(data)
       } catch (err) {
         console.error(err)
@@ -61,6 +64,8 @@ export default function ReportCenterPage() {
 
     fetchOptions()
   }, [])
+
+  console.log("STATE OPTIONS:", options)
 
   return (
     <div className="p-5 gap-4 flex flex-col max-w-[1400px] mx-auto">
@@ -127,7 +132,6 @@ export default function ReportCenterPage() {
       <Card>
         <CardHeader title="Report Configuration" />
         <div className="p-5 grid grid-cols-2 gap-4">
-          {/* Dropdown Report Type telah dihapus sesuai permintaan */}
           
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold uppercase text-(--c-muted)">
