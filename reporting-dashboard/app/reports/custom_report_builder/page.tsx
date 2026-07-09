@@ -1,81 +1,94 @@
 "use client"
 
-import React from "react"
-import { useRouter } from "next/navigation"
-import {
-  Rocket,
-  Sparkles,
-  ArrowLeft,
+import { useState } from "react"
+import { 
+  FileSpreadsheet, 
+  Smartphone, 
+  Headphones, 
+  Download, 
+  RotateCcw, 
+  History,
+  Eye,
 } from "lucide-react"
 
-export default function UnderConstructionPage() {
-  const router = useRouter()
+import Card from "@/shared/ui/Card"
+import CardHeader from "@/features/omnix/components/CardHeader"
+
+export default function ReportCenterPage() {
+  const [module, setModule] = useState<"digital" | "voice">("digital")
 
   return (
-    <div className="relative flex min-h-[80vh] items-center justify-center overflow-hidden bg-background px-6">
-
-      {/* Background */}
-      <div className="absolute inset-0">
-        <div className="absolute left-1/2 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-[350px] w-[350px] rounded-full bg-violet-500/10 blur-3xl" />
-
-        {/* Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#64748b12_1px,transparent_1px),linear-gradient(to_bottom,#64748b12_1px,transparent_1px)] bg-[size:32px_32px]" />
-      </div>
-
-      <div className="relative w-full max-w-2xl">
-
-        <div className="rounded-3xl border border-border/60 bg-card/70 p-12 text-center shadow-2xl backdrop-blur-xl">
-
-          {/* Badge */}
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-sm font-medium text-sky-600 dark:text-sky-400">
-            <Sparkles className="h-4 w-4" />
-            SAISOKU OMNIX
-          </div>
-
-          {/* Icon */}
-          <div className="mx-auto mb-8 flex h-28 w-28 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/25">
-            <Rocket className="h-14 w-14 text-white" />
-          </div>
-
-          {/* Title */}
-          <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground">
-            Under Construction
+    <div className="p-5 gap-4 flex flex-col max-w-[1400px] mx-auto">
+      
+      {/* HEADER - Tanpa Card Wrapper */}
+      <div className="flex items-center justify-between pb-4 border-b border-(--c-border)">
+        <div>
+          <h1 className="flex items-center gap-3 text-[17px] font-semibold text-(--c-text)">
+            <FileSpreadsheet className="h-5 w-5 text-sky-500" />
+            Report Center
           </h1>
-
-          {/* Description */}
-          <p className="mx-auto mb-10 max-w-xl text-lg leading-8 text-muted-foreground">
-            Halaman ini masih dalam tahap pengembangan.
-            Kami sedang mempersiapkan pengalaman terbaik untuk
-            Dashboard <span className="font-semibold text-sky-500">SAISOKU OMNIX</span>.
-            Silakan kembali beberapa saat lagi.
+          <p className="mt-1 text-[12px] text-(--c-muted)">
+            Generate and export operational reports in Microsoft Excel format.
           </p>
-
-          {/* Status */}
-          <div className="mx-auto mb-8 flex max-w-sm items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4">
-            <div className="mr-3 h-3 w-3 animate-pulse rounded-full bg-emerald-500" />
-            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-              Development in Progress
-            </span>
-          </div>
-
-          {/* Button */}
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-medium text-white transition-all duration-300 hover:-translate-y-1 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-500/30 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Go Back
-          </button>
-
         </div>
 
-        {/* Footer */}
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          © 2026 SAISOKU OMNIX Dashboard
-        </p>
-
+        <button className="flex h-9 items-center gap-2 rounded-lg border border-(--c-border) bg-(--c-control) px-4 text-sm font-medium transition-colors hover:bg-(--c-surface)">
+          <History className="h-4 w-4" />
+          Export History
+        </button>
       </div>
+
+      {/* MODULE SELECTOR */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {[
+          { id: "digital", label: "Digital Traffic", desc: "Omnichannel Report", icon: Smartphone },
+          { id: "voice", label: "Voice Traffic", desc: "Call Center Report", icon: Headphones },
+        ].map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setModule(item.id as "digital" | "voice")}
+            className={`
+              group rounded-xl border p-4 px-5 text-left transition-all
+              ${module === item.id
+                ? "border-sky-500 bg-sky-500/10"
+                : "border-(--c-border) bg-(--c-surface) hover:border-sky-500/40 hover:bg-(--c-control)"
+              }
+            `}
+          >
+            <div className="flex items-center gap-4">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${module === item.id ? "bg-sky-500/15" : "bg-(--c-control)"}`}>
+                <item.icon className="h-5 w-5 text-sky-500" />
+              </div>
+              <div>
+                <h2 className="text-[15px] font-semibold text-(--c-text)">{item.label}</h2>
+                <p className="text-[12px] text-(--c-muted)">{item.desc}</p>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* CONFIGURATION CARD */}
+      <Card>
+        <CardHeader title="Report Configuration" />
+        <div className="p-5 grid grid-cols-2 gap-4">
+          {["Report Type", "Channel", "Brand", "Main Category", "Start Date", "End Date"].map((label) => (
+            <div key={label} className="space-y-1.5">
+              <label className="text-[11px] font-semibold uppercase text-(--c-muted)">{label}</label>
+              <input 
+                type={label.includes("Date") ? "date" : "text"} 
+                className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm outline-none focus:border-sky-500 transition-all" 
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-2 p-5 pt-0 border-t border-(--c-border) pt-5">
+          <button className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Reset</button>
+          <button className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Preview</button>
+          <button className="h-9 px-4 rounded-lg bg-sky-600 text-white font-medium text-sm hover:bg-sky-700">Export Excel</button>
+        </div>
+      </Card>
     </div>
   )
 }
