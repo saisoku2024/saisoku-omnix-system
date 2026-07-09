@@ -91,7 +91,17 @@ export default function ReportCenterPage() {
         ].map((item) => (
           <button
             key={item.id}
-            onClick={() => setModule(item.id as "digital" | "voice")}
+            onClick={() => {
+              const selected = item.id as "digital" | "voice"
+              setModule(selected)
+              setForm((prev) => ({
+                ...prev,
+                report_type:
+                  selected === "digital"
+                    ? "traffic_digital"
+                    : "traffic_inbound",
+              }))
+            }}
             className={`
               group rounded-xl border p-4 px-5 text-left transition-all
               ${module === item.id
@@ -131,9 +141,32 @@ export default function ReportCenterPage() {
               }
               className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm outline-none focus:border-sky-500"
             >
-              {options.report_types.map((item: { label: string; value: string }) => (
+              {options.report_types.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">
+              Channel
+            </label>
+            <select
+              value={form.channel}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  channel: e.target.value,
+                }))
+              }
+              className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm outline-none focus:border-sky-500"
+            >
+              <option value="">All Channel</option>
+              {options.channels.map((channel) => (
+                <option key={channel} value={channel}>
+                  {channel}
                 </option>
               ))}
             </select>
