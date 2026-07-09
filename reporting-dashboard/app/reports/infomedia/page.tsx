@@ -14,6 +14,7 @@ import DigitalFilter from "@/features/report/components/DigitalFilter"
 import VoiceFilter from "@/features/report/components/VoiceFilter"
 import { useReport } from "@/features/report/hooks/useReport"
 import type { ReportOptions } from "@/features/report/types/report"
+import PreviewTable  from "@/features/report/components/ReportPreviewTable";
 
 export default function ReportCenterPage() {
   const [module, setModule] = useState<"digital" | "voice">("digital")
@@ -43,6 +44,8 @@ export default function ReportCenterPage() {
     kota: "",
   })
 
+  const [previewData, setPreviewData] = useState<any[]>([])
+
   const {
     loading,
     loadOptions,
@@ -63,8 +66,6 @@ export default function ReportCenterPage() {
     fetchOptions()
   }, [])
 
-  const [previewData, setPreviewData] = useState<any[]>([])
-
   const handlePreview = async () => {
     try {
       const result = await preview({
@@ -75,9 +76,13 @@ export default function ReportCenterPage() {
         start_date: form.start_date,
         end_date: form.end_date,
       })
-      console.log("PREVIEW RESULT", result)
+
+      console.log("PREVIEW RESULT:", result)
+      setPreviewData(result)
+
     } catch (err) {
       console.error(err)
+      setPreviewData([])
     }
   }
 
@@ -184,7 +189,7 @@ export default function ReportCenterPage() {
       <Card>
         <CardHeader title="Preview Result" />
         <div className="p-5">
-          <p className="text-sm text-(--c-muted)">Result will be displayed here...</p>
+          <PreviewTable data={previewData} />
         </div>
       </Card>
     </div>
