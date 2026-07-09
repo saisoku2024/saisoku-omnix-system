@@ -1,25 +1,19 @@
 "use client"
 
-import { useState } from "react"
 import { 
   FileSpreadsheet, 
-  Smartphone, 
-  Headphones, 
-  Download, 
-  RotateCcw, 
-  History,
-  Eye,
+  Construction, 
+  Clock, 
+  ArrowLeft,
 } from "lucide-react"
+import Link from "next/link"
 
 import Card from "@/shared/ui/Card"
-import CardHeader from "@/features/omnix/components/CardHeader"
 
 export default function ReportCenterPage() {
-  const [module, setModule] = useState<"digital" | "voice">("digital")
-
   return (
     <div className="p-5 gap-4 flex flex-col max-w-[1400px] mx-auto">
-      
+
       {/* HEADER - Tanpa Card Wrapper */}
       <div className="flex items-center justify-between pb-4 border-b border-(--c-border)">
         <div>
@@ -32,61 +26,54 @@ export default function ReportCenterPage() {
           </p>
         </div>
 
-        <button className="flex h-9 items-center gap-2 rounded-lg border border-(--c-border) bg-(--c-control) px-4 text-sm font-medium transition-colors hover:bg-(--c-surface)">
-          <History className="h-4 w-4" />
-          Export History
-        </button>
+        <Link
+          href="/"
+          className="flex h-9 items-center gap-2 rounded-lg border border-(--c-border) bg-(--c-control) px-4 text-sm font-medium transition-colors hover:bg-(--c-surface)"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
       </div>
 
-      {/* MODULE SELECTOR */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {[
-          { id: "digital", label: "Digital Traffic", desc: "Omnichannel Report", icon: Smartphone },
-          { id: "voice", label: "Voice Traffic", desc: "Call Center Report", icon: Headphones },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setModule(item.id as "digital" | "voice")}
-            className={`
-              group rounded-xl border p-4 px-5 text-left transition-all
-              ${module === item.id
-                ? "border-sky-500 bg-sky-500/10"
-                : "border-(--c-border) bg-(--c-surface) hover:border-sky-500/40 hover:bg-(--c-control)"
-              }
-            `}
-          >
-            <div className="flex items-center gap-4">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${module === item.id ? "bg-sky-500/15" : "bg-(--c-control)"}`}>
-                <item.icon className="h-5 w-5 text-sky-500" />
-              </div>
-              <div>
-                <h2 className="text-[15px] font-semibold text-(--c-text)">{item.label}</h2>
-                <p className="text-[12px] text-(--c-muted)">{item.desc}</p>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* CONFIGURATION CARD */}
+      {/* UNDER CONSTRUCTION CARD */}
       <Card>
-        <CardHeader title="Report Configuration" />
-        <div className="p-5 grid grid-cols-2 gap-4">
-          {["Report Type", "Channel", "Brand", "Main Category", "Start Date", "End Date"].map((label) => (
-            <div key={label} className="space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase text-(--c-muted)">{label}</label>
-              <input 
-                type={label.includes("Date") ? "date" : "text"} 
-                className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm outline-none focus:border-sky-500 transition-all" 
-              />
-            </div>
-          ))}
-        </div>
+        <div className="flex flex-col items-center justify-center gap-5 px-6 py-20 text-center">
 
-        <div className="flex justify-end gap-2 p-5 pt-0 border-t border-(--c-border) pt-5">
-          <button className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Reset</button>
-          <button className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Preview</button>
-          <button className="h-9 px-4 rounded-lg bg-sky-600 text-white font-medium text-sm hover:bg-sky-700">Export Excel</button>
+          {/* Icon Blob */}
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-sky-500/10">
+            <Construction className="h-10 w-10 text-sky-500" strokeWidth={1.75} />
+            <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm">
+              <Clock className="h-3.5 w-3.5" />
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            <h2 className="text-[17px] font-semibold text-(--c-text)">
+              Halaman Ini Sedang Dalam Pengembangan
+            </h2>
+            <p className="max-w-md text-[13px] leading-relaxed text-(--c-muted)">
+              Fitur Report Center sedang kami siapkan agar proses export laporan Digital & Voice Traffic
+              jadi lebih cepat dan akurat. Cek kembali dalam waktu dekat.
+            </p>
+          </div>
+
+          {/* Progress bar dekoratif */}
+          <div className="w-full max-w-xs space-y-1.5">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-(--c-control)">
+              <div className="h-full w-2/3 rounded-full bg-sky-500 transition-all" />
+            </div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-(--c-muted)">
+              In Progress
+            </p>
+          </div>
+
+          <Link
+            href="/"
+            className="mt-2 flex h-9 items-center gap-2 rounded-lg bg-sky-600 px-5 text-sm font-medium text-white transition-colors hover:bg-sky-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Dashboard
+          </Link>
         </div>
       </Card>
     </div>
