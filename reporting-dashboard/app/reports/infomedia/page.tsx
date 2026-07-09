@@ -54,7 +54,7 @@ export default function ReportCenterPage() {
       try {
         const data = await loadOptions()
 
-        console.log("API RESULT:", data)
+        console.log("API RESULT", data)
 
         setOptions(data)
       } catch (err) {
@@ -65,7 +65,7 @@ export default function ReportCenterPage() {
     fetchOptions()
   }, [])
 
-  console.log("STATE OPTIONS:", options)
+  console.log("OPTIONS", options)
 
   return (
     <div className="p-5 gap-4 flex flex-col max-w-[1400px] mx-auto">
