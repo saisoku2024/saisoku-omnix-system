@@ -33,35 +33,63 @@ class ReportService:
             }
 
     # ==========================================
-    # EXPORT PREVIEW
-    # ==========================================
-    @staticmethod
-    def export_preview(report_type, start_date, end_date, brand, channel, main_category):
-        try:
+# EXPORT PREVIEW
+# ==========================================
+@staticmethod
+def export_preview(report_type, start_date, end_date, brand, channel, main_category):
+    try:
+
+        if report_type == "traffic_digital":
+
             res = supabase.rpc(
-                "report_preview",
+                "report_preview_digital_daily",
                 {
-                    "p_report_type": report_type,
                     "p_start_date": start_date.isoformat() if start_date else None,
                     "p_end_date": end_date.isoformat() if end_date else None,
                     "p_brand": brand,
                     "p_channel": channel,
                     "p_main_category": main_category,
+                    "p_divisi": "",
+                    "p_departemen": "",
+                    "p_customer": "",
+                    "p_nama_layanan": "",
+                    "p_nama_sub_layanan": "",
+                    "p_layanan_cc_non_cc": "",
+                    "p_segment": "",
+                    "p_sub_segment": "",
+                    "p_kota": "",
                 },
             ).execute()
 
-            print("========== REPORT PREVIEW ==========")
-            print("RES :", res)
-            print("DATA:", res.data)
-            print("TYPE:", type(res.data))
-            print("====================================")
+        else:
 
-            return res.data
+            res = supabase.rpc(
+                "report_preview_inbound_daily",
+                {
+                    "p_start_date": start_date.isoformat() if start_date else None,
+                    "p_end_date": end_date.isoformat() if end_date else None,
+                    "p_divisi": "",
+                    "p_departemen": "",
+                    "p_customer": "",
+                    "p_nama_layanan": "",
+                    "p_nama_sub_layanan": "",
+                    "p_layanan_cc_non_cc": "",
+                    "p_segment": "",
+                    "p_sub_segment": "",
+                    "p_kota": "",
+                },
+            ).execute()
 
-        except Exception as e:
-            print(f"REPORT PREVIEW ERROR : {e}")
-            return []
+        print("========== PREVIEW ==========")
+        print(res.data)
+        print("=============================")
 
+        return res.data or []
+
+    except Exception as e:
+        print(f"REPORT PREVIEW ERROR : {e}")
+        return []
+    
     # ==========================================
     # EXPORT DIGITAL
     # ==========================================
