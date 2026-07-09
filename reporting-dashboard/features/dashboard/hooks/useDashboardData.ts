@@ -11,8 +11,11 @@ import type {
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL
-    ? `${process.env.NEXT_PUBLIC_API_URL}/dashboard`
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard`
     : "https://saisoku-omnix-system.onrender.com/api/dashboard";
+
+console.log("REPORT API =", API_BASE); // Menambahkan log untuk verifikasi URL
+
 const EMPTY_STATS: StatsData = { total_ticket: "–", aht: "–", art: "–", awt: "–", csat: "–" }
 
 // Helpers internal
@@ -50,7 +53,7 @@ export function useDashboardData(mode: ModeType, period: string, year: number) {
         return r.json() 
       })
       .then(d => {
-         console.log("FULL API =", d)
+        console.log("FULL API =", d)
 
         setStats(d.summary || EMPTY_STATS)
         const rawTrend = Array.isArray(d) ? d
