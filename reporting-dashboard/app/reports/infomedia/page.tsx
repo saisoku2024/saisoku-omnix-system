@@ -10,6 +10,8 @@ import {
 
 import Card from "@/shared/ui/Card"
 import CardHeader from "@/features/omnix/components/CardHeader"
+import DigitalFilter from "@/features/report/components/DigitalFilter"
+import VoiceFilter from "@/features/report/components/VoiceFilter"
 import { useReport } from "@/features/report/hooks/useReport"
 import type { ReportOptions } from "@/features/report/types/report"
 
@@ -60,6 +62,8 @@ export default function ReportCenterPage() {
     }
     fetchOptions()
   }, [])
+
+  const [previewData, setPreviewData] = useState<any[]>([])
 
   const handlePreview = async () => {
     try {
@@ -162,36 +166,12 @@ export default function ReportCenterPage() {
 
       <Card>
         <CardHeader title="Report Configuration" />
-        <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Channel</label>
-            <select value={form.channel} onChange={(e) => setForm({...form, channel: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm">
-              <option value="">All Channel</option>
-              {options.channels.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Brand</label>
-            <select value={form.brand} onChange={(e) => setForm({...form, brand: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm">
-              <option value="">All Brand</option>
-              {options.brands.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Main Category</label>
-            <select value={form.main_category} onChange={(e) => setForm({...form, main_category: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm">
-              <option value="">All Category</option>
-              {options.main_categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Start Date</label>
-            <input type="date" value={form.start_date} onChange={(e) => setForm({...form, start_date: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">End Date</label>
-            <input type="date" value={form.end_date} onChange={(e) => setForm({...form, end_date: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm" />
-          </div>
+        <div className="p-5">
+          {module === "digital" ? (
+            <DigitalFilter form={form} setForm={setForm} options={options} />
+          ) : (
+            <VoiceFilter form={form} setForm={setForm} options={options} />
+          )}
         </div>
 
         <div className="flex justify-end gap-2 p-5 pt-0 border-t border-(--c-border) pt-5">
