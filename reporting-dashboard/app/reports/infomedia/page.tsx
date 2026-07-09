@@ -53,13 +53,11 @@ export default function ReportCenterPage() {
     async function fetchOptions() {
       try {
         const data = await loadOptions()
-        console.log("API RESULT", data)
         setOptions(data)
       } catch (err) {
         console.error(err)
       }
     }
-
     fetchOptions()
   }, [])
 
@@ -165,13 +163,48 @@ export default function ReportCenterPage() {
       <Card>
         <CardHeader title="Report Configuration" />
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Select inputs here ... */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Channel</label>
+            <select value={form.channel} onChange={(e) => setForm({...form, channel: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm">
+              <option value="">All Channel</option>
+              {options.channels.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Brand</label>
+            <select value={form.brand} onChange={(e) => setForm({...form, brand: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm">
+              <option value="">All Brand</option>
+              {options.brands.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Main Category</label>
+            <select value={form.main_category} onChange={(e) => setForm({...form, main_category: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm">
+              <option value="">All Category</option>
+              {options.main_categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">Start Date</label>
+            <input type="date" value={form.start_date} onChange={(e) => setForm({...form, start_date: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">End Date</label>
+            <input type="date" value={form.end_date} onChange={(e) => setForm({...form, end_date: e.target.value})} className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm" />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 p-5 pt-0 border-t border-(--c-border) pt-5">
           <button onClick={handleReset} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Reset</button>
           <button onClick={handlePreview} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Preview</button>
           <button onClick={handleExport} className="h-9 px-4 rounded-lg bg-sky-600 text-white font-medium text-sm hover:bg-sky-700">Export Excel</button>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Preview Result" />
+        <div className="p-5">
+          <p className="text-sm text-(--c-muted)">Result will be displayed here...</p>
         </div>
       </Card>
     </div>
