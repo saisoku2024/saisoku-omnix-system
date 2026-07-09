@@ -7,7 +7,7 @@ import {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
-const REPORT_API = `${API_BASE}/reports`;
+const REPORT_API = `${API_BASE}/api/reports`;
 
 async function handleResponse(response: Response) {
   if (!response.ok) {

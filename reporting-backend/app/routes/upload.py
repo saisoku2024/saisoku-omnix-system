@@ -100,4 +100,4 @@ async def upload_file(
             )
         except:
             pass
-        return {"success": False, "error": str(e)}..
+        return {"success": False, "error": str(e)}
