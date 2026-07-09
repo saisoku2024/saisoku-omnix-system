@@ -15,8 +15,20 @@ async function handleResponse(response: Response) {
 
     try {
       const err = await response.json();
-      message = err.detail || message;
-    } catch {}
+
+      console.error("========== API ERROR ==========");
+      console.error("Status :", response.status);
+      console.error("Response :", err);
+      console.error("===============================");
+
+      if (typeof err.detail === "string") {
+        message = err.detail;
+      } else {
+        message = JSON.stringify(err);
+      }
+    } catch (e) {
+      console.error(e);
+    }
 
     throw new Error(message);
   }
