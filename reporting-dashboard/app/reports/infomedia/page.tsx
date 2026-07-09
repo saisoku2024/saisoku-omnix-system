@@ -62,6 +62,9 @@ export default function ReportCenterPage() {
     fetchOptions()
   }, [])
 
+  // Debug log untuk pengecekan data
+  console.log("Current Options:", options)
+
   return (
     <div className="p-5 gap-4 flex flex-col max-w-[1400px] mx-auto">
       
