@@ -35,6 +35,32 @@ export default function DigitalFilter({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
+      {/* Channel */}
+      <div className="space-y-1.5">
+        <label className="text-[11px] font-semibold uppercase text-(--c-muted)">
+          Channel
+        </label>
+
+        <select
+          value={form.channel}
+          onChange={(e) =>
+            setForm((prev) => ({
+              ...prev,
+              channel: e.target.value,
+            }))
+          }
+          className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm"
+        >
+          <option value="">All Channel</option>
+
+          {options.channels.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Main Category */}
       <div className="space-y-1.5">
         <label className="text-[11px] font-semibold uppercase text-(--c-muted)">
