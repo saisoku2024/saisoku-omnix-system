@@ -1,3 +1,5 @@
+print(">>> REPORT SERVICE LOADED <<<")
+
 from app.core.supabase import supabase
 
 
