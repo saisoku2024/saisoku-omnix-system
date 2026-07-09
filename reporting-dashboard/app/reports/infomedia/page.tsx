@@ -62,9 +62,6 @@ export default function ReportCenterPage() {
     fetchOptions()
   }, [])
 
-  // Debug log untuk pengecekan data
-  console.log("Current Options:", options)
-
   return (
     <div className="p-5 gap-4 flex flex-col max-w-[1400px] mx-auto">
       
@@ -130,28 +127,8 @@ export default function ReportCenterPage() {
       <Card>
         <CardHeader title="Report Configuration" />
         <div className="p-5 grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold uppercase text-(--c-muted)">
-              Report Type
-            </label>
-            <select
-              value={form.report_type}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  report_type: e.target.value,
-                }))
-              }
-              className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm outline-none focus:border-sky-500"
-            >
-              {options.report_types.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
+          {/* Dropdown Report Type telah dihapus sesuai permintaan */}
+          
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold uppercase text-(--c-muted)">
               Channel
