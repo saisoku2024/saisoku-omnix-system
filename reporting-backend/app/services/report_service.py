@@ -37,27 +37,30 @@ class ReportService:
     # ==========================================
     @staticmethod
     def export_preview(report_type, start_date, end_date, brand, channel, main_category):
-        """
-        Mengambil preview data laporan. 
-        Mengembalikan object dict sesuai return type RPC report_preview.
-        """
         try:
             res = supabase.rpc(
                 "report_preview",
                 {
                     "p_report_type": report_type,
-                    "p_start_date": start_date,
-                    "p_end_date": end_date,
+                    "p_start_date": start_date.isoformat() if start_date else None,
+                    "p_end_date": end_date.isoformat() if end_date else None,
                     "p_brand": brand,
                     "p_channel": channel,
                     "p_main_category": main_category,
                 },
             ).execute()
-            
-            return res.data or {}
+
+            print("========== REPORT PREVIEW ==========")
+            print("RES :", res)
+            print("DATA:", res.data)
+            print("TYPE:", type(res.data))
+            print("====================================")
+
+            return res.data
+
         except Exception as e:
             print(f"REPORT PREVIEW ERROR : {e}")
-            return {}
+            return []
 
     # ==========================================
     # EXPORT DIGITAL
