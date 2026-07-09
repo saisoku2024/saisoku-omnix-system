@@ -73,7 +73,7 @@ interface UploadMetrics {
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://saisoku-omnix-system.onrender.com/api";
+  "https://saisoku-omnix-system.onrender.com";
 
 const ALLOWED_TYPES = [
   "text/csv",
