@@ -57,3 +57,11 @@ def root():
         "service": "SAISOKU OMNIX Backend",
         "version": "1.0.0",
     }
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "service": "SAISOKU OMNIX Backend",
+    }
