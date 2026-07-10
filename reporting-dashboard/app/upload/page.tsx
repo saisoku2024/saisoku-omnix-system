@@ -24,6 +24,7 @@ import {
 import { useTheme } from "@/contexts/theme-context"
 import UploadResultSummaryCard from "@/features/upload/components/UploadResultSummaryCard"
 import type { UploadResult } from "@/features/upload/types/Upload"
+import { API_ORIGIN, apiUrl } from "@/lib/api"
 
 /* ============================================================
    TYPES
@@ -71,9 +72,7 @@ interface UploadMetrics {
    CONSTANTS
    ============================================================ */
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://saisoku-omnix-system.onrender.com";
+const UPLOAD_API = apiUrl("/api/upload")
 
 const ALLOWED_TYPES = [
   "text/csv",
@@ -117,7 +116,7 @@ const UPLOAD_GUIDE = [
   "Format CSV atau Excel (.xlsx) saja",
   "Pastikan mapping kolom sudah sesuai",
   `Ukuran maksimal file: ${MAX_SIZE_MB} MB`,
-  `Target Backend: ${API_BASE}`,
+  `Target Backend: ${API_ORIGIN}`,
 ]
 
 /* ============================================================
@@ -435,14 +434,11 @@ function useFileUpload(
           resolve({ ok: false, error: "aborted" })
         })
         
-        console.log("UPLOAD API =", API_BASE)
-console.log("UPLOAD URL =", `${API_BASE}/upload`)
-console.log("FILE =", file.name)
-console.log("TYPE =", type)
+        console.log("UPLOAD URL =", UPLOAD_API)
+        console.log("FILE =", file.name)
+        console.log("TYPE =", type)
 
-xhr.open("POST", `${API_BASE}/upload`)
-
-        xhr.open("POST", `${API_BASE}/upload`)
+        xhr.open("POST", UPLOAD_API)
         xhr.send(formData)
       }),
     [onSuccess]

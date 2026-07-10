@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { apiUrl } from "@/lib/api"
 
 const IconTicket = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 17v2M13 11v2"/></svg>)
 const IconStar = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>)
@@ -33,7 +34,7 @@ export default function PrincipalReportPage() {
   const [error,     setError]     = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  const API = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8001/api"
+  const PRINCIPAL_API = apiUrl("/api/principal-report")
 
   const validateDates = () => {
     if (startDate > endDate) { setError("Start date tidak boleh lebih besar dari end date"); return false }
@@ -45,7 +46,7 @@ export default function PrincipalReportPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API}/principal-report/summary?start_date=${startDate}&end_date=${endDate}`)
+      const res = await fetch(`${PRINCIPAL_API}/summary?start_date=${startDate}&end_date=${endDate}`)
       if (!res.ok) throw new Error(`Server error ${res.status}`)
       const json = await res.json()
       setKpi({ total_ticket: json.total_ticket ?? null, csat_response: json.csat_response ?? null, response_rate: json.response_rate ?? null })
@@ -60,7 +61,7 @@ export default function PrincipalReportPage() {
   const exportExcel = () => {
     if (!validateDates()) return
     setExporting(true)
-    window.open(`${API}/principal-report/export?start_date=${startDate}&end_date=${endDate}`, "_blank")
+    window.open(`${PRINCIPAL_API}/export?start_date=${startDate}&end_date=${endDate}`, "_blank")
     setTimeout(() => setExporting(false), 2000)
   }
 

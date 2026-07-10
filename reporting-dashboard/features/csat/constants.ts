@@ -1,7 +1,6 @@
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL
-    ? `${process.env.NEXT_PUBLIC_API_URL}/csat`
-    : "https://saisoku-omnix-system.onrender.com/api/csat";
+import { apiUrl } from "@/lib/api"
+
+export const API_BASE = apiUrl("/api/csat")
 
 export const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",

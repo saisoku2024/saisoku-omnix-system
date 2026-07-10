@@ -8,13 +8,9 @@ import type {
   BrandItem, 
   PieItemWithPct 
 } from "../types/dashboard"
+import { apiUrl } from "@/lib/api"
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL
-    ? `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard`
-    : "https://saisoku-omnix-system.onrender.com/api/dashboard";
-
-console.log("REPORT API =", API_BASE); // Menambahkan log untuk verifikasi URL
+const API_BASE = apiUrl("/api/dashboard")
 
 const EMPTY_STATS: StatsData = { total_ticket: "–", aht: "–", art: "–", awt: "–", csat: "–" }
 
