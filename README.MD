@@ -9,7 +9,7 @@ Sistem pelaporan otomatis yang mengintegrasikan data dari Omnix, Voice, dan CSAT
 
 ### 1. Persiapan Environment
 Pastikan file `.env` sudah terisi di folder masing-masing:
-- **Backend:** Membutuhkan `SUPABASE_URL` dan `SUPABASE_KEY`.
+- **Backend:** Membutuhkan `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY`.
 - **Frontend:** Membutuhkan `NEXT_PUBLIC_API_URL` (arahkan ke `http://localhost:8001`).
 
 ====================
