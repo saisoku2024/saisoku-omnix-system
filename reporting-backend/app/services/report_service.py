@@ -110,9 +110,29 @@ class ReportService:
     @staticmethod
     def export_digital(payload):
         try:
+            start_date = payload.get("start_date")
+            end_date = payload.get("end_date")
+
+            rpc_payload = {
+                "p_start_date": start_date.isoformat() if hasattr(start_date, "isoformat") else start_date,
+                "p_end_date": end_date.isoformat() if hasattr(end_date, "isoformat") else end_date,
+                "p_brand": payload.get("brand", ""),
+                "p_channel": payload.get("channel", ""),
+                "p_main_category": payload.get("main_category", ""),
+                "p_divisi": payload.get("divisi", ""),
+                "p_departemen": payload.get("departemen", ""),
+                "p_customer": payload.get("customer", ""),
+                "p_nama_layanan": payload.get("nama_layanan", ""),
+                "p_nama_sub_layanan": payload.get("nama_sub_layanan", ""),
+                "p_layanan_cc_non_cc": payload.get("layanan_cc_non_cc", ""),
+                "p_segment": payload.get("segment", ""),
+                "p_sub_segment": payload.get("sub_segment", ""),
+                "p_kota": payload.get("kota", ""),
+            }
+
             res = supabase.rpc(
                 "report_export_digital_daily",
-                payload,
+                rpc_payload,
             ).execute()
 
             return res.data or []
@@ -127,9 +147,26 @@ class ReportService:
     @staticmethod
     def export_inbound(payload):
         try:
+            start_date = payload.get("start_date")
+            end_date = payload.get("end_date")
+
+            rpc_payload = {
+                "p_start_date": start_date.isoformat() if hasattr(start_date, "isoformat") else start_date,
+                "p_end_date": end_date.isoformat() if hasattr(end_date, "isoformat") else end_date,
+                "p_divisi": payload.get("divisi", ""),
+                "p_departemen": payload.get("departemen", ""),
+                "p_customer": payload.get("customer", ""),
+                "p_nama_layanan": payload.get("nama_layanan", ""),
+                "p_nama_sub_layanan": payload.get("nama_sub_layanan", ""),
+                "p_layanan_cc_non_cc": payload.get("layanan_cc_non_cc", ""),
+                "p_segment": payload.get("segment", ""),
+                "p_sub_segment": payload.get("sub_segment", ""),
+                "p_kota": payload.get("kota", ""),
+            }
+
             res = supabase.rpc(
                 "report_export_inbound_daily",
-                payload,
+                rpc_payload,
             ).execute()
 
             return res.data or []

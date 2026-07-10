@@ -7,13 +7,14 @@ import {
   Headphones, 
   History,
 } from "lucide-react"
+import { toast } from "sonner"
 
 import Card from "@/shared/ui/Card"
 import CardHeader from "@/features/omnix/components/CardHeader"
 import DigitalFilter from "@/features/report/components/DigitalFilter"
 import VoiceFilter from "@/features/report/components/VoiceFilter"
 import { useReport } from "@/features/report/hooks/useReport"
-import type { ReportOptions } from "@/features/report/types/report"
+import type { ExportRequest, PreviewRow, ReportOptions } from "@/features/report/types/report"
 import PreviewTable  from "@/features/report/components/ReportPreviewTable";
 
 export default function ReportCenterPage() {
@@ -44,7 +45,7 @@ export default function ReportCenterPage() {
     kota: "",
   })
 
-  const [previewData, setPreviewData] = useState<any[]>([])
+  const [previewData, setPreviewData] = useState<PreviewRow[]>([])
 
   const {
     loading,
@@ -64,7 +65,7 @@ export default function ReportCenterPage() {
       }
     }
     fetchOptions()
-  }, [])
+  }, [loadOptions])
 
   const handlePreview = async () => {
     try {
@@ -91,22 +92,40 @@ export default function ReportCenterPage() {
   }
 
   const handleExport = async () => {
-    try {
-      let blob: Blob
-      if (module === "digital") {
-        blob = await exportDigitalExcel(form)
-      } else {
-        blob = await exportInboundExcel(form)
-      }
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = module === "digital" ? "traffic_digital.xlsx" : "traffic_inbound.xlsx"
-      a.click()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error(err)
+    if (!form.start_date || !form.end_date) {
+      toast.error("Pilih Date From dan Date End sebelum export.")
+      return
     }
+
+    const exportPayload: ExportRequest = {
+      ...form,
+      report_type: module === "digital" ? "traffic_digital" : "traffic_inbound",
+    }
+
+    toast.promise(
+      async () => {
+        let blob: Blob
+        if (module === "digital") {
+          blob = await exportDigitalExcel(exportPayload)
+        } else {
+          blob = await exportInboundExcel(exportPayload)
+        }
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = module === "digital" ? "traffic_digital.xlsx" : "traffic_inbound.xlsx"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      },
+      {
+        loading: "Generating Excel report...",
+        success: "Report downloaded successfully!",
+        error: (err: unknown) =>
+          `Failed to export: ${err instanceof Error ? err.message : String(err)}`,
+      }
+    )
   }
 
   const handleReset = () => {
@@ -184,9 +203,13 @@ export default function ReportCenterPage() {
         </div>
 
         <div className="flex justify-end gap-2 p-5 pt-0 border-t border-(--c-border) pt-5">
-          <button onClick={handleReset} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Reset</button>
-          <button onClick={handlePreview} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control)">Preview</button>
-          <button onClick={handleExport} className="h-9 px-4 rounded-lg bg-sky-600 text-white font-medium text-sm hover:bg-sky-700">Export Excel</button>
+          <button onClick={handleReset} disabled={loading} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control) disabled:opacity-50">Reset</button>
+          <button onClick={handlePreview} disabled={loading} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control) disabled:opacity-50">
+            {loading ? "Loading..." : "Preview"}
+          </button>
+          <button onClick={handleExport} disabled={loading} className="h-9 px-4 rounded-lg bg-sky-600 text-white font-medium text-sm hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? "Exporting..." : "Export Excel"}
+          </button>
         </div>
       </Card>
 

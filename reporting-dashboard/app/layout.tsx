@@ -4,6 +4,7 @@ import "./globals.css"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarProvider } from "@/components/ui/sidebar"
+import { Toaster } from "@/components/ui/sonner"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { ThemeProvider } from "@/contexts/theme-context"
 
@@ -47,6 +48,7 @@ export default function RootLayout({
               </main>
 
             </SidebarProvider>
+            <Toaster richColors closeButton />
           </TooltipProvider>
         </ThemeProvider>
       </body>

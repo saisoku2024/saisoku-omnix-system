@@ -8,6 +8,8 @@ export interface PreviewRequest {
 }
 
 export interface ExportRequest {
+  report_type: string;
+
   start_date: string;
   end_date: string;
 
@@ -43,6 +45,6 @@ export interface ReportOptions {
   main_categories: string[];
 }
 
-export interface PreviewResponse {
-  [key: string]: unknown;
-}
+export type PreviewRow = Record<string, string | number | boolean | null>;
+
+export type PreviewResponse = PreviewRow[];

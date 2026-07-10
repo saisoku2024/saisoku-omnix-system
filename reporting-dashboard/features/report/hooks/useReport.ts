@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import {
   getReportOptions,
@@ -16,7 +16,7 @@ import {
 export function useReport() {
   const [loading, setLoading] = useState(false);
 
-  const loadOptions = async (): Promise<ReportOptions> => {
+  const loadOptions = useCallback(async (): Promise<ReportOptions> => {
     setLoading(true);
 
     try {
@@ -24,9 +24,9 @@ export function useReport() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const preview = async (payload: PreviewRequest) => {
+  const preview = useCallback(async (payload: PreviewRequest) => {
     setLoading(true);
 
     try {
@@ -34,9 +34,9 @@ export function useReport() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const exportDigitalExcel = async (
+  const exportDigitalExcel = useCallback(async (
     payload: ExportRequest
   ) => {
     setLoading(true);
@@ -46,9 +46,9 @@ export function useReport() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const exportInboundExcel = async (
+  const exportInboundExcel = useCallback(async (
     payload: ExportRequest
   ) => {
     setLoading(true);
@@ -58,7 +58,7 @@ export function useReport() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return {
     loading,
