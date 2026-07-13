@@ -24,8 +24,7 @@ export interface TrendRaw {
 
 export interface TrendRow {
   month: string
-  pct_4: number
-  pct_5: number
+  positive_pct: number
 }
 
 export interface DistRow {

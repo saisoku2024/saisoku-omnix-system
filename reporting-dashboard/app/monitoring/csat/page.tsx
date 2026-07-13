@@ -134,7 +134,7 @@ export default function CSATPage() {
 
   const trendData = useMemo(() => buildTrendData(rawTrend), [rawTrend])
   
-  const isTrendEmpty = useMemo(() => trendData.every(d => d.pct_4 === 0 && d.pct_5 === 0), [trendData])
+  const isTrendEmpty = useMemo(() => trendData.every(d => d.positive_pct === 0), [trendData])
 
   const distribution = useMemo(() => [5, 4, 3, 2, 1].map((r) => {
     const found = rawDistribution?.find((d) => Number(d.rating) === r)
@@ -237,7 +237,16 @@ export default function CSATPage() {
 
         <div className="responsive-grid-charts">
           <Card>
-            <CardHeader title="CSAT Score Trend" badge={loading ? undefined : "LIVE"} extra={!loading && <div style={{ display: "flex", gap: 12 }}>{[{ color: "#22c55e", label: "5 ⭐" }, { color: "#f59e0b", label: "4 ⭐" }].map(l => <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ width: 8, height: 2, background: l.color }} /><span style={{ fontSize: 10, color: "var(--c-muted)" }}>{l.label}</span></div>)}</div>} />
+            <CardHeader
+              title="CSAT Score Trend"
+              badge={loading ? undefined : "LIVE"}
+              extra={!loading && (
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 8, height: 2, background: "#22c55e" }} />
+                  <span style={{ fontSize: 10, color: "var(--c-muted)" }}>Score 4+5</span>
+                </div>
+              )}
+            />
             <div style={{ padding: 18, height: 280 }}>
               {loading ? <ChartSkeleton bars={12} /> : isTrendEmpty ? <EmptyState message="No trend data for this period" /> : (
                 <TrendChart data={trendData} highlightedMonths={highlightedMonths} isDark={isDark} tickColor="#6b7485" gridColor="rgba(0,0,0,0.05)" />

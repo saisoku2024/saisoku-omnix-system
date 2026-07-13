@@ -12,11 +12,7 @@ import {
 } from "recharts"
 import type { TrendRow } from "@/features/csat/types/csat"
 
-// ============================================================
-// TOOLTIP COMPONENT
-// ============================================================
-
-interface TooltipPayload {
+type TooltipPayload = {
   dataKey?: string
   name?: string
   value: number
@@ -77,11 +73,9 @@ function TrendTooltip({
               background: p.color ?? p.fill,
             }}
           />
-
           <span style={{ color: "var(--c-muted)", fontSize: 11 }}>
-            {p.dataKey === "pct_5" ? "Score 5 ⭐" : "Score 4 ⭐"}
+            Score 4+5
           </span>
-
           <span
             style={{
               fontWeight: 700,
@@ -99,16 +93,27 @@ function TrendTooltip({
   )
 }
 
-// ============================================================
-// MAIN CHART COMPONENT
-// ============================================================
-
-interface TrendChartProps {
+type TrendChartProps = {
   data: TrendRow[]
   highlightedMonths: string[]
   isDark: boolean
   tickColor: string
   gridColor: string
+}
+
+type DotProps = {
+  cx?: number
+  cy?: number
+  index?: number
+  payload?: TrendRow
+}
+
+type TickProps = {
+  x?: number | string
+  y?: number | string
+  payload?: {
+    value?: string
+  }
 }
 
 const TrendChart = memo(function TrendChart({
@@ -118,13 +123,13 @@ const TrendChart = memo(function TrendChart({
   tickColor,
   gridColor,
 }: TrendChartProps) {
-  // Dot renderer
-  const makeDot = (solidColor: string, ringColor: string, prefix: string) => (props: any) => {
-    const { cx, cy, index, payload } = props
+  const makeDot = (solidColor: string, ringColor: string) => (props: DotProps) => {
+    const { cx = 0, cy = 0, index = 0, payload } = props
     const isHL = highlightedMonths.includes(payload?.month ?? "")
+
     return (
       <circle
-        key={`${prefix}-dot-${index}`}
+        key={`positive-dot-${index}`}
         cx={cx}
         cy={cy}
         r={isHL ? 5 : 2.5}
@@ -135,59 +140,38 @@ const TrendChart = memo(function TrendChart({
     )
   }
 
-  // Label renderer
-  const makeLabel = (color: string, dy: number, prefix: string) => (props: any) => {
-    const { x, y, value, index } = props
-    const isHL = highlightedMonths.includes(data[index]?.month ?? "")
-    if (!isHL || !value) return null
-    return (
-      <text
-        key={`${prefix}-lbl-${index}`}
-        x={x}
-        y={y}
-        dy={dy}
-        textAnchor="middle"
-        fontSize={10}
-        fontWeight={700}
-        fill={color}
-      >
-        {value}%
-      </text>
-    )
-  }
-
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 28, right: 18, bottom: 12, left: 12 }}>
-        <CartesianGrid 
-          strokeDasharray="3 3" 
-          stroke={gridColor} 
-          vertical={false} 
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke={gridColor}
+          vertical={false}
         />
-        
+
         <XAxis
           dataKey="month"
           stroke="transparent"
           tickLine={false}
           axisLine={false}
           dy={8}
-          // Tambahkan padding agar titik Januari/Desember tidak terpotong
           padding={{ left: 16, right: 16 }}
-          // Keamanan overflow kliping
           allowDataOverflow={false}
-          tick={(props: any) => {
-            const isHL = highlightedMonths.includes(props.payload.value)
+          tick={(props: TickProps) => {
+            const value = props.payload?.value ?? ""
+            const isHL = highlightedMonths.includes(value)
+
             return (
               <text
-                key={props.payload.value}
-                x={props.x}
-                y={props.y}
+                key={value}
+                x={props.x ?? 0}
+                y={props.y ?? 0}
                 textAnchor="middle"
                 fontSize={isHL ? 11 : 10}
                 fontWeight={isHL ? 800 : 400}
                 fill={isHL ? (isDark ? "#ffffff" : "#111827") : (isDark ? "#2d3748" : "#d1d5db")}
               >
-                {props.payload.value}
+                {value}
               </text>
             )
           }}
@@ -201,7 +185,6 @@ const TrendChart = memo(function TrendChart({
           tickFormatter={(v) => `${v}%`}
           tick={{ fill: tickColor, fontSize: 10 }}
           width={34}
-          // Keamanan overflow kliping
           allowDataOverflow={false}
         />
 
@@ -209,22 +192,12 @@ const TrendChart = memo(function TrendChart({
 
         <Line
           type="monotone"
-          dataKey="pct_5"
+          dataKey="positive_pct"
+          name="Score 4+5"
           stroke="#22c55e"
-          strokeWidth={2.5}
+          strokeWidth={3}
           isAnimationActive={false}
-          dot={makeDot("#22c55e", "#15803d", "pct5")}
-          label={makeLabel("#22c55e", -12, "pct5")}
-        />
-
-        <Line
-          type="monotone"
-          dataKey="pct_4"
-          stroke="#f59e0b"
-          strokeWidth={2.5}
-          isAnimationActive={false}
-          dot={makeDot("#f59e0b", "#b45309", "pct4")}
-          label={makeLabel("#f59e0b", 22, "pct4")}
+          dot={makeDot("#22c55e", "#15803d")}
         />
       </LineChart>
     </ResponsiveContainer>

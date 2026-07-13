@@ -1,20 +1,18 @@
 "use client"
 
-import React, { memo } from "react"
+import { memo, useMemo } from "react"
 import {
-  BarChart,
-  Bar,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Cell,
-  LabelList,
 } from "recharts"
 
-import type { HourlyData } from "@/features/voice/types/voice"
 import CustomTooltip from "@/features/voice/charts/CustomTooltip"
+import type { HourlyData } from "@/features/voice/types/voice"
 
 type Props = {
   data: HourlyData[]
@@ -23,19 +21,48 @@ type Props = {
   isDark: boolean
 }
 
+type DotProps = {
+  cx?: number
+  cy?: number
+  index?: number
+  payload?: HourlyData
+}
+
 const HourlyChart = memo(function HourlyChart({
   data,
   gridColor,
   tickColor,
   isDark,
 }: Props) {
+  const maxCount = useMemo(
+    () => Math.max(...data.map((item) => item.count), 0),
+    [data]
+  )
+
+  const lineColor = "#0ea5e9"
+
+  const renderDot = (props: DotProps) => {
+    const { cx = 0, cy = 0, index = 0, payload } = props
+    const isPeak = payload?.count === maxCount && maxCount > 0
+
+    return (
+      <circle
+        key={`hourly-dot-${index}`}
+        cx={cx}
+        cy={cy}
+        r={isPeak ? 5 : 3}
+        fill={lineColor}
+        fillOpacity={isPeak ? 1 : 0.55}
+        stroke={isPeak ? "#7dd3fc" : "none"}
+        strokeWidth={isPeak ? 1.5 : 0}
+      />
+    )
+  }
+
   return (
     <div className="h-full w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data}
-          margin={{ top: 22, right: 12, left: 0, bottom: 0 }}
-        >
+        <LineChart data={data} margin={{ top: 28, right: 18, left: 0, bottom: 12 }}>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke={gridColor}
@@ -47,7 +74,7 @@ const HourlyChart = memo(function HourlyChart({
             tickFormatter={(v: string, i: number) => (i % 3 === 0 ? v : "")}
             tickLine={false}
             axisLine={false}
-            padding={{ left: 4, right: 4 }}
+            padding={{ left: 16, right: 16 }}
           />
           <YAxis
             tick={{ fill: tickColor, fontSize: 10 }}
@@ -57,29 +84,22 @@ const HourlyChart = memo(function HourlyChart({
             allowDecimals={false}
           />
           <Tooltip
-            cursor={{ fill: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" }}
+            cursor={{
+              stroke: isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.18)",
+              strokeWidth: 1,
+            }}
             content={<CustomTooltip suffix=" calls" />}
           />
-          <Bar
+          <Line
+            type="monotone"
             dataKey="count"
-            radius={[4, 4, 0, 0]}
+            name="Calls"
+            stroke={lineColor}
+            strokeWidth={3}
             isAnimationActive={false}
-            maxBarSize={26}
-          >
-            {data.map((item, index) => (
-              <Cell
-                key={index}
-                fill="#0ea5e9"
-                fillOpacity={item.count > 80 ? 1 : 0.5}
-              />
-            ))}
-            <LabelList
-              dataKey="count"
-              position="top"
-              style={{ fontSize: 9, fontWeight: 600, fill: tickColor }}
-            />
-          </Bar>
-        </BarChart>
+            dot={renderDot}
+          />
+        </LineChart>
       </ResponsiveContainer>
     </div>
   )

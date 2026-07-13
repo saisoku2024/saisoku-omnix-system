@@ -11,7 +11,7 @@ export function getHighlightedMonths(
 }
 
 export function buildTrendData(raw: TrendRaw[]): TrendRow[] {
-  const map: Record<string, { pct_4: number; pct_5: number }> = {}
+  const map: Record<string, { positive_pct: number }> = {}
 
   for (const row of raw ?? []) {
     const rawMonth: string =
@@ -25,16 +25,17 @@ export function buildTrendData(raw: TrendRaw[]): TrendRow[] {
 
     if (!matched) continue
 
+    const pct4 = Number(row.pct_4 ?? row.score_4 ?? row.pct4 ?? 0)
+    const pct5 = Number(row.pct_5 ?? row.score_5 ?? row.pct5 ?? 0)
+
     map[matched] = {
-      pct_4: Number(row.pct_4 ?? row.score_4 ?? row.pct4 ?? 0),
-      pct_5: Number(row.pct_5 ?? row.score_5 ?? row.pct5 ?? 0),
+      positive_pct: Math.min(100, pct4 + pct5),
     }
   }
 
   return MONTHS.map((m) => ({
     month: m,
-    pct_4: map[m]?.pct_4 ?? 0,
-    pct_5: map[m]?.pct_5 ?? 0,
+    positive_pct: map[m]?.positive_pct ?? 0,
   }))
 }
 
