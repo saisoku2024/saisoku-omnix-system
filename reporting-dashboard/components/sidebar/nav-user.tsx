@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback } from "react"
 import {
   BadgeCheck,
   Bell,
@@ -43,6 +44,20 @@ export function NavUser({
 }: NavUserProps) {
   const { isMobile } = useSidebar()
 
+  const handleLogout = useCallback(() => {
+    try {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+      document.cookie.split(";").forEach((cookie) => {
+        const name = cookie.split("=")[0]?.trim()
+        if (!name) return
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
+      })
+    } finally {
+      window.location.assign("/")
+    }
+  }, [])
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -76,10 +91,10 @@ export function NavUser({
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
+            className="z-[100] w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl border border-white/10 bg-[#0b1220] p-1.5 text-slate-100 shadow-2xl shadow-black/40"
+            side={isMobile ? "bottom" : "top"}
+            align="start"
+            sideOffset={8}
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
@@ -107,7 +122,7 @@ export function NavUser({
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer px-2 py-2 text-slate-200 focus:bg-white/10 focus:text-white">
                 <Sparkles className="mr-2 h-4 w-4" />
                 <span>Upgrade to Pro</span>
               </DropdownMenuItem>
@@ -116,17 +131,17 @@ export function NavUser({
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer px-2 py-2 text-slate-200 focus:bg-white/10 focus:text-white">
                 <BadgeCheck className="mr-2 h-4 w-4" />
                 <span>Account</span>
               </DropdownMenuItem>
 
-              <DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer px-2 py-2 text-slate-200 focus:bg-white/10 focus:text-white">
                 <CreditCard className="mr-2 h-4 w-4" />
                 <span>Billing</span>
               </DropdownMenuItem>
 
-              <DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer px-2 py-2 text-slate-200 focus:bg-white/10 focus:text-white">
                 <Bell className="mr-2 h-4 w-4" />
                 <span>Notifications</span>
               </DropdownMenuItem>
@@ -134,7 +149,10 @@ export function NavUser({
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer px-2 py-2 text-red-300 focus:bg-red-500/10 focus:text-red-200"
+              onSelect={handleLogout}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>
