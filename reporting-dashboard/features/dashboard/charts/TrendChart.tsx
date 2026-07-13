@@ -94,6 +94,8 @@ const TrendChart = memo(function TrendChart({
           <XAxis
             dataKey="day"
             tickFormatter={(v) => formatTick(v, mode)}
+            interval={mode === "monthly" ? 0 : "preserveEnd"}
+            minTickGap={mode === "monthly" ? 0 : 5}
             axisLine={false}
             tickLine={false}
             tickMargin={10}
