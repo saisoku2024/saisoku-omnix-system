@@ -21,6 +21,13 @@ type TooltipPayload = {
   fill?: string
 }
 
+function formatPercent(value: unknown) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return ""
+
+  return `${Number(numericValue.toFixed(2))}%`
+}
+
 function TrendTooltip({
   active,
   payload,
@@ -66,7 +73,7 @@ function TrendTooltip({
         />
         <span style={{ color: "var(--c-muted)", fontSize: 11 }}>Score 4+5</span>
         <span style={{ marginLeft: "auto", color: "var(--c-text)", fontSize: 12, fontWeight: 800 }}>
-          {payload[0]?.value ?? 0}%
+          {formatPercent(payload[0]?.value) || "0%"}
         </span>
       </div>
     </div>
@@ -152,10 +159,7 @@ const TrendChart = memo(function TrendChart({
           <LabelList
             dataKey="positive_pct"
             position="top"
-            formatter={(value: unknown) => {
-              const numericValue = Number(value)
-              return numericValue > 0 ? `${numericValue}%` : ""
-            }}
+            formatter={formatPercent}
             style={{ fontSize: 10, fontWeight: 800, fill: "var(--c-text)" }}
           />
           {data.map((entry, index) => {

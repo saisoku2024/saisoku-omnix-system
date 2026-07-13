@@ -29,7 +29,7 @@ export function buildTrendData(raw: TrendRaw[]): TrendRow[] {
     const pct5 = Number(row.pct_5 ?? row.score_5 ?? row.pct5 ?? 0)
 
     map[matched] = {
-      positive_pct: Math.min(100, pct4 + pct5),
+      positive_pct: Number(Math.min(100, pct4 + pct5).toFixed(2)),
     }
   }
 
