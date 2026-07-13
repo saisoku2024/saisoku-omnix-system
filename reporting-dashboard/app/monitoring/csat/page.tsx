@@ -36,6 +36,7 @@ import TrendChart from "@/features/csat/charts/TrendChart"
 import DistributionChart from "@/features/csat/charts/DistributionChart"
 
 import CardHeader from "@/features/csat/components/CardHeader"
+import { getDefaultMonth, getDefaultYear, REPORT_YEARS } from "@/lib/period-defaults"
 
 // ============================================================
 // LOCAL UI COMPONENTS
@@ -118,8 +119,8 @@ function AgentRowSkeleton() {
 export default function CSATPage() {
   const { isDark, toggleTheme } = useTheme()
   const [mode, setMode] = useState<ModeType>("monthly")
-  const [period, setPeriod] = useState("Jan")
-  const [year, setYear] = useState(2026)
+  const [period, setPeriod] = useState(() => getDefaultMonth(MONTHS))
+  const [year, setYear] = useState(() => getDefaultYear(REPORT_YEARS))
   const [distView, setDistView] = useState<DistributionViewType>("total")
 
   const { loading, error, summary, rawTrend, rawDistribution, topAgentTotal, topAgentAvg } = useCsatData(mode, period, year)
@@ -127,7 +128,7 @@ export default function CSATPage() {
   // ✅ FUNGSI PENGGANTI useEffect
   const handleModeChange = (newMode: ModeType) => {
     setMode(newMode)
-    if (newMode === "monthly") setPeriod("Jan")
+    if (newMode === "monthly") setPeriod(getDefaultMonth(MONTHS))
     else if (newMode === "quarterly") setPeriod("Q1")
     else setPeriod("all")
   }
@@ -201,7 +202,7 @@ export default function CSATPage() {
           {/* ✅ MENGGUNAKAN handleModeChange DI SINI */}
           <PeriodDropdown options={["Monthly", "Quarterly", "Yearly"]} value={mode.charAt(0).toUpperCase() + mode.slice(1)} onChange={(v: string) => handleModeChange(v.toLowerCase() as ModeType)} isDark={isDark} width={110} />
           {mode !== "yearly" && <PeriodDropdown options={periodOptions} value={period} onChange={setPeriod} isDark={isDark} width={90} />}
-          <PeriodDropdown options={["2024", "2025", "2026"]} value={String(year)} onChange={(v: string) => setYear(Number(v))} isDark={isDark} width={84} />
+          <PeriodDropdown options={REPORT_YEARS.map(String)} value={String(year)} onChange={(v: string) => setYear(Number(v))} isDark={isDark} width={84} />
           <button 
             onClick={toggleTheme} 
             aria-label="Toggle theme" 

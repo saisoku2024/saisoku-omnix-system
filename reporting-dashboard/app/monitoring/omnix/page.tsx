@@ -30,6 +30,7 @@ import ChannelBreakdown from "@/features/omnix/components/ChannelBreakdown"
 import TrendChart from "@/features/omnix/charts/TrendChart"
 import CustomerBarChart from "@/features/omnix/charts/CustomerBarChart"
 import NewCustomerBarChart from "@/features/omnix/charts/NewCustomerBarChart"
+import { getDefaultMonth, getDefaultYear, REPORT_YEARS } from "@/lib/period-defaults"
 
 // ============================================================
 // THEME VARS
@@ -81,12 +82,12 @@ export default function OmnixPage() {
   const { isDark, toggleTheme } = useTheme()
 
   const [mode, setMode] = useState<ModeType>("monthly")
-  const [period, setPeriod] = useState("Jan")
-  const [year, setYear] = useState(2026)
+  const [period, setPeriod] = useState(() => getDefaultMonth(MONTHS))
+  const [year, setYear] = useState(() => getDefaultYear(REPORT_YEARS))
 
   const handleModeChange = (newMode: ModeType) => {
     setMode(newMode)
-    if (newMode === "monthly") setPeriod("Jan")
+    if (newMode === "monthly") setPeriod(getDefaultMonth(MONTHS))
     else if (newMode === "quarterly") setPeriod("Q1")
     else setPeriod("all")
   }

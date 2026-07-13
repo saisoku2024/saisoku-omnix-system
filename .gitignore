@@ -20,6 +20,7 @@ build/
 dist/
 out/
 .next/
+.next-build-check/
 
 # Generated local dumps
 backend.txt
