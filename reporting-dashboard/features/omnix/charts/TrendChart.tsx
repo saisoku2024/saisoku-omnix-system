@@ -2,9 +2,11 @@
 
 import { memo, useMemo } from "react"
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
+  Cell,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,13 +23,6 @@ type Props = {
   tickColor: string
   isDark: boolean
   highlightedMonths?: string[]
-}
-
-type DotProps = {
-  cx?: number
-  cy?: number
-  index?: number
-  payload?: TrendData
 }
 
 const TrendChart = memo(function TrendChart({
@@ -47,31 +42,18 @@ const TrendChart = memo(function TrendChart({
     return Math.max(...activeData.map((item) => item.count), 0)
   }, [data, highlightedMonths, isHighlightAll])
 
-  const lineColor = "#6366f1"
-
-  const renderDot = (props: DotProps) => {
-    const { cx = 0, cy = 0, index = 0, payload } = props
-    const label = String(payload?.label ?? "").trim()
-    const isHighlighted = isHighlightAll || highlightedMonths.includes(label)
-    const isPeak = payload?.count === maxCount && maxCount > 0
-
-    return (
-      <circle
-        key={`omnix-dot-${index}`}
-        cx={cx}
-        cy={cy}
-        r={isPeak ? 5 : isHighlighted ? 3.5 : 2.5}
-        fill={isHighlighted ? lineColor : `${lineColor}33`}
-        stroke={isPeak ? "#a5b4fc" : "none"}
-        strokeWidth={isPeak ? 1.5 : 0}
-      />
-    )
-  }
+  const peakColor = "#6366f1"
+  const normalColor = isDark ? "rgba(99,102,241,0.72)" : "rgba(99,102,241,0.78)"
+  const dimColor = isDark ? "rgba(99,102,241,0.16)" : "rgba(99,102,241,0.20)"
 
   return (
     <div className="h-full w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 28, right: 18, bottom: 12, left: 0 }}>
+        <BarChart
+          data={data}
+          margin={{ top: 30, right: 8, bottom: 0, left: 0 }}
+          barCategoryGap="30%"
+        >
           <CartesianGrid
             strokeDasharray="3 3"
             stroke={gridColor}
@@ -84,7 +66,7 @@ const TrendChart = memo(function TrendChart({
             axisLine={false}
             dy={8}
             tick={{ fill: tickColor, fontSize: 10 }}
-            padding={{ left: 16, right: 16 }}
+            padding={{ left: 4, right: 4 }}
           />
           <YAxis
             stroke="transparent"
@@ -98,20 +80,42 @@ const TrendChart = memo(function TrendChart({
           <Tooltip
             content={<CustomTooltip />}
             cursor={{
-              stroke: isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.18)",
-              strokeWidth: 1,
+              fill: isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.04)",
+              radius: 6,
             }}
           />
-          <Line
-            type="monotone"
+          <Bar
             dataKey="count"
             name="Tickets"
-            stroke={lineColor}
-            strokeWidth={3}
+            radius={[6, 6, 2, 2]}
+            maxBarSize={38}
             isAnimationActive={false}
-            dot={renderDot}
-          />
-        </LineChart>
+          >
+            <LabelList
+              dataKey="count"
+              position="top"
+              formatter={(value: unknown) => {
+                const numericValue = Number(value)
+                return numericValue > 0 ? fmtCompact(numericValue) : ""
+              }}
+              style={{ fontSize: 9, fontWeight: 800, fill: "var(--c-text)" }}
+            />
+            {data.map((entry) => {
+              const label = String(entry.label).trim()
+              const isHighlighted = isHighlightAll || highlightedMonths.includes(label)
+              const isPeak = entry.count === maxCount && maxCount > 0
+
+              return (
+                <Cell
+                  key={entry.label}
+                  fill={isPeak ? peakColor : isHighlighted ? normalColor : dimColor}
+                  stroke={isPeak ? "#a5b4fc" : "none"}
+                  strokeWidth={isPeak ? 1.5 : 0}
+                />
+              )
+            })}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   )
