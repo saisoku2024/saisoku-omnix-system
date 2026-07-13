@@ -1,5 +1,3 @@
-print(">>> REPORT SERVICE LOADED <<<")
-
 from app.core.supabase import supabase
 
 
@@ -93,10 +91,6 @@ class ReportService:
                         "p_kota": "",
                     },
                 ).execute()
-
-            print("========== PREVIEW ==========")
-            print(res.data)
-            print("=============================")
 
             return res.data or []
 

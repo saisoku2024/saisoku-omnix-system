@@ -149,21 +149,10 @@ export function useOmnixData(
         year: String(year),
       })
 
-      const url = `${API_BASE}/all?${qs.toString()}`
-      console.log("OMNIX API:", url)
-
-      const res = await fetch(url, { cache: "no-store" })
+      const res = await fetch(`${API_BASE}/all?${qs.toString()}`, { cache: "no-store" })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
       const json: OmnixResponse = await res.json()
-      console.log("OMNIX RESPONSE =", json)
-
-setSummary(sanitizeSummary(json.summary))
-
-console.log(
-  "SUMMARY AFTER SANITIZE =",
-  sanitizeSummary(json.summary)
-)
 
       // Sanitize semuanya
       setSummary(sanitizeSummary(json.summary))

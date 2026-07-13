@@ -1,7 +1,9 @@
 "use client";
 
+import type { PreviewRow } from "@/features/report/types/report";
+
 type Props = {
-  data: any[];
+  data: PreviewRow[];
 };
 
 export default function ReportPreviewTable({ data }: Props) {

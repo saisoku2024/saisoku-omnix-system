@@ -147,8 +147,8 @@ export default function CSATPage() {
   const periodOptions = useMemo(() => (mode === "monthly" ? MONTHS : mode === "quarterly" ? QUARTERS : []), [mode])
 
   const cssVars: React.CSSProperties = isDark
-    ? ({ "--c-bg": "#0d1117", "--c-surface": "#161b22", "--c-control": "#1f242d", "--c-border": "rgba(255,255,255,0.08)", "--c-text": "#e2e4ea", "--c-muted": "#6b7485", "--c-skeleton": "#252a35", "--c-accent": "#0ea5e9" } as any)
-    : ({ "--c-bg": "#f0f2f5", "--c-surface": "#ffffff", "--c-control": "#f7f8fa", "--c-border": "rgba(0,0,0,0.08)", "--c-text": "#1a1d27", "--c-muted": "#6b7280", "--c-skeleton": "#e5e7eb", "--c-accent": "#0ea5e9" } as any)
+    ? ({ "--c-bg": "#0d1117", "--c-surface": "#161b22", "--c-control": "#1f242d", "--c-border": "rgba(255,255,255,0.08)", "--c-text": "#e2e4ea", "--c-muted": "#6b7485", "--c-skeleton": "#252a35", "--c-accent": "#0ea5e9" } as React.CSSProperties)
+    : ({ "--c-bg": "#f0f2f5", "--c-surface": "#ffffff", "--c-control": "#f7f8fa", "--c-border": "rgba(0,0,0,0.08)", "--c-text": "#1a1d27", "--c-muted": "#6b7280", "--c-skeleton": "#e5e7eb", "--c-accent": "#0ea5e9" } as React.CSSProperties)
 
   const KPI_CARDS = useMemo(() => [
     { label: "Total Response", value: fmt(summary.total_response || 0), color: "#0ea5e9" },
@@ -199,9 +199,9 @@ export default function CSATPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {/* ✅ MENGGUNAKAN handleModeChange DI SINI */}
-          <PeriodDropdown options={["Monthly", "Quarterly", "Yearly"]} value={mode.charAt(0).toUpperCase() + mode.slice(1)} onChange={(v: any) => handleModeChange(v.toLowerCase() as ModeType)} isDark={isDark} width={110} />
+          <PeriodDropdown options={["Monthly", "Quarterly", "Yearly"]} value={mode.charAt(0).toUpperCase() + mode.slice(1)} onChange={(v: string) => handleModeChange(v.toLowerCase() as ModeType)} isDark={isDark} width={110} />
           {mode !== "yearly" && <PeriodDropdown options={periodOptions} value={period} onChange={setPeriod} isDark={isDark} width={90} />}
-          <PeriodDropdown options={["2024", "2025", "2026"]} value={String(year)} onChange={(v: any) => setYear(Number(v))} isDark={isDark} width={84} />
+          <PeriodDropdown options={["2024", "2025", "2026"]} value={String(year)} onChange={(v: string) => setYear(Number(v))} isDark={isDark} width={84} />
           <button 
             onClick={toggleTheme} 
             aria-label="Toggle theme" 
@@ -246,7 +246,7 @@ export default function CSATPage() {
           </Card>
           
           <Card>
-            <CardHeader title="Rating Distribution" extra={!loading && <div style={{ background: "var(--c-control)", borderRadius: 8, padding: 2 }}>{["total", "average"].map(v => <button key={v} onClick={() => setDistView(v as any)} style={{ padding: "3px 10px", fontSize: 10, borderRadius: 6, border: "none", cursor: "pointer", color: distView === v ? "var(--c-text)" : "var(--c-muted)", background: distView === v ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)") : "transparent" }}>{v}</button>)}</div>} />
+            <CardHeader title="Rating Distribution" extra={!loading && <div style={{ background: "var(--c-control)", borderRadius: 8, padding: 2 }}>{(["total", "average"] as DistributionViewType[]).map(v => <button key={v} onClick={() => setDistView(v)} style={{ padding: "3px 10px", fontSize: 10, borderRadius: 6, border: "none", cursor: "pointer", color: distView === v ? "var(--c-text)" : "var(--c-muted)", background: distView === v ? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)") : "transparent" }}>{v}</button>)}</div>} />
             <div style={{ padding: 18, height: 280 }}>
               {loading ? <ChartSkeleton bars={5} /> : isDistEmpty ? <EmptyState message="No distribution data" /> : (
                 <DistributionChart data={distribution} gridColor="rgba(0,0,0,0.05)" tickColor="#6b7485" isDark={isDark} />

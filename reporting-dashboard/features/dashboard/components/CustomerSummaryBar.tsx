@@ -5,7 +5,7 @@ import { formatCount } from "@/features/dashboard/utils/format"
 
 type Props = {
   customer: number
-  newCustomer: any
+  newCustomer: number | { total?: number | string | null } | null
   periodLabel: string
 }
 
@@ -14,9 +14,6 @@ export default function CustomerSummaryBar({
   newCustomer,
   periodLabel
 }: Props) {
-
-  console.log("NEW CUSTOMER =", newCustomer)
-
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-[9px] border border-[var(--c-border)] bg-[var(--c-surface)] px-3.5 py-2 text-[11px] text-[var(--c-muted)]">
       <Users size={12} className="flex-shrink-0" />

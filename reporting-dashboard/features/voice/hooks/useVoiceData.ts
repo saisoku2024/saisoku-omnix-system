@@ -90,19 +90,13 @@ export function useVoiceData(
         year: String(year),
       })
 
-      const url = `${API_BASE}/all?${qs.toString()}`
-
-      console.log("VOICE API:", url)
-
-      const response = await fetch(url, { cache: "no-store" })
+      const response = await fetch(`${API_BASE}/all?${qs.toString()}`, { cache: "no-store" })
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
       }
 
       const json: VoiceResponse = await response.json()
-
-      console.log("VOICE RESPONSE:", json)
 
       // Sanitize summary — fix bug "Total Calls / SCR = 0"
       setSummary(sanitizeSummary(json.summary))

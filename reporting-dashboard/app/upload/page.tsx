@@ -434,10 +434,6 @@ function useFileUpload(
           resolve({ ok: false, error: "aborted" })
         })
         
-        console.log("UPLOAD URL =", UPLOAD_API)
-        console.log("FILE =", file.name)
-        console.log("TYPE =", type)
-
         xhr.open("POST", UPLOAD_API)
         xhr.send(formData)
       }),

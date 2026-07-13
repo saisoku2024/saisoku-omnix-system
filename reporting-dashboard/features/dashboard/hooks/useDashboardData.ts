@@ -49,8 +49,6 @@ export function useDashboardData(mode: ModeType, period: string, year: number) {
         return r.json() 
       })
       .then(d => {
-        console.log("FULL API =", d)
-
         setStats(d.summary || EMPTY_STATS)
         const rawTrend = Array.isArray(d) ? d
           : Array.isArray(d.trend) ? d.trend

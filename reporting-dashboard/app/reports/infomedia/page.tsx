@@ -78,11 +78,6 @@ export default function ReportCenterPage() {
         end_date: form.end_date,
       })
 
-      console.log("========== PREVIEW ==========");
-      console.log(result);
-      console.log(JSON.stringify(result, null, 2));
-      console.log("=============================");
-      
       setPreviewData(result)
 
     } catch (err) {
