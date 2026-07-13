@@ -6,6 +6,8 @@ from app.services.dashboard_service import (
     get_dashboard_by_channel,
     get_dashboard_by_category,
     get_dashboard_by_brand,
+    get_dashboard_customer,
+    get_dashboard_new_customer,
     get_dashboard_years,
 )
 

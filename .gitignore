@@ -25,6 +25,7 @@ out/
 backend.txt
 folder.txt
 *.tsbuildinfo
+reporting-backend/supabase/.temp/
 
 # Debug logs
 npm-debug.log*

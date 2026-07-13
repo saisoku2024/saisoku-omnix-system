@@ -162,3 +162,365 @@ alter table public.uploads enable row level security;
 alter table public.omnix_cases enable row level security;
 alter table public.voice_interactions enable row level security;
 alter table public.csat_responses enable row level security;
+
+-- ============================================================
+-- Master dashboard RPCs
+-- ============================================================
+-- These functions collapse the previous multi-RPC dashboard reads into a
+-- single database round trip per page. They return JSON objects shaped like
+-- the current backend service responses.
+
+alter table public.omnix_cases add column if not exists brand text;
+alter table public.omnix_cases add column if not exists product text;
+alter table public.omnix_cases add column if not exists principal_group text;
+alter table public.omnix_cases add column if not exists principal_category text;
+
+create or replace function public.get_voice_dashboard(
+  p_start timestamptz,
+  p_end timestamptz,
+  p_mode text default 'monthly'
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+with filtered as (
+  select *
+  from public.voice_interactions
+  where interaction_at >= p_start
+    and interaction_at < p_end
+),
+summary_data as (
+  select
+    count(*)::int as total_calls,
+    count(*) filter (
+      where lower(coalesce(call_status, '')) in ('answered', 'completeagent', 'completecaller')
+         or lower(coalesce(call_event, '')) in ('answered', 'completeagent', 'completecaller')
+    )::int as answered,
+    count(*) filter (
+      where lower(coalesce(call_status, '')) like '%abandon%'
+         or lower(coalesce(call_event, '')) like '%abandon%'
+    )::int as abandon,
+    coalesce(avg(talk_time_sec), 0)::numeric as avg_aht,
+    coalesce(avg(wait_time_sec), 0)::numeric as avg_awt
+  from filtered
+),
+daily_data as (
+  select
+    case
+      when p_mode = 'monthly' then to_char(interaction_at, 'DD')
+      else to_char(interaction_at, 'Mon')
+    end as label,
+    count(*)::int as count
+  from filtered
+  group by 1
+),
+hourly_data as (
+  select
+    h.hour,
+    coalesce(count(f.id), 0)::int as total
+  from generate_series(0, 23) as h(hour)
+  left join filtered f on extract(hour from f.interaction_at)::int = h.hour
+  group by h.hour
+  order by h.hour
+),
+day_data as (
+  select
+    d.day_name as day,
+    coalesce(count(f.id), 0)::int as total
+  from (
+    values
+      (1, 'Monday'),
+      (2, 'Tuesday'),
+      (3, 'Wednesday'),
+      (4, 'Thursday'),
+      (5, 'Friday'),
+      (6, 'Saturday'),
+      (7, 'Sunday')
+  ) as d(day_num, day_name)
+  left join filtered f on extract(isodow from f.interaction_at)::int = d.day_num
+  group by d.day_num, d.day_name
+  order by d.day_num
+),
+agent_handling as (
+  select
+    coalesce(nullif(agent_name, ''), 'Unknown') as agent,
+    count(*)::int as total
+  from filtered
+  group by 1
+  order by total desc
+  limit 10
+),
+agent_aht as (
+  select
+    coalesce(nullif(agent_name, ''), 'Unknown') as agent,
+    coalesce(avg(talk_time_sec), 0)::numeric as avg_talk_sec
+  from filtered
+  group by 1
+  order by avg_talk_sec desc
+  limit 10
+),
+agent_awt as (
+  select
+    coalesce(nullif(agent_name, ''), 'Unknown') as agent,
+    coalesce(avg(wait_time_sec), 0)::numeric as avg_wait_sec
+  from filtered
+  group by 1
+  order by avg_wait_sec desc
+  limit 10
+)
+select jsonb_build_object(
+  'summary', (
+    select jsonb_build_object(
+      'total_calls', total_calls,
+      'answered', answered,
+      'abandon', abandon,
+      'avg_aht', round(avg_aht, 2),
+      'avg_awt', round(avg_awt, 2),
+      'scr', case when total_calls > 0 then round((answered::numeric / total_calls::numeric) * 100, 1) else 0 end
+    )
+    from summary_data
+  ),
+  'daily', coalesce((select jsonb_agg(jsonb_build_object('label', label, 'count', count) order by label) from daily_data), '[]'::jsonb),
+  'hourly', coalesce((select jsonb_agg(jsonb_build_object('hour', hour, 'total', total) order by hour) from hourly_data), '[]'::jsonb),
+  'byDay', coalesce((select jsonb_agg(jsonb_build_object('day', day, 'total', total)) from day_data), '[]'::jsonb),
+  'agentHandling', coalesce((select jsonb_agg(jsonb_build_object('agent', agent, 'total', total)) from agent_handling), '[]'::jsonb),
+  'agentAht', coalesce((select jsonb_agg(jsonb_build_object('agent', agent, 'avg_talk_sec', round(avg_talk_sec, 2))) from agent_aht), '[]'::jsonb),
+  'agentAwt', coalesce((select jsonb_agg(jsonb_build_object('agent', agent, 'avg_wait_sec', round(avg_wait_sec, 2))) from agent_awt), '[]'::jsonb)
+);
+$$;
+
+create or replace function public.get_omnix_dashboard(
+  p_start timestamptz,
+  p_end timestamptz,
+  p_mode text default 'monthly',
+  p_year int default extract(year from now())::int
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+with filtered as (
+  select *
+  from public.omnix_cases
+  where interaction_at >= p_start
+    and interaction_at < p_end
+),
+trend_filtered as (
+  select *
+  from public.omnix_cases
+  where interaction_at >= case when p_mode = 'monthly' then p_start else make_timestamptz(p_year, 1, 1, 0, 0, 0) end
+    and interaction_at < case when p_mode = 'monthly' then p_end else make_timestamptz(p_year + 1, 1, 1, 0, 0, 0) end
+),
+summary_data as (
+  select
+    count(*)::int as total_ticket,
+    coalesce(avg(handling_time_sec), 0)::numeric as avg_aht,
+    coalesce(avg(response_time_sec), 0)::numeric as avg_art,
+    coalesce(avg(waiting_time_sec), 0)::numeric as avg_awt
+  from filtered
+),
+daily_data as (
+  select
+    case
+      when p_mode = 'monthly' then to_char(interaction_at, 'DD')
+      else to_char(interaction_at, 'Mon')
+    end as label,
+    count(*)::int as total
+  from trend_filtered
+  group by 1
+),
+hourly_data as (
+  select
+    extract(hour from interaction_at)::int as hour,
+    count(*)::int as total
+  from filtered
+  group by 1
+  order by 1
+),
+day_data as (
+  select
+    to_char(interaction_at, 'FMDay') as day,
+    count(*)::int as total
+  from filtered
+  group by 1
+),
+channel_data as (
+  select coalesce(nullif(channel, ''), 'Unknown') as name, count(*)::int as total
+  from filtered
+  group by 1
+  order by total desc
+  limit 10
+),
+category_data as (
+  select coalesce(nullif(main_category, ''), 'Unknown') as name, count(*)::int as total
+  from filtered
+  group by 1
+  order by total desc
+  limit 10
+),
+product_data as (
+  select coalesce(nullif(product, ''), 'Unknown') as name, count(*)::int as total
+  from filtered
+  group by 1
+  order by total desc
+  limit 10
+),
+customer_data as (
+  select
+    to_char(m.month_start, 'Mon') as label,
+    count(distinct o.customer_hp)::int as total,
+    count(distinct o.customer_hp) filter (
+      where first_seen.first_month = m.month_start
+    )::int as new
+  from generate_series(
+    make_timestamptz(p_year, 1, 1, 0, 0, 0),
+    make_timestamptz(p_year, 12, 1, 0, 0, 0),
+    interval '1 month'
+  ) as m(month_start)
+  left join public.omnix_cases o
+    on o.interaction_at >= m.month_start
+   and o.interaction_at < m.month_start + interval '1 month'
+   and o.customer_hp is not null
+   and nullif(o.customer_hp, '') is not null
+  left join lateral (
+    select date_trunc('month', min(oc.interaction_at)) as first_month
+    from public.omnix_cases oc
+    where oc.customer_hp = o.customer_hp
+  ) first_seen on true
+  group by m.month_start
+  order by m.month_start
+)
+select jsonb_build_object(
+  'summary', (
+    select jsonb_build_object(
+      'total_ticket', total_ticket,
+      'avg_aht', round(avg_aht, 2),
+      'avg_art', round(avg_art, 2),
+      'avg_awt', round(avg_awt, 2)
+    )
+    from summary_data
+  ),
+  'daily', coalesce((select jsonb_agg(jsonb_build_object('label', label, 'total', total) order by label) from daily_data), '[]'::jsonb),
+  'hourly', coalesce((select jsonb_agg(jsonb_build_object('hour', hour, 'total', total) order by hour) from hourly_data), '[]'::jsonb),
+  'by_day', coalesce((select jsonb_agg(jsonb_build_object('day', day, 'total', total)) from day_data), '[]'::jsonb),
+  'channel', coalesce((select jsonb_agg(jsonb_build_object('name', name, 'total', total)) from channel_data), '[]'::jsonb),
+  'category', coalesce((select jsonb_agg(jsonb_build_object('name', name, 'total', total)) from category_data), '[]'::jsonb),
+  'product', coalesce((select jsonb_agg(jsonb_build_object('name', name, 'total', total)) from product_data), '[]'::jsonb),
+  'customer', coalesce((select jsonb_agg(jsonb_build_object('label', label, 'total', total, 'new', new)) from customer_data), '[]'::jsonb)
+);
+$$;
+
+create or replace function public.get_dashboard_home(
+  p_start timestamptz,
+  p_end timestamptz,
+  p_mode text default 'monthly',
+  p_year int default extract(year from now())::int
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+with omnix_filtered as (
+  select *
+  from public.omnix_cases
+  where interaction_at >= p_start
+    and interaction_at < p_end
+),
+csat_filtered as (
+  select *
+  from public.csat_responses
+  where coalesce(created_at_source, created_at) >= p_start
+    and coalesce(created_at_source, created_at) < p_end
+),
+summary_data as (
+  select
+    count(o.id)::int as total_ticket,
+    coalesce(avg(o.handling_time_sec), 0)::numeric as avg_aht,
+    coalesce(avg(o.response_time_sec), 0)::numeric as avg_art,
+    coalesce(avg(o.waiting_time_sec), 0)::numeric as avg_awt,
+    coalesce(avg(c.score), 0)::numeric as csat
+  from omnix_filtered o
+  full join csat_filtered c on false
+),
+trend_data as (
+  select
+    case
+      when p_mode = 'monthly' then to_char(interaction_at, 'DD')
+      else to_char(interaction_at, 'Mon')
+    end as label,
+    count(*)::int as total
+  from omnix_filtered
+  group by 1
+),
+channel_data as (
+  select coalesce(nullif(channel, ''), 'Unknown') as name, count(*)::int as total
+  from omnix_filtered
+  group by 1
+  order by total desc
+  limit 10
+),
+category_data as (
+  select coalesce(nullif(main_category, ''), 'Unknown') as name, count(*)::int as total
+  from omnix_filtered
+  group by 1
+  order by total desc
+  limit 10
+),
+brand_data as (
+  select
+    coalesce(nullif(brand, ''), 'Unknown') as name,
+    count(*)::int as total,
+    round((count(*)::numeric / nullif((select count(*) from omnix_filtered), 0)) * 100, 2) as pct
+  from omnix_filtered
+  group by 1
+  order by total desc
+  limit 10
+),
+customer_totals as (
+  select
+    count(distinct customer_hp)::int as total_customer
+  from omnix_filtered
+  where customer_hp is not null
+    and nullif(customer_hp, '') is not null
+),
+new_customer_totals as (
+  select count(distinct current_customers.customer_hp)::int as total_new_customer
+  from (
+    select distinct customer_hp
+    from omnix_filtered
+    where customer_hp is not null
+      and nullif(customer_hp, '') is not null
+  ) current_customers
+  where not exists (
+    select 1
+    from public.omnix_cases previous
+    where previous.customer_hp = current_customers.customer_hp
+      and previous.interaction_at < p_start
+  )
+)
+select jsonb_build_object(
+  'summary', (
+    select jsonb_build_object(
+      'total_ticket', total_ticket,
+      'avg_aht', round(avg_aht, 2),
+      'avg_art', round(avg_art, 2),
+      'avg_awt', round(avg_awt, 2),
+      'csat', round(csat, 2)
+    )
+    from summary_data
+  ),
+  'trend', coalesce((select jsonb_agg(jsonb_build_object('label', label, 'total', total) order by label) from trend_data), '[]'::jsonb),
+  'channel', coalesce((select jsonb_agg(jsonb_build_object('name', name, 'total', total)) from channel_data), '[]'::jsonb),
+  'category', coalesce((select jsonb_agg(jsonb_build_object('name', name, 'total', total)) from category_data), '[]'::jsonb),
+  'brand', coalesce((select jsonb_agg(jsonb_build_object('name', name, 'total', total, 'pct', pct)) from brand_data), '[]'::jsonb),
+  'customer', jsonb_build_object('total', coalesce((select total_customer from customer_totals), 0)),
+  'new_customer', jsonb_build_object('total', coalesce((select total_new_customer from new_customer_totals), 0))
+);
+$$;
