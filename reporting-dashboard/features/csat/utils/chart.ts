@@ -1,28 +1,19 @@
 import type { ModeType, TrendRaw, TrendRow } from "@/features/csat/types/csat"
 import { MONTHS, QUARTER_MONTHS } from "@/features/csat/constants"
 
-export function getVisibleMonths(mode: ModeType, period: string): string[] {
+function getCutoffIndex(mode: ModeType, period: string): number {
   if (mode === "yearly") {
-    return [...MONTHS]
+    return MONTHS.length - 1
   }
 
   if (mode === "quarterly") {
     const quarterOrder = ["Q1", "Q2", "Q3", "Q4"]
     const quarterIndex = quarterOrder.indexOf(period)
-
-    if (quarterIndex === -1) {
-      return [...MONTHS]
-    }
-
-    return MONTHS.slice(0, (quarterIndex + 1) * 3)
+    return quarterIndex === -1 ? MONTHS.length - 1 : (quarterIndex + 1) * 3 - 1
   }
 
   const monthIndex = MONTHS.indexOf(period)
-  if (monthIndex === -1) {
-    return [...MONTHS]
-  }
-
-  return MONTHS.slice(0, monthIndex + 1)
+  return monthIndex === -1 ? MONTHS.length - 1 : monthIndex
 }
 
 export function getHighlightedMonths(
@@ -40,6 +31,7 @@ export function buildTrendData(
   period: string
 ): TrendRow[] {
   const map: Record<string, { positive_pct: number }> = {}
+  const cutoffIndex = getCutoffIndex(mode, period)
 
   for (const row of raw ?? []) {
     const rawMonth: string =
@@ -61,9 +53,9 @@ export function buildTrendData(
     }
   }
 
-  return getVisibleMonths(mode, period).map((m) => ({
+  return MONTHS.map((m, index) => ({
     month: m,
-    positive_pct: map[m]?.positive_pct ?? 0,
+    positive_pct: index <= cutoffIndex ? map[m]?.positive_pct ?? 0 : 0,
   }))
 }
 
