@@ -12,7 +12,7 @@ import {
 
 import Card from "@/components/ui/card"
 
-import { MONTHS, QUARTERS } from "@/features/omnix/constants"
+import { MONTHS, QUARTERS, QUARTER_MONTHS } from "@/features/omnix/constants"
 import { fmt } from "@/features/omnix/utils/format"
 import { useOmnixData } from "@/features/omnix/hooks/useOmnixData"
 import type { ModeType } from "@/features/omnix/types/omnix"
@@ -66,10 +66,7 @@ function getHighlightedMonths(mode: string, period: string): string[] {
     return [period]
   }
   if (mode === "quarterly") {
-    if (period === "Q1") return ["Jan", "Feb", "Mar"]
-    if (period === "Q2") return ["Apr", "May", "Jun"]
-    if (period === "Q3") return ["Jul", "Aug", "Sep"]
-    if (period === "Q4") return ["Oct", "Nov", "Dec"]
+    return QUARTER_MONTHS[period] ?? []
   }
   return []
 }
