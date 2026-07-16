@@ -17,7 +17,7 @@ export interface CleanupMatchedOmnix {
 
 export interface CleanupCandidate {
   target_table: "voice_interactions" | "omnix_cases"
-  id: string
+  id: string | number
   ticket_id: string | null
   customer_hp: string | null
   interaction_date: string | null
@@ -55,4 +55,27 @@ export interface CleanupPreviewResponse {
   rule_counts: CleanupRuleCounts
   items: CleanupCandidate[]
   truncated: boolean
+}
+
+export interface CleanupDeleteItem {
+  target_table: "voice_interactions" | "omnix_cases"
+  id: string | number
+  reasons: CleanupRule[]
+}
+
+export interface CleanupSoftDeleteRequest {
+  items: CleanupDeleteItem[]
+  deleted_by: string
+}
+
+export interface CleanupSoftDeleteResponse {
+  cleanup_batch_id: string
+  deleted_at: string
+  deleted_by: string
+  deleted: {
+    voice_interactions: number
+    omnix_cases: number
+  }
+  total_deleted: number
+  skipped: number
 }

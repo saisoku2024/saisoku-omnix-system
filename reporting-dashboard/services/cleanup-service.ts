@@ -2,6 +2,8 @@ import { apiUrl } from "@/lib/api"
 import type {
   CleanupPreviewRequest,
   CleanupPreviewResponse,
+  CleanupSoftDeleteRequest,
+  CleanupSoftDeleteResponse,
 } from "@/features/data-cleanup/types/cleanup"
 
 const CLEANUP_API = apiUrl("/api/cleanup")
@@ -36,4 +38,18 @@ export async function previewCleanup(
   })
 
   return handleJsonResponse<CleanupPreviewResponse>(response)
+}
+
+export async function softDeleteCleanup(
+  payload: CleanupSoftDeleteRequest
+): Promise<CleanupSoftDeleteResponse> {
+  const response = await fetch(`${CLEANUP_API}/soft-delete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return handleJsonResponse<CleanupSoftDeleteResponse>(response)
 }

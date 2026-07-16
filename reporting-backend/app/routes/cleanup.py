@@ -9,12 +9,24 @@ from app.services.cleanup_service import CleanupService
 router = APIRouter(prefix="/cleanup", tags=["Data Cleanup"])
 
 CleanupRule = Literal["abandon_match", "test_omnix", "internal_email"]
+CleanupTargetTable = Literal["voice_interactions", "omnix_cases"]
 
 
 class CleanupPreviewRequest(BaseModel):
     date_from: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     date_to: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     rules: list[CleanupRule] = Field(default_factory=list)
+
+
+class CleanupDeleteItem(BaseModel):
+    target_table: CleanupTargetTable
+    id: str | int
+    reasons: list[CleanupRule] = Field(default_factory=list)
+
+
+class CleanupSoftDeleteRequest(BaseModel):
+    items: list[CleanupDeleteItem] = Field(default_factory=list)
+    deleted_by: str = "admin"
 
 
 @router.post("/preview")
@@ -45,3 +57,16 @@ def phone_format_diagnostics(payload: CleanupPreviewRequest):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Phone diagnostics failed: {exc}") from exc
+
+
+@router.post("/soft-delete")
+def soft_delete_cleanup(payload: CleanupSoftDeleteRequest):
+    try:
+        return CleanupService.soft_delete(
+            items=[item.model_dump() for item in payload.items],
+            deleted_by=payload.deleted_by,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Soft delete failed: {exc}") from exc

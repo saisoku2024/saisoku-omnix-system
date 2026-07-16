@@ -16,11 +16,12 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
-import { previewCleanup } from "@/services/cleanup-service"
+import { previewCleanup, softDeleteCleanup } from "@/services/cleanup-service"
 import type {
   CleanupCandidate,
   CleanupPreviewResponse,
   CleanupRule,
+  CleanupSoftDeleteResponse,
 } from "@/features/data-cleanup/types/cleanup"
 
 const RULES: Array<{
@@ -114,7 +115,19 @@ function MetricCard({
   )
 }
 
-function CandidateTable({ items }: { items: CleanupCandidate[] }) {
+function getCandidateKey(item: CleanupCandidate): string {
+  return `${item.target_table}:${item.id}`
+}
+
+function CandidateTable({
+  items,
+  selectedKeys,
+  onToggle,
+}: {
+  items: CleanupCandidate[]
+  selectedKeys: Set<string>
+  onToggle: (item: CleanupCandidate) => void
+}) {
   if (items.length === 0) {
     return (
       <div className="flex min-h-44 items-center justify-center rounded-2xl border border-dashed border-(--c-border) bg-(--c-overlay) p-6 text-center">
@@ -135,6 +148,7 @@ function CandidateTable({ items }: { items: CleanupCandidate[] }) {
         <table className="w-full min-w-[980px] text-left text-xs">
           <thead className="sticky top-0 z-10 border-b border-(--c-border) bg-(--c-surface) text-[10px] uppercase tracking-[0.14em] text-(--c-muted)">
             <tr>
+              <th className="px-4 py-3">Select</th>
               <th className="px-4 py-3">Ticket</th>
               <th className="px-4 py-3">Target</th>
               <th className="px-4 py-3">Customer</th>
@@ -147,7 +161,16 @@ function CandidateTable({ items }: { items: CleanupCandidate[] }) {
           </thead>
           <tbody className="divide-y divide-(--c-border)">
             {items.map((item) => (
-              <tr key={item.id} className="hover:bg-(--c-overlay-2)">
+              <tr key={getCandidateKey(item)} className="hover:bg-(--c-overlay-2)">
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedKeys.has(getCandidateKey(item))}
+                    onChange={() => onToggle(item)}
+                    className="h-4 w-4 rounded border-white/20 bg-slate-950 accent-cyan-400"
+                    aria-label={`Select ${item.ticket_id || item.id}`}
+                  />
+                </td>
                 <td className="px-4 py-3 font-mono text-(--c-text)">
                   {item.ticket_id || "-"}
                 </td>
@@ -229,8 +252,12 @@ export default function DataCleanupPage() {
     "internal_email",
   ])
   const [preview, setPreview] = useState<CleanupPreviewResponse | null>(null)
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [deleteResult, setDeleteResult] =
+    useState<CleanupSoftDeleteResponse | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const toggleRule = (rule: CleanupRule) => {
     setRules((current) =>
@@ -245,20 +272,29 @@ export default function DataCleanupPage() {
     setDateTo(defaults.dateTo)
     setRules(["abandon_match", "test_omnix", "internal_email"])
     setPreview(null)
+    setSelectedKeys(new Set())
+    setDeleteResult(null)
     setError("")
+  }
+
+  const loadPreview = async () => {
+    const result = await previewCleanup({
+      date_from: dateFrom,
+      date_to: dateTo,
+      rules,
+    })
+    setPreview(result)
+    setSelectedKeys(new Set(result.items.map(getCandidateKey)))
+    return result
   }
 
   const scanPreview = async () => {
     setLoading(true)
     setError("")
+    setDeleteResult(null)
 
     try {
-      const result = await previewCleanup({
-        date_from: dateFrom,
-        date_to: dateTo,
-        rules,
-      })
-      setPreview(result)
+      await loadPreview()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cleanup preview failed")
     } finally {
@@ -266,8 +302,67 @@ export default function DataCleanupPage() {
     }
   }
 
+  const toggleCandidate = (item: CleanupCandidate) => {
+    const key = getCandidateKey(item)
+    setSelectedKeys((current) => {
+      const next = new Set(current)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  const selectAllCandidates = () => {
+    setSelectedKeys(new Set((preview?.items ?? []).map(getCandidateKey)))
+  }
+
+  const clearSelection = () => {
+    setSelectedKeys(new Set())
+  }
+
+  const softDeleteSelected = async () => {
+    const candidates = preview?.items ?? []
+    const selectedItems = candidates.filter((item) =>
+      selectedKeys.has(getCandidateKey(item))
+    )
+
+    if (selectedItems.length === 0) {
+      setError("Pilih minimal satu kandidat cleanup.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Soft delete ${selectedItems.length} kandidat terpilih? Data tidak dihapus permanen dan akan disimpan ke cleanup log.`
+    )
+    if (!confirmed) return
+
+    setDeleting(true)
+    setError("")
+
+    try {
+      const result = await softDeleteCleanup({
+        deleted_by: "admin",
+        items: selectedItems.map((item) => ({
+          target_table: item.target_table,
+          id: item.id,
+          reasons: item.reasons,
+        })),
+      })
+      setDeleteResult(result)
+      await loadPreview()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Soft delete failed")
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const candidateCount = preview?.total_candidates ?? 0
   const scannedCount = preview?.total_scanned_omnix ?? 0
+  const selectedCount = selectedKeys.size
 
   return (
     <main className="min-h-screen bg-(--c-bg) px-4 py-8 text-(--c-text) sm:px-6 sm:py-10 lg:px-8 lg:py-12">
@@ -410,19 +505,28 @@ export default function DataCleanupPage() {
           <p className="mb-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-(--c-muted)">
             Ringkasan Cleanup
           </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <MetricCard label="Scanned Omnix" value={formatNumber(scannedCount)} tone="accent" />
-              <MetricCard
-                label="Scanned Voice"
-                value={formatNumber(preview?.total_scanned_voice ?? 0)}
-                tone="accent"
-              />
-              <MetricCard
-                label="Candidates"
-                value={formatNumber(candidateCount)}
-                tone={candidateCount > 0 ? "warning" : "success"}
-              />
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <MetricCard
+              label="Scanned Omnix"
+              value={formatNumber(scannedCount)}
+              tone="accent"
+            />
+            <MetricCard
+              label="Scanned Voice"
+              value={formatNumber(preview?.total_scanned_voice ?? 0)}
+              tone="accent"
+            />
+            <MetricCard
+              label="Candidates"
+              value={formatNumber(candidateCount)}
+              tone={candidateCount > 0 ? "warning" : "success"}
+            />
+            <MetricCard
+              label="Deleted Now"
+              value={formatNumber(deleteResult?.total_deleted ?? 0)}
+              tone="danger"
+            />
+          </div>
         </section>
 
         <section className="mt-5 rounded-[20px] border border-white/10 bg-white/[0.03] p-5 shadow-sm sm:p-6">
@@ -443,20 +547,54 @@ export default function DataCleanupPage() {
               </p>
             </div>
             {preview ? (
-              <div className="flex flex-wrap gap-2 text-[11px]">
-                {Object.entries(preview.rule_counts).map(([rule, total]) => (
-                  <span
-                    key={rule}
-                    className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 font-semibold text-(--c-text-soft)"
-                  >
-                    {formatRule(rule as CleanupRule)}: {formatNumber(total)}
-                  </span>
-                ))}
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                <button
+                  type="button"
+                  onClick={selectAllCandidates}
+                  className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 font-semibold text-(--c-text-soft) transition hover:bg-white/10"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 font-semibold text-(--c-text-soft) transition hover:bg-white/10"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={softDeleteSelected}
+                  disabled={deleting || selectedCount === 0}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-(--c-danger)/30 bg-(--c-danger-soft) px-3 py-1 font-bold text-(--c-danger) transition hover:bg-(--c-danger-soft) disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {deleting ? (
+                    <Loader2Icon size={12} className="animate-spin" />
+                  ) : (
+                    <Trash2Icon size={12} />
+                  )}
+                  Soft Delete Selected ({formatNumber(selectedCount)})
+                </button>
               </div>
             ) : null}
           </div>
 
-          <CandidateTable items={preview?.items ?? []} />
+          {deleteResult ? (
+            <div className="mb-4 rounded-xl border border-(--c-success)/25 bg-(--c-success-soft) p-3 text-xs text-(--c-text-soft)">
+              Soft delete selesai: {formatNumber(deleteResult.total_deleted)} data
+              disembunyikan, {formatNumber(deleteResult.skipped)} dilewati. Batch{" "}
+              <span className="font-mono text-(--c-text)">
+                {deleteResult.cleanup_batch_id}
+              </span>
+              .
+            </div>
+          ) : null}
+
+          <CandidateTable
+            items={preview?.items ?? []}
+            selectedKeys={selectedKeys}
+            onToggle={toggleCandidate}
+          />
         </section>
 
         <section className="mt-5 rounded-[20px] border border-(--c-success)/20 bg-(--c-success-soft) p-4">

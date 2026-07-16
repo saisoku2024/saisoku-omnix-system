@@ -185,7 +185,7 @@ alter table public.voice_interactions add column if not exists cleanup_batch_id 
 
 create table if not exists public.cleanup_deleted_omnix_cases (
   id uuid primary key default gen_random_uuid(),
-  omnix_case_id uuid not null,
+  omnix_case_id text not null,
   ticket_id text,
   cleanup_batch_id uuid not null,
   reason text not null,
@@ -196,7 +196,7 @@ create table if not exists public.cleanup_deleted_omnix_cases (
 
 create table if not exists public.cleanup_deleted_voice_interactions (
   id uuid primary key default gen_random_uuid(),
-  voice_interaction_id uuid not null,
+  voice_interaction_id text not null,
   unique_id text,
   cleanup_batch_id uuid not null,
   reason text not null,

@@ -1,4 +1,5 @@
 import re
+from uuid import uuid4
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -416,4 +417,89 @@ class CleanupService:
             "created_date_matches": created_date_matches,
             "sample_voice_abandon": sample_voice,
             "sample_interaction_date_matches": sample_matches,
+        }
+
+    @staticmethod
+    def soft_delete(items: list[dict], deleted_by: str = "admin") -> dict:
+        if not items:
+            raise ValueError("Select at least one cleanup candidate")
+
+        cleanup_batch_id = str(uuid4())
+        deleted_at = datetime.now(UTC_TZ).isoformat()
+        deleted = {
+            "voice_interactions": 0,
+            "omnix_cases": 0,
+        }
+        skipped = 0
+
+        table_config = {
+            "voice_interactions": {
+                "log_table": "cleanup_deleted_voice_interactions",
+                "log_id_field": "voice_interaction_id",
+                "label_field": "unique_id",
+            },
+            "omnix_cases": {
+                "log_table": "cleanup_deleted_omnix_cases",
+                "log_id_field": "omnix_case_id",
+                "label_field": "ticket_id",
+            },
+        }
+
+        for item in items:
+            target_table = item.get("target_table")
+            row_id = item.get("id")
+            reasons = item.get("reasons") or []
+
+            if target_table not in table_config or row_id in [None, ""]:
+                skipped += 1
+                continue
+
+            config = table_config[target_table]
+            snapshot_res = (
+                supabase.table(target_table)
+                .select("*")
+                .eq("id", row_id)
+                .limit(1)
+                .execute()
+            )
+            snapshot = (snapshot_res.data or [None])[0]
+            if not snapshot:
+                skipped += 1
+                continue
+
+            if snapshot.get("deleted_at"):
+                skipped += 1
+                continue
+
+            reason = ", ".join(reasons) if reasons else "manual_cleanup"
+            supabase.table(config["log_table"]).insert(
+                {
+                    config["log_id_field"]: str(row_id),
+                    config["label_field"]: snapshot.get(config["label_field"]),
+                    "cleanup_batch_id": cleanup_batch_id,
+                    "reason": reason,
+                    "deleted_by": deleted_by,
+                    "deleted_at": deleted_at,
+                    "snapshot": snapshot,
+                }
+            ).execute()
+
+            supabase.table(target_table).update(
+                {
+                    "deleted_at": deleted_at,
+                    "deleted_reason": reason,
+                    "deleted_by": deleted_by,
+                    "cleanup_batch_id": cleanup_batch_id,
+                }
+            ).eq("id", row_id).execute()
+
+            deleted[target_table] += 1
+
+        return {
+            "cleanup_batch_id": cleanup_batch_id,
+            "deleted_at": deleted_at,
+            "deleted_by": deleted_by,
+            "deleted": deleted,
+            "total_deleted": sum(deleted.values()),
+            "skipped": skipped,
         }
