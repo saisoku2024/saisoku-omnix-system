@@ -17,6 +17,10 @@ def _fmt_duration(sec):
     return f"{minutes}m {seconds}s"
 
 
+def _is_unknown_only(rows):
+    return len(rows) == 1 and str(rows[0].get("name") or "").lower() == "unknown"
+
+
 class OmnixService:
 
     # =========================
@@ -180,6 +184,28 @@ class OmnixService:
     # BY PRODUCT
     # =========================
     @staticmethod
+    def _get_product_from_category(start, end):
+        res = (
+            supabase.table("omnix_cases")
+            .select("category")
+            .gte("interaction_at", start)
+            .lt("interaction_at", end)
+            .execute()
+        )
+
+        counts = {}
+        for row in res.data or []:
+            name = str(row.get("category") or "").strip() or "Unknown"
+            counts[name] = counts.get(name, 0) + 1
+
+        return [
+            {"name": name, "count": total}
+            for name, total in sorted(
+                counts.items(), key=lambda item: item[1], reverse=True
+            )[:10]
+        ]
+
+    @staticmethod
     def get_by_product(mode, period, year):
         start, end = get_date_range(mode, period, year)
 
@@ -189,14 +215,24 @@ class OmnixService:
                 {"start_date": start, "end_date": end}
             ).execute()
 
-            return [
+            product = [
                 {"name": r["name"], "count": r["total"]}
                 for r in (res.data or [])
             ]
 
+            return (
+                OmnixService._get_product_from_category(start, end)
+                if not product or _is_unknown_only(product)
+                else product
+            )
+
         except Exception as e:
             print(f"ERROR OMNIX PRODUCT: {e}")
-            return []
+            try:
+                return OmnixService._get_product_from_category(start, end)
+            except Exception as fallback_error:
+                print(f"ERROR OMNIX PRODUCT FALLBACK: {fallback_error}")
+                return []
 
 
     # =========================
@@ -244,6 +280,17 @@ class OmnixService:
             data = _rpc_json(res.data)
             summary = data.get("summary") or {}
 
+            product = [
+                {
+                    "name": row.get("name"),
+                    "count": int(row.get("total") or 0),
+                }
+                for row in (data.get("product") or [])
+            ]
+
+            if not product or _is_unknown_only(product):
+                product = OmnixService._get_product_from_category(start, end)
+
             return {
                 "summary": {
                     "total_ticket": int(summary.get("total_ticket") or 0),
@@ -286,13 +333,7 @@ class OmnixService:
                     }
                     for row in (data.get("category") or [])
                 ],
-                "product": [
-                    {
-                        "name": row.get("name"),
-                        "count": int(row.get("total") or 0),
-                    }
-                    for row in (data.get("product") or [])
-                ],
+                "product": product,
                 "customer": data.get("customer") or [],
             }
 

@@ -53,6 +53,8 @@ const HourlyChart = memo(function HourlyChart({
           <XAxis
             dataKey="label"
             tick={{ fill: tickColor, fontSize: 9 }}
+            interval={0}
+            minTickGap={0}
             tickLine={false}
             axisLine={false}
             padding={{ left: 4, right: 4 }}
