@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -56,8 +57,21 @@ def _as_lower(value) -> str:
     return str(value or "").strip().lower()
 
 
+def _normalize_compare_phone(value) -> str:
+    phone = re.sub(r"[^\d+]", "", str(value or "").strip())
+    if phone.startswith("+62"):
+        return phone[1:]
+    if phone.startswith("08"):
+        return "62" + phone[1:]
+    if phone.startswith("8"):
+        return "62" + phone
+    if phone.startswith("62"):
+        return phone
+    return phone
+
+
 def _phone_profile(value) -> dict:
-    phone = str(value or "").strip()
+    phone = _normalize_compare_phone(value)
     return {
         "prefix": phone[:3] if phone else "empty",
         "length": len(phone),
@@ -71,7 +85,7 @@ def _phone_bucket(value) -> str:
 
 
 def _mask_phone(value) -> str:
-    phone = str(value or "").strip()
+    phone = _normalize_compare_phone(value)
     if not phone:
         return ""
     if len(phone) <= 6:
@@ -200,7 +214,7 @@ class CleanupService:
 
             omnix_lookup = {}
             for row in omnix_rows:
-                phone = str(row.get("customer_hp") or "").strip()
+                phone = _normalize_compare_phone(row.get("customer_hp"))
                 interaction_date = _jakarta_date(row.get("interaction_at"))
                 if not phone or not interaction_date:
                     continue
@@ -211,7 +225,9 @@ class CleanupService:
                 if not _is_abandon(row):
                     continue
 
-                phone = str(row.get("clid_normalized") or "").strip()
+                phone = _normalize_compare_phone(
+                    row.get("clid_normalized") or row.get("clid_raw")
+                )
                 interaction_date = _jakarta_date(row.get("interaction_at"))
                 if not phone or not interaction_date:
                     continue
@@ -303,7 +319,7 @@ class CleanupService:
         omnix_by_phone_created_date = {}
 
         for row in omnix_rows:
-            phone = str(row.get("customer_hp") or "").strip()
+            phone = _normalize_compare_phone(row.get("customer_hp"))
             if not phone:
                 continue
 
@@ -324,7 +340,7 @@ class CleanupService:
         sample_matches = []
 
         for row in voice_rows:
-            phone = str(row.get("clid_normalized") or "").strip()
+            phone = _normalize_compare_phone(row.get("clid_normalized") or row.get("clid_raw"))
             bucket = _phone_bucket(phone)
             voice_format_counts[bucket] = voice_format_counts.get(bucket, 0) + 1
 
