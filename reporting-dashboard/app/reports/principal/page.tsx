@@ -159,9 +159,31 @@ function formatKpi(key: string, data: KpiData): string {
   return EMPTY_KPI_TEXT
 }
 
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
+function getCurrentMonthDateRange() {
+  const today = new Date()
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+
+  return {
+    start: formatDateInput(firstDay),
+    end: formatDateInput(today),
+  }
+}
+
 export default function PrincipalReportPage() {
-  const [startDate, setStartDate] = useState("2026-06-01")
-  const [endDate, setEndDate] = useState("2026-06-30")
+  const [startDate, setStartDate] = useState(
+    () => getCurrentMonthDateRange().start
+  )
+  const [endDate, setEndDate] = useState(
+    () => getCurrentMonthDateRange().end
+  )
   const [kpi, setKpi] = useState<KpiData>(EMPTY)
   const [loading, setLoading] = useState(false)
   const [generated, setGenerated] = useState(false)
