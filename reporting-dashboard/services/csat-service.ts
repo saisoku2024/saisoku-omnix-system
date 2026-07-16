@@ -36,14 +36,35 @@ function normalizeCsatResponse(response: CsatResponse): CsatPayload {
 }
 
 export async function fetchCsatData(mode: ModeType, period: string, year: number) {
-  const qs = buildPeriodQuery(mode, period, year)
-  const response = await fetch(`${CSAT_API}/all?${qs.toString()}`, {
-    cache: "no-store",
-  })
+  const currentQs = buildPeriodQuery(mode, period, year)
+  const trendQs = buildPeriodQuery("yearly", "all", year)
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
+  const [currentResponse, trendResponse] = await Promise.all([
+    fetch(`${CSAT_API}/all?${currentQs.toString()}`, {
+      cache: "no-store",
+    }),
+    fetch(`${CSAT_API}/all?${trendQs.toString()}`, {
+      cache: "no-store",
+    }),
+  ])
+
+  if (!currentResponse.ok) {
+    throw new Error(`HTTP ${currentResponse.status}`)
   }
 
-  return normalizeCsatResponse((await response.json()) as CsatResponse)
+  if (!trendResponse.ok) {
+    throw new Error(`HTTP ${trendResponse.status}`)
+  }
+
+  const currentPayload = normalizeCsatResponse(
+    (await currentResponse.json()) as CsatResponse
+  )
+  const trendPayload = normalizeCsatResponse(
+    (await trendResponse.json()) as CsatResponse
+  )
+
+  return {
+    ...currentPayload,
+    rawTrend: trendPayload.rawTrend,
+  }
 }
