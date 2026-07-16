@@ -7,6 +7,7 @@ from app.core.supabase import supabase
 
 JAKARTA_TZ = ZoneInfo("Asia/Jakarta")
 UTC_TZ = ZoneInfo("UTC")
+SCAN_PAGE_SIZE = 1000
 TEXT_COLUMNS = [
     "customer_name",
     "main_category",
@@ -113,6 +114,31 @@ def _contains_text(row, needle: str) -> bool:
     return any(normalized_needle in _as_lower(row.get(column)) for column in TEXT_COLUMNS)
 
 
+def _fetch_period_rows(table: str, columns: str, start_iso: str, end_iso: str) -> list[dict]:
+    rows = []
+    offset = 0
+
+    while True:
+        response = (
+            supabase.table(table)
+            .select(columns)
+            .gte("interaction_at", start_iso)
+            .lt("interaction_at", end_iso)
+            .order("interaction_at")
+            .range(offset, offset + SCAN_PAGE_SIZE - 1)
+            .execute()
+        )
+        batch = response.data or []
+        rows.extend(batch)
+
+        if len(batch) < SCAN_PAGE_SIZE:
+            break
+
+        offset += SCAN_PAGE_SIZE
+
+    return rows
+
+
 def _candidate_from_omnix(row) -> dict:
     return {
         "target_table": "omnix_cases",
@@ -170,34 +196,29 @@ class CleanupService:
         start_iso = _date_to_utc_iso(start_date)
         end_iso = _date_to_utc_iso(end_date + timedelta(days=1))
 
-        omnix_res = (
-            supabase.table("omnix_cases")
-            .select(
-                ",".join(
-                    [
-                        "id",
-                        "ticket_id",
-                        "interaction_at",
-                        "customer_name",
-                        "customer_hp",
-                        "channel",
-                        "main_category",
-                        "category",
-                        "subcategory",
-                        "detail_subcategory",
-                        "detail_subcategory2",
-                        "feedback",
-                        "agent_name",
-                    ]
-                )
-            )
-            .gte("interaction_at", start_iso)
-            .lt("interaction_at", end_iso)
-            .limit(10000)
-            .execute()
+        omnix_rows = _fetch_period_rows(
+            "omnix_cases",
+            ",".join(
+                [
+                    "id",
+                    "ticket_id",
+                    "interaction_at",
+                    "customer_name",
+                    "customer_hp",
+                    "channel",
+                    "main_category",
+                    "category",
+                    "subcategory",
+                    "detail_subcategory",
+                    "detail_subcategory2",
+                    "feedback",
+                    "agent_name",
+                ]
+            ),
+            start_iso,
+            end_iso,
         )
 
-        omnix_rows = omnix_res.data or []
         candidates: dict[str, dict] = {}
         rule_counts = {
             "abandon_match": 0,
@@ -208,17 +229,12 @@ class CleanupService:
         total_scanned_voice = 0
 
         if "abandon_match" in rules:
-            voice_res = (
-                supabase.table("voice_interactions")
-                .select(
-                    "id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status,queue_name,agent_name,channel"
-                )
-                .gte("interaction_at", start_iso)
-                .lt("interaction_at", end_iso)
-                .limit(10000)
-                .execute()
+            voice_rows = _fetch_period_rows(
+                "voice_interactions",
+                "id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status,queue_name,agent_name,channel",
+                start_iso,
+                end_iso,
             )
-            voice_rows = voice_res.data or []
             total_scanned_voice = len(voice_rows)
 
             omnix_lookup = {}
@@ -304,25 +320,20 @@ class CleanupService:
         start_iso = _date_to_utc_iso(start_date)
         end_iso = _date_to_utc_iso(end_date + timedelta(days=1))
 
-        voice_res = (
-            supabase.table("voice_interactions")
-            .select("id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status")
-            .gte("interaction_at", start_iso)
-            .lt("interaction_at", end_iso)
-            .limit(10000)
-            .execute()
+        voice_data = _fetch_period_rows(
+            "voice_interactions",
+            "id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status",
+            start_iso,
+            end_iso,
         )
-        omnix_res = (
-            supabase.table("omnix_cases")
-            .select("id,ticket_id,interaction_at,created_at,customer_hp")
-            .gte("interaction_at", start_iso)
-            .lt("interaction_at", end_iso)
-            .limit(10000)
-            .execute()
+        omnix_rows = _fetch_period_rows(
+            "omnix_cases",
+            "id,ticket_id,interaction_at,created_at,customer_hp",
+            start_iso,
+            end_iso,
         )
 
-        voice_rows = [row for row in (voice_res.data or []) if _is_abandon(row)]
-        omnix_rows = omnix_res.data or []
+        voice_rows = [row for row in voice_data if _is_abandon(row)]
         omnix_by_phone = {}
         omnix_by_phone_interaction_date = {}
         omnix_by_phone_created_date = {}
