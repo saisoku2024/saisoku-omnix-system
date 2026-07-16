@@ -10,7 +10,7 @@ import type {
   VoiceResponse,
 } from "@/features/voice/types/voice"
 import { buildPeriodQuery } from "@/services/period"
-import { MONTHS } from "@/features/voice/constants"
+import { HOURS, MONTHS } from "@/features/voice/constants"
 
 const VOICE_API = apiUrl("/api/voice")
 const EMPTY_SUMMARY: SummaryData = {
@@ -52,6 +52,15 @@ function fallbackArray<T>(value: T[] | undefined) {
 function normalizeDayLabel(value: string | number | undefined): string {
   const day = Number(String(value ?? "").replace(/\D/g, ""))
   return Number.isFinite(day) && day > 0 ? String(day).padStart(2, "0") : ""
+}
+
+function normalizeHourLabel(value: string | number | undefined): string {
+  const rawValue = String(value ?? "").trim()
+  const hour = Number(rawValue.includes(":") ? rawValue.split(":")[0] : rawValue)
+
+  return Number.isFinite(hour) && hour >= 0 && hour <= 23
+    ? `${String(hour).padStart(2, "0")}:00`
+    : ""
 }
 
 function getMonthDays(period: string, year: number): string[] {
@@ -101,6 +110,19 @@ function normalizeDailyData(
   }))
 }
 
+function normalizeHourlyData(rows: HourlyData[] | undefined): HourlyData[] {
+  const rowMap = new Map(
+    fallbackArray(rows)
+      .map((row) => [normalizeHourLabel(row.label), row.count] as const)
+      .filter(([label]) => label !== "")
+  )
+
+  return HOURS.map((label) => ({
+    label,
+    count: rowMap.get(label) ?? 0,
+  }))
+}
+
 function normalizeVoiceResponse(
   response: VoiceResponse,
   mode: ModeType,
@@ -110,7 +132,7 @@ function normalizeVoiceResponse(
   return {
     summary: sanitizeSummary(response.summary),
     daily: normalizeDailyData(response.daily, mode, period, year),
-    hourly: fallbackArray(response.hourly),
+    hourly: normalizeHourlyData(response.hourly),
     byDay: fallbackArray(response.byDay),
     agentHandling: fallbackArray(response.agentHandling),
     agentAht: fallbackArray(response.agentAht),

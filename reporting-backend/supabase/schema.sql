@@ -364,7 +364,7 @@ category_data as (
   limit 10
 ),
 product_data as (
-  select coalesce(nullif(product, ''), 'Unknown') as name, count(*)::int as total
+  select coalesce(nullif(category, ''), 'Unknown') as name, count(*)::int as total
   from filtered
   group by 1
   order by total desc
