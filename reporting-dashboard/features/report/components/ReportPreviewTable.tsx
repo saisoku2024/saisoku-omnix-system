@@ -8,31 +8,35 @@ type Props = {
 
 export default function ReportPreviewTable({ data }: Props) {
   if (!data || data.length === 0) {
-    return <div className="p-4 border rounded-lg text-sm text-gray-500">No data available</div>;
+    return (
+      <div className="rounded-xl border border-dashed border-(--c-border) bg-(--c-control) px-4 py-8 text-center text-sm text-(--c-muted)">
+        No data available
+      </div>
+    );
   }
 
   // Mengambil daftar kolom dari keys objek pertama
   const columns = Object.keys(data[0]);
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="p-4 border-b bg-gray-50/50">
-        <h3 className="font-semibold text-sm">Preview Table</h3>
+    <div className="overflow-hidden rounded-xl border border-(--c-border) bg-(--c-surface)">
+      <div className="border-b border-(--c-border) bg-(--c-control) px-4 py-3">
+        <h3 className="text-sm font-semibold text-(--c-text)">Preview Table</h3>
       </div>
-      <div className="overflow-x-auto">
+      <div className="max-h-[420px] overflow-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+          <thead className="sticky top-0 bg-(--c-control) text-[11px] uppercase text-(--c-muted)">
             <tr>
               {columns.map((col) => (
-                <th key={col} className="px-4 py-3 font-semibold">{col.replace(/_/g, " ")}</th>
+                <th key={col} className="whitespace-nowrap px-4 py-3 font-semibold">{col.replace(/_/g, " ")}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-(--c-border)">
             {data.map((row, i) => (
-              <tr key={i} className="hover:bg-gray-50">
+              <tr key={i} className="hover:bg-(--c-control)">
                 {columns.map((col) => (
-                  <td key={col} className="px-4 py-2 text-gray-700">
+                  <td key={col} className="whitespace-nowrap px-4 py-2.5 text-(--c-text)">
                     {row[col]}
                   </td>
                 ))}

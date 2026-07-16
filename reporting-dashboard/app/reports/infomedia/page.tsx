@@ -6,6 +6,9 @@ import {
   Smartphone, 
   Headphones, 
   History,
+  RotateCcw,
+  Search,
+  Download,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -24,6 +27,26 @@ import {
   getReportHistory,
 } from "@/services/report-history"
 
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
+}
+
+function getCurrentMonthDateRange() {
+  const today = new Date()
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+
+  return {
+    start: formatDateInput(firstDay),
+    end: formatDateInput(today),
+  }
+}
+
+const currentMonthDateRange = getCurrentMonthDateRange()
+
 export default function ReportCenterPage() {
   const [module, setModule] = useState<"digital" | "voice">("digital")
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -38,13 +61,13 @@ export default function ReportCenterPage() {
     main_categories: [],
   })
 
-  const [form, setForm] = useState({
-    report_type: "traffic_digital",
+  const getDefaultForm = (selectedModule: "digital" | "voice") => ({
+    report_type: selectedModule === "digital" ? "traffic_digital" : "traffic_inbound",
     channel: "",
     brand: "",
     main_category: "",
-    start_date: "",
-    end_date: "",
+    start_date: currentMonthDateRange.start,
+    end_date: currentMonthDateRange.end,
     divisi: "",
     departemen: "",
     customer: "",
@@ -55,6 +78,8 @@ export default function ReportCenterPage() {
     sub_segment: "",
     kota: "",
   })
+
+  const [form, setForm] = useState(() => getDefaultForm("digital"))
 
   const [previewData, setPreviewData] = useState<PreviewRow[]>([])
 
@@ -172,23 +197,7 @@ export default function ReportCenterPage() {
   }
 
   const handleReset = () => {
-    setForm({
-      report_type: module === "digital" ? "traffic_digital" : "traffic_inbound",
-      channel: "",
-      brand: "",
-      main_category: "",
-      start_date: "",
-      end_date: "",
-      divisi: "",
-      departemen: "",
-      customer: "",
-      nama_layanan: "",
-      nama_sub_layanan: "",
-      layanan_cc_non_cc: "",
-      segment: "",
-      sub_segment: "",
-      kota: "",
-    })
+    setForm(getDefaultForm(module))
   }
 
   const handleClearHistory = () => {
@@ -198,23 +207,28 @@ export default function ReportCenterPage() {
   }
 
   return (
-    <div className="p-5 gap-4 flex flex-col max-w-[1400px] mx-auto">
-      <div className="flex items-center justify-between pb-4 border-b border-(--c-border)">
+    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 p-5">
+      <div className="flex flex-col gap-3 border-b border-(--c-border) pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="flex items-center gap-3 text-[17px] font-semibold text-(--c-text)">
-            <FileSpreadsheet className="h-5 w-5 text-sky-500" />
+          <h1 className="flex items-center gap-3 text-[17px] font-bold text-(--c-text)">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/12 text-sky-400">
+              <FileSpreadsheet className="h-4.5 w-4.5" />
+            </span>
             Report Center
           </h1>
+          <p className="mt-1 text-xs text-(--c-muted)">
+            Generate traffic report with current-month defaults.
+          </p>
         </div>
         <button
           onClick={() => setHistoryOpen(true)}
-          className="flex h-9 items-center gap-2 rounded-lg border border-(--c-border) bg-(--c-control) px-4 text-sm font-medium transition-colors hover:bg-white/5"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-(--c-border) bg-(--c-control) px-4 text-sm font-semibold transition-colors hover:bg-(--c-surface)"
         >
           <History className="h-4 w-4" /> Export History
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {[
           { id: "digital", label: "Digital Traffic", desc: "Omnichannel Report", icon: Smartphone },
           { id: "voice", label: "Voice Traffic", desc: "Call Center Report", icon: Headphones },
@@ -229,7 +243,7 @@ export default function ReportCenterPage() {
                 report_type: selected === "digital" ? "traffic_digital" : "traffic_inbound",
               }))
             }}
-            className={`group rounded-xl border p-4 px-5 text-left transition-all ${module === item.id ? "border-sky-500 bg-sky-500/10" : "border-(--c-border) bg-(--c-surface)"}`}
+            className={`group rounded-xl border px-5 py-4 text-left transition-all ${module === item.id ? "border-sky-500 bg-sky-500/10 shadow-[0_0_0_1px_rgba(14,165,233,0.16)]" : "border-(--c-border) bg-(--c-surface) hover:border-sky-500/35"}`}
           >
             <div className="flex items-center gap-4">
               <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${module === item.id ? "bg-sky-500/15" : "bg-(--c-control)"}`}>
@@ -246,9 +260,9 @@ export default function ReportCenterPage() {
 
       <Card>
         <CardHeader title="Report Configuration" />
-        <div className="p-5">
+        <div className="p-4.5">
           {loadingOptions ? (
-            <div className="rounded-lg border border-dashed border-(--c-border) bg-(--c-control) px-4 py-6 text-sm text-(--c-muted)">
+            <div className="rounded-xl border border-dashed border-(--c-border) bg-(--c-control) px-4 py-6 text-sm text-(--c-muted)">
               Memuat opsi report...
             </div>
           ) : module === "digital" ? (
@@ -258,12 +272,17 @@ export default function ReportCenterPage() {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 p-5 pt-0 border-t border-(--c-border) pt-5">
-          <button onClick={handleReset} disabled={loading} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control) disabled:opacity-50">Reset</button>
-          <button onClick={handlePreview} disabled={loadingPreview || loadingExport || loadingOptions} className="h-9 px-4 rounded-lg border border-(--c-border) font-medium text-sm hover:bg-(--c-control) disabled:opacity-50">
+        <div className="flex flex-col gap-2 border-t border-(--c-border) p-4.5 sm:flex-row sm:justify-end">
+          <button onClick={handleReset} disabled={loading} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-(--c-border) px-4 text-sm font-semibold hover:bg-(--c-control) disabled:opacity-50">
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </button>
+          <button onClick={handlePreview} disabled={loadingPreview || loadingExport || loadingOptions} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-(--c-border) px-4 text-sm font-semibold hover:bg-(--c-control) disabled:opacity-50">
+            <Search className="h-4 w-4" />
             {loadingPreview ? "Loading..." : "Preview"}
           </button>
-          <button onClick={handleExport} disabled={loadingExport || loadingPreview || loadingOptions} className="h-9 px-4 rounded-lg bg-sky-600 text-white font-medium text-sm hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={handleExport} disabled={loadingExport || loadingPreview || loadingOptions} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50">
+            <Download className="h-4 w-4" />
             {loadingExport ? "Exporting..." : "Export Excel"}
           </button>
         </div>
