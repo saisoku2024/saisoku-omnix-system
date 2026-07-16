@@ -36,7 +36,7 @@ const DailyChart = memo(function DailyChart({
     [data]
   )
 
-  const tickInterval = data.length > 20 ? 1 : 0
+  const tickInterval = 0
   const peakColor = "#22c55e"
   const normalColor = isDark ? "rgba(34,197,94,0.72)" : "rgba(34,197,94,0.78)"
   const hasHighlights = highlightedLabels.length > 0

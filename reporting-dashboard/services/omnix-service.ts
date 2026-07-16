@@ -9,6 +9,7 @@ import type {
   TrendData,
 } from "@/features/omnix/types/omnix"
 import { buildPeriodQuery } from "@/services/period"
+import { MONTHS } from "@/features/omnix/constants"
 
 const OMNIX_API = apiUrl("/api/omnix")
 const EMPTY_SUMMARY: SummaryData = {
@@ -49,6 +50,21 @@ function sanitizeSummary(raw: Partial<SummaryData> | undefined): SummaryData {
   }
 }
 
+function normalizeDayLabel(value: string | number | undefined): string {
+  const day = Number(String(value ?? "").replace(/\D/g, ""))
+  return Number.isFinite(day) && day > 0 ? String(day).padStart(2, "0") : ""
+}
+
+function getMonthDays(period: string, year: number): string[] {
+  const monthIndex = MONTHS.indexOf(period)
+  const daysInMonth =
+    monthIndex === -1 ? 31 : new Date(year, monthIndex + 1, 0).getDate()
+
+  return Array.from({ length: daysInMonth }, (_, index) =>
+    String(index + 1).padStart(2, "0")
+  )
+}
+
 function sanitizeTrend(raw: unknown): TrendData[] {
   if (!Array.isArray(raw)) return []
 
@@ -74,6 +90,30 @@ function sanitizeTrend(raw: unknown): TrendData[] {
     .filter((entry) => entry.label !== "")
 }
 
+function normalizeTrendData(
+  raw: unknown,
+  mode: ModeType,
+  period: string,
+  year: number
+): TrendData[] {
+  const trend = sanitizeTrend(raw)
+
+  if (mode !== "monthly") {
+    return trend
+  }
+
+  const dayMap = new Map(
+    trend
+      .map((row) => [normalizeDayLabel(row.label), row.count] as const)
+      .filter(([label]) => label !== "")
+  )
+
+  return getMonthDays(period, year).map((label) => ({
+    label,
+    count: dayMap.get(label) ?? 0,
+  }))
+}
+
 function sanitizeNamedCount(raw: unknown): NamedCount[] {
   if (!Array.isArray(raw)) return []
 
@@ -89,14 +129,19 @@ function sanitizeNamedCount(raw: unknown): NamedCount[] {
     .filter((entry) => entry.name !== "")
 }
 
-function normalizeOmnixResponse(response: OmnixResponse): OmnixPayload {
+function normalizeOmnixResponse(
+  response: OmnixResponse,
+  mode: ModeType,
+  period: string,
+  year: number
+): OmnixPayload {
   const rawTrend =
     (response as Record<string, unknown>).trend ??
     (response as Record<string, unknown>).daily
 
   return {
     summary: sanitizeSummary(response.summary),
-    trend: sanitizeTrend(rawTrend),
+    trend: normalizeTrendData(rawTrend, mode, period, year),
     channel: sanitizeNamedCount(response.channel),
     category: sanitizeNamedCount(response.category),
     product: sanitizeNamedCount(response.product),
@@ -115,5 +160,5 @@ export async function fetchOmnixData(mode: ModeType, period: string, year: numbe
     throw new Error(`HTTP ${response.status}`)
   }
 
-  return normalizeOmnixResponse((await response.json()) as OmnixResponse)
+  return normalizeOmnixResponse((await response.json()) as OmnixResponse, mode, period, year)
 }
