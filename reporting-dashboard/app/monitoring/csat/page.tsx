@@ -21,6 +21,7 @@ import {
 import {
   getHighlightedMonths,
   buildTrendData,
+  getVisibleMonths,
 } from "@/features/csat/utils/chart"
 
 import { fmt } from "@/features/csat/utils/format"
@@ -133,7 +134,11 @@ export default function CSATPage() {
     else setPeriod("all")
   }
 
-  const trendData = useMemo(() => buildTrendData(rawTrend), [rawTrend])
+  const visibleMonths = useMemo(() => getVisibleMonths(mode, period), [mode, period])
+  const trendData = useMemo(
+    () => buildTrendData(rawTrend, mode, period),
+    [mode, period, rawTrend]
+  )
   
   const isTrendEmpty = useMemo(() => trendData.every(d => d.positive_pct === 0), [trendData])
 
@@ -144,7 +149,10 @@ export default function CSATPage() {
 
   const isDistEmpty = useMemo(() => distribution.every(d => d.value === 0), [distribution])
 
-  const highlightedMonths = useMemo(() => getHighlightedMonths(mode, period), [mode, period])
+  const highlightedMonths = useMemo(
+    () => getHighlightedMonths(mode, period).filter((month) => visibleMonths.includes(month)),
+    [mode, period, visibleMonths]
+  )
   const periodOptions = useMemo(() => (mode === "monthly" ? MONTHS : mode === "quarterly" ? QUARTERS : []), [mode])
 
   const cssVars: React.CSSProperties = isDark

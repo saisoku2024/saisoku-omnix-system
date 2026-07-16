@@ -1,6 +1,30 @@
 import type { ModeType, TrendRaw, TrendRow } from "@/features/csat/types/csat"
 import { MONTHS, QUARTER_MONTHS } from "@/features/csat/constants"
 
+export function getVisibleMonths(mode: ModeType, period: string): string[] {
+  if (mode === "yearly") {
+    return [...MONTHS]
+  }
+
+  if (mode === "quarterly") {
+    const quarterOrder = ["Q1", "Q2", "Q3", "Q4"]
+    const quarterIndex = quarterOrder.indexOf(period)
+
+    if (quarterIndex === -1) {
+      return [...MONTHS]
+    }
+
+    return MONTHS.slice(0, (quarterIndex + 1) * 3)
+  }
+
+  const monthIndex = MONTHS.indexOf(period)
+  if (monthIndex === -1) {
+    return [...MONTHS]
+  }
+
+  return MONTHS.slice(0, monthIndex + 1)
+}
+
 export function getHighlightedMonths(
   mode: ModeType,
   period: string
@@ -10,7 +34,11 @@ export function getHighlightedMonths(
   return [period]
 }
 
-export function buildTrendData(raw: TrendRaw[]): TrendRow[] {
+export function buildTrendData(
+  raw: TrendRaw[],
+  mode: ModeType,
+  period: string
+): TrendRow[] {
   const map: Record<string, { positive_pct: number }> = {}
 
   for (const row of raw ?? []) {
@@ -33,7 +61,7 @@ export function buildTrendData(raw: TrendRaw[]): TrendRow[] {
     }
   }
 
-  return MONTHS.map((m) => ({
+  return getVisibleMonths(mode, period).map((m) => ({
     month: m,
     positive_pct: map[m]?.positive_pct ?? 0,
   }))
