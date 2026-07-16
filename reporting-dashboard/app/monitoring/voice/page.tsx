@@ -119,7 +119,7 @@ export default function VoicePage() {
   return (
     <div
       style={cssVars}
-      className="flex min-h-screen flex-col overflow-x-hidden bg-(--c-bg)] font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text)]"
+      className="flex min-h-screen flex-col overflow-x-hidden bg-(--c-bg) font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text)"
     >
       <VoiceHeader
         mode={mode}
@@ -162,7 +162,7 @@ export default function VoicePage() {
             badge={loading ? undefined : "LIVE"}
             extra={
               !loading && (
-                <span className="text-[10px] text-(--c-muted)]">
+                <span className="text-[10px] text-(--c-muted)">
                   Peak day highlighted
                 </span>
               )

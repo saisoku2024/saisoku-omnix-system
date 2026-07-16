@@ -46,14 +46,14 @@ export default function DashboardHeader({
   onToggleTheme,
 }: Props) {
   return (
-    <header className="sticky top-0 z-30 flex h-[54px] items-center justify-between gap-3 border-b border-[var(--c-border)] bg-[var(--c-surface)] px-5">
+    <header className="sticky top-0 z-30 flex h-[54px] items-center justify-between gap-3 border-b border-(--c-border) bg-(--c-surface) px-5">
       <div className="flex flex-shrink-0 items-center gap-2.5">
         <InsightLogo />
         <div className="flex flex-col leading-none">
-          <span className="text-[13px] font-extrabold tracking-widest text-[var(--c-text)]">
+          <span className="text-[13px] font-extrabold tracking-widest text-(--c-text)">
             INSIGHT
           </span>
-          <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--c-muted)]">
+          <span className="text-[9px] font-semibold uppercase tracking-wider text-(--c-muted)">
             Dashboard
           </span>
         </div>

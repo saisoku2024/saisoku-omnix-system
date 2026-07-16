@@ -15,12 +15,12 @@ export default function CustomerSummaryBar({
   periodLabel
 }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-[9px] border border-[var(--c-border)] bg-[var(--c-surface)] px-3.5 py-2 text-[11px] text-[var(--c-muted)]">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-[9px] border border-(--c-border) bg-(--c-surface) px-3.5 py-2 text-[11px] text-(--c-muted)">
       <Users size={12} className="flex-shrink-0" />
 
       <span>
         Customer:{" "}
-        <strong className="tabular-nums text-[var(--c-text)]">
+        <strong className="tabular-nums text-(--c-text)">
           {formatCount(Number(customer) || 0)}
         </strong>
       </span>

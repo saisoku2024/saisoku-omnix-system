@@ -25,11 +25,19 @@ npm install
 npm run dev -- --port 3000
 ```
 
-Buat `.env.local`:
+Buat `.env.local` untuk development lokal:
 
 ```txt
-NEXT_PUBLIC_API_URL=http://localhost:8001
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8001
 ```
+
+Kalau frontend lokal mau diarahkan ke backend Render, ganti nilainya menjadi:
+
+```txt
+NEXT_PUBLIC_API_URL=https://saisoku-omnix-system.onrender.com
+```
+
+Setelah ubah `.env.local`, restart dev server supaya base URL baru terbaca.
 
 ## Script
 

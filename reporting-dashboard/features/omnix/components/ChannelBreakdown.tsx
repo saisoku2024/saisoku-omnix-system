@@ -60,11 +60,11 @@ export default function ChannelBreakdown({ data }: Props) {
                 style={{ background: color }}
               />
 
-              <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[var(--c-text)]">
+              <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-(--c-text)">
                 {c.name}
               </span>
 
-              <span className="text-[11px] font-bold tabular-nums text-[var(--c-text)]">
+              <span className="text-[11px] font-bold tabular-nums text-(--c-text)">
                 {fmt(c.count || 0)}
               </span>
 

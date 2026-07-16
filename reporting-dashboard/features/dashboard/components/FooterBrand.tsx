@@ -31,7 +31,7 @@ export default function FooterBrand({ isDark }: Props) {
   const lo = (t: string) => <span style={{ color: base }}>{t}</span>
 
   return (
-    <footer className="flex items-center justify-center gap-2 border-t border-[var(--c-border)] bg-[var(--c-surface)] px-5 py-2.5">
+    <footer className="flex items-center justify-center gap-2 border-t border-(--c-border) bg-(--c-surface) px-5 py-2.5">
       <InsightLogoSmall />
       <p className="m-0 text-[10px] tracking-wide">
         {hi("I")}{lo("ntegrated mo")}{hi("N")}{lo("itoring ")}

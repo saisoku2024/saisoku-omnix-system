@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   getReportOptions,
@@ -14,54 +14,64 @@ import {
 } from "../types/report";
 
 export function useReport() {
-  const [loading, setLoading] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [loadingExport, setLoadingExport] = useState(false);
 
   const loadOptions = useCallback(async (): Promise<ReportOptions> => {
-    setLoading(true);
+    setLoadingOptions(true);
 
     try {
       return await getReportOptions();
     } finally {
-      setLoading(false);
+      setLoadingOptions(false);
     }
   }, []);
 
   const preview = useCallback(async (payload: PreviewRequest) => {
-    setLoading(true);
+    setLoadingPreview(true);
 
     try {
       return await previewReport(payload);
     } finally {
-      setLoading(false);
+      setLoadingPreview(false);
     }
   }, []);
 
   const exportDigitalExcel = useCallback(async (
     payload: ExportRequest
   ) => {
-    setLoading(true);
+    setLoadingExport(true);
 
     try {
       return await exportDigital(payload);
     } finally {
-      setLoading(false);
+      setLoadingExport(false);
     }
   }, []);
 
   const exportInboundExcel = useCallback(async (
     payload: ExportRequest
   ) => {
-    setLoading(true);
+    setLoadingExport(true);
 
     try {
       return await exportInbound(payload);
     } finally {
-      setLoading(false);
+      setLoadingExport(false);
     }
   }, []);
 
+  const loading = useMemo(
+    () => loadingOptions || loadingPreview || loadingExport,
+    [loadingExport, loadingOptions, loadingPreview]
+  );
+
   return {
     loading,
+    loadingOptions,
+    loadingPreview,
+    loadingExport,
     loadOptions,
     preview,
     exportDigitalExcel,

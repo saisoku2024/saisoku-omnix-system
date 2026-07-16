@@ -32,21 +32,21 @@ export default function OmnixHeader({
   onYearChange,
   onToggleTheme,
 }: Props) {
-  const subtitle = mode === "yearly" ? `Full Year ${year}` : `${period} · ${year}`
+  const subtitle = mode === "yearly" ? `Full Year ${year}` : `${period} - ${year}`
   const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1)
 
   return (
-    <header className="header-content sticky top-0 z-30 flex h-[60px] items-center justify-between gap-3 border-b border-[var(--c-border)] bg-[var(--c-surface)] px-5">
+    <header className="header-content sticky top-0 z-30 flex h-[60px] items-center justify-between gap-3 border-b border-(--c-border) bg-(--c-surface) px-5">
       <div className="flex flex-shrink-0 items-center gap-2.5">
         <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[9px] bg-[rgba(99,102,241,0.12)]">
           <LayoutGrid size={15} color="#6366f1" />
         </span>
 
         <div className="flex flex-col leading-[1.2]">
-          <span className="text-[13px] font-extrabold tracking-wide text-[var(--c-text)]">
+          <span className="text-[13px] font-extrabold tracking-wide text-(--c-text)">
             OMNIX Reporting
           </span>
-          <span className="mt-0.5 text-[10px] text-[var(--c-muted)]">
+          <span className="mt-0.5 text-[10px] text-(--c-muted)">
             {subtitle}
           </span>
         </div>
@@ -83,7 +83,7 @@ export default function OmnixHeader({
           onClick={onToggleTheme}
           aria-label="Toggle theme"
           title="Toggle dark mode"
-          className="flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[var(--c-border)] bg-[var(--c-control)] transition-colors hover:border-[var(--c-accent)]"
+          className="flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg border border-(--c-border) bg-(--c-control) transition-colors hover:border-(--c-accent)"
         >
           {isDark ? <Sun size={14} /> : <Moon size={14} />}
         </button>

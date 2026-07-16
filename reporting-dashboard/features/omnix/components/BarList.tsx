@@ -27,15 +27,15 @@ export default function BarList({ items, limit = 7 }: Props) {
         return (
           <li key={item.name}>
             <div className="mb-0.5 flex justify-between text-[10px]">
-              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[var(--c-muted)]">
+              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-(--c-muted)">
                 {item.name}
               </span>
-              <span className="ml-2 flex-shrink-0 font-bold tabular-nums text-[var(--c-text)]">
+              <span className="ml-2 flex-shrink-0 font-bold tabular-nums text-(--c-text)">
                 {fmt(item.count)}
               </span>
             </div>
 
-            <div className="h-1 overflow-hidden rounded-full bg-[var(--c-border)]">
+            <div className="h-1 overflow-hidden rounded-full bg-(--c-border)">
               <div
                 className="h-full rounded-full transition-[width] duration-500 ease-out"
                 style={{
