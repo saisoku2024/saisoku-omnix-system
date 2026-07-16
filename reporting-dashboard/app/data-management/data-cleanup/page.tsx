@@ -50,7 +50,11 @@ const RULES: Array<{
 ]
 
 function formatDateInput(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+
+  return `${year}-${month}-${day}`
 }
 
 function getDefaultDateRange() {
@@ -250,218 +254,210 @@ export default function DataCleanupPage() {
   const scannedCount = preview?.total_scanned_omnix ?? 0
 
   return (
-    <main className="min-h-screen bg-(--c-bg) text-(--c-text)">
-      <div className="mx-auto max-w-280 px-2 py-3 sm:px-3 sm:py-4 lg:px-3 lg:py-4">
-        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-(--c-border) bg-(--c-surface) px-4 py-3 shadow-sm sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-(--c-danger-soft) text-(--c-danger)">
-                <Trash2Icon size={17} />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-(--c-muted)">
-                  Data Management
-                </p>
-                <h1 className="text-lg font-semibold tracking-tight text-(--c-text)">
-                  Data Cleanup
-                </h1>
+    <main className="min-h-screen bg-(--c-bg) px-4 py-8 text-(--c-text) sm:px-6 sm:py-10 lg:px-8 lg:py-12">
+      <div className="mx-auto max-w-[1400px]">
+        <header className="mb-10 text-center">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-(--c-accent)">
+            Data Management
+          </p>
+          <h1 className="mt-3 bg-linear-to-br from-slate-100 via-slate-100 to-cyan-300 bg-clip-text font-(family-name:--app-font-heading) text-4xl font-extrabold tracking-normal text-transparent sm:text-5xl">
+            Data Cleanup
+          </h1>
+          <p className="mx-auto mt-3 max-w-2xl text-sm text-(--c-muted)">
+            Scan kandidat soft cleanup dari abandon call, test data, dan internal email sebelum admin menjalankan aksi final.
+          </p>
+        </header>
+
+        <section className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5 shadow-sm sm:p-7">
+          <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-(--c-muted)">
+                Cleanup Configuration
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-(--c-text)">
+                Filter Periode & Rule
+              </h2>
+            </div>
+            <div className="inline-flex items-center gap-2 self-start rounded-full border border-(--c-success)/25 bg-(--c-success-soft) px-3 py-1.5 text-[11px] font-semibold text-(--c-success)">
+              <ShieldCheckIcon size={13} />
+              Preview only
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-(--c-muted)">
+                  Date From
+                </span>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(event) => setDateFrom(event.target.value)}
+                  className="h-11 w-full rounded-xl border border-white/10 bg-slate-950/45 px-3 text-sm text-(--c-text) outline-none transition [color-scheme:dark] focus:border-(--c-accent)/50 focus:ring-4 focus:ring-cyan-400/10"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-(--c-muted)">
+                  Date To
+                </span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(event) => setDateTo(event.target.value)}
+                  className="h-11 w-full rounded-xl border border-white/10 bg-slate-950/45 px-3 text-sm text-(--c-text) outline-none transition [color-scheme:dark] focus:border-(--c-accent)/50 focus:ring-4 focus:ring-cyan-400/10"
+                />
+              </label>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-(--c-accent)/30 bg-transparent px-4 text-sm font-semibold text-(--c-accent) transition hover:-translate-y-0.5 hover:bg-(--c-accent-soft)"
+              >
+                <RefreshCcwIcon size={15} />
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={scanPreview}
+                disabled={loading || rules.length === 0}
+                className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-5 text-sm font-bold text-slate-950 shadow-[0_0_24px_rgba(34,211,238,.22)] transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:bg-(--c-overlay-2) disabled:text-(--c-muted) disabled:shadow-none"
+              >
+                {loading ? (
+                  <Loader2Icon size={16} className="animate-spin" />
+                ) : (
+                  <SearchIcon size={16} />
+                )}
+                {loading ? "Scanning..." : "Scan Preview"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {RULES.map((rule) => {
+              const checked = rules.includes(rule.id)
+              const Icon = rule.icon
+
+              return (
+                <button
+                  key={rule.id}
+                  type="button"
+                  onClick={() => toggleRule(rule.id)}
+                  className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 ${
+                    checked
+                      ? "border-(--c-accent)/55 bg-(--c-accent-soft) shadow-[0_8px_28px_rgba(34,211,238,.08)]"
+                      : "border-white/10 bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                        checked
+                          ? "border-(--c-accent)/35 bg-(--c-accent) text-slate-950"
+                          : "border-white/10 bg-slate-950/35 text-(--c-muted)"
+                      }`}
+                    >
+                      <Icon size={17} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-(--c-text)">
+                          {rule.title}
+                        </p>
+                        {checked ? (
+                          <CheckCircle2Icon size={14} className="text-(--c-accent)" />
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-(--c-muted)">
+                        {rule.description}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {error ? (
+            <div className="mt-5 rounded-xl border border-(--c-danger)/30 bg-(--c-danger-soft) p-3 text-xs text-(--c-danger)">
+              <div className="flex items-start gap-2">
+                <AlertTriangleIcon size={14} className="mt-0.5 shrink-0" />
+                <span>{error}</span>
               </div>
             </div>
-            <p className="mt-2 text-xs text-(--c-text-soft)">
-              Preview kandidat soft cleanup sebelum admin menjalankan penghapusan.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-(--c-border) bg-(--c-overlay) px-2.5 py-1 text-[11px] font-medium text-(--c-text-soft)">
-            <span className="h-2 w-2 rounded-full bg-(--c-success)" />
-            Preview only
-          </div>
-        </div>
+          ) : null}
 
-        <div className="grid grid-cols-12 gap-4">
-          <section className="col-span-12 lg:col-span-4">
-            <div className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5 shadow-sm">
-              <div className="mb-4">
-                <h2 className="text-sm font-semibold text-(--c-text)">
-                  Cleanup Configuration
+          <div className="my-7 h-px bg-white/10" />
+
+          <p className="mb-4 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-(--c-muted)">
+            Ringkasan Cleanup
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <MetricCard
+              label="Scanned Omnix"
+              value={formatNumber(scannedCount)}
+              tone="accent"
+            />
+            <MetricCard
+              label="Candidates"
+              value={formatNumber(candidateCount)}
+              tone={candidateCount > 0 ? "warning" : "success"}
+            />
+            <MetricCard label="Deleted Now" value="0" tone="danger" />
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-[20px] border border-white/10 bg-white/[0.03] p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <CalendarDaysIcon size={16} className="text-(--c-accent)" />
+                <h2 className="text-base font-semibold text-(--c-text)">
+                  Preview Result
                 </h2>
-                <p className="mt-1 text-xs text-(--c-muted)">
-                  Pilih periode dan rule yang ingin discan.
-                </p>
               </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="space-y-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-(--c-muted)">
-                      Date From
-                    </span>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(event) => setDateFrom(event.target.value)}
-                      className="h-10 w-full rounded-xl border border-(--c-border) bg-(--c-control) px-3 text-sm text-(--c-text) [color-scheme:dark]"
-                    />
-                  </label>
-                  <label className="space-y-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-(--c-muted)">
-                      Date To
-                    </span>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(event) => setDateTo(event.target.value)}
-                      className="h-10 w-full rounded-xl border border-(--c-border) bg-(--c-control) px-3 text-sm text-(--c-text) [color-scheme:dark]"
-                    />
-                  </label>
-                </div>
-
-                <div className="space-y-2">
-                  {RULES.map((rule) => {
-                    const checked = rules.includes(rule.id)
-                    const Icon = rule.icon
-
-                    return (
-                      <button
-                        key={rule.id}
-                        type="button"
-                        onClick={() => toggleRule(rule.id)}
-                        className={`w-full rounded-2xl border p-3 text-left transition ${
-                          checked
-                            ? "border-(--c-accent)/60 bg-(--c-accent-soft)"
-                            : "border-(--c-border) bg-(--c-overlay) hover:bg-(--c-overlay-2)"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                              checked
-                                ? "bg-(--c-accent) text-white"
-                                : "bg-(--c-overlay-2) text-(--c-muted)"
-                            }`}
-                          >
-                            <Icon size={16} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-(--c-text)">
-                                {rule.title}
-                              </p>
-                              {checked ? (
-                                <CheckCircle2Icon
-                                  size={15}
-                                  className="text-(--c-accent)"
-                                />
-                              ) : null}
-                            </div>
-                            <p className="mt-1 text-xs leading-relaxed text-(--c-muted)">
-                              {rule.description}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {error ? (
-                  <div className="rounded-2xl border border-(--c-danger)/30 bg-(--c-danger-soft) p-3 text-xs text-(--c-danger)">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangleIcon size={14} className="mt-0.5 shrink-0" />
-                      <span>{error}</span>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={scanPreview}
-                    disabled={loading || rules.length === 0}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-(--c-overlay-2) disabled:text-(--c-muted)"
-                  >
-                    {loading ? (
-                      <Loader2Icon size={16} className="animate-spin" />
-                    ) : (
-                      <SearchIcon size={16} />
-                    )}
-                    Scan Preview
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-(--c-border) bg-(--c-surface) px-3 text-(--c-text-soft) transition hover:bg-(--c-overlay)"
-                    aria-label="Reset filters"
-                  >
-                    <RefreshCcwIcon size={16} />
-                  </button>
-                </div>
-              </div>
+              <p className="mt-1 text-xs text-(--c-muted)">
+                {preview
+                  ? `${preview.date_from} sampai ${preview.date_to}${
+                      preview.truncated ? " - tampil 500 kandidat pertama" : ""
+                    }`
+                  : "Hasil scan akan muncul di sini setelah konfigurasi dijalankan."}
+              </p>
             </div>
-          </section>
-
-          <section className="col-span-12 space-y-4 lg:col-span-8">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <MetricCard
-                label="Scanned Omnix"
-                value={formatNumber(scannedCount)}
-                tone="accent"
-              />
-              <MetricCard
-                label="Candidates"
-                value={formatNumber(candidateCount)}
-                tone={candidateCount > 0 ? "warning" : "success"}
-              />
-              <MetricCard label="Deleted Now" value="0" tone="danger" />
-            </div>
-
             {preview ? (
-              <div className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <CalendarDaysIcon size={15} className="text-(--c-accent)" />
-                      <h2 className="text-sm font-semibold text-(--c-text)">
-                        Preview Result
-                      </h2>
-                    </div>
-                    <p className="mt-1 text-xs text-(--c-muted)">
-                      {preview.date_from} sampai {preview.date_to}
-                      {preview.truncated ? " - tampil 500 kandidat pertama" : ""}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-[11px]">
-                    {Object.entries(preview.rule_counts).map(([rule, total]) => (
-                      <span
-                        key={rule}
-                        className="rounded-full border border-(--c-border) bg-(--c-overlay) px-2.5 py-1 font-semibold text-(--c-text-soft)"
-                      >
-                        {formatRule(rule as CleanupRule)}: {formatNumber(total)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                {Object.entries(preview.rule_counts).map(([rule, total]) => (
+                  <span
+                    key={rule}
+                    className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 font-semibold text-(--c-text-soft)"
+                  >
+                    {formatRule(rule as CleanupRule)}: {formatNumber(total)}
+                  </span>
+                ))}
               </div>
             ) : null}
+          </div>
 
-            <CandidateTable items={preview?.items ?? []} />
+          <CandidateTable items={preview?.items ?? []} />
+        </section>
 
-            <div className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-4 shadow-sm">
-              <div className="flex items-start gap-3">
-                <ShieldCheckIcon className="mt-0.5 text-(--c-success)" size={18} />
-                <div>
-                  <h3 className="text-sm font-semibold text-(--c-text)">
-                    Soft cleanup guard
-                  </h3>
-                  <p className="mt-1 text-xs leading-relaxed text-(--c-muted)">
-                    Phase 1 hanya scan preview. Phase berikutnya tombol soft delete
-                    akan menampilkan jumlah data ter-update, data yang disembunyikan,
-                    dan histori cleanup.
-                  </p>
-                </div>
-              </div>
+        <section className="mt-5 rounded-[20px] border border-(--c-success)/20 bg-(--c-success-soft) p-4">
+          <div className="flex items-start gap-3">
+            <ShieldCheckIcon className="mt-0.5 text-(--c-success)" size={18} />
+            <div>
+              <h3 className="text-sm font-semibold text-(--c-text)">
+                Soft cleanup guard
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-(--c-muted)">
+                Phase 1 hanya scan preview. Phase berikutnya tombol soft delete
+                akan menampilkan jumlah data ter-update, data yang disembunyikan,
+                dan histori cleanup.
+              </p>
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
     </main>
   )
