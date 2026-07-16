@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
-import { ThemeProvider } from "@/contexts/theme-context"
+import { ThemeProvider } from "@/providers/theme-provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

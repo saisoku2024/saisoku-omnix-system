@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import type { Team } from "@/components/sidebar/types"
+import type { Team } from "@/types/sidebar"
 
 import {
   DropdownMenu,

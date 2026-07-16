@@ -21,6 +21,9 @@ dist/
 out/
 .next/
 .next-build-check/
+.next-structure-check/
+.next-types-check/
+.next-hooks-check/
 
 # Generated local dumps
 backend.txt

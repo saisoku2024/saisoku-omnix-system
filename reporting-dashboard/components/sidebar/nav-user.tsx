@@ -33,7 +33,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 
-import type { SidebarUser } from "@/components/sidebar/types"
+import type { SidebarUser } from "@/types/sidebar"
 
 interface NavUserProps {
   user: SidebarUser

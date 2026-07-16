@@ -1,6 +1,6 @@
 import React from "react"
 
-import Skeleton from "@/shared/ui/Skeleton"
+import Skeleton from "@/components/ui/skeleton"
 
 type Props = { rows?: number }
 

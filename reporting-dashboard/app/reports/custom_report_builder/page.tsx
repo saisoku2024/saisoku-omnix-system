@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 
-import Card from "@/shared/ui/Card"
+import Card from "@/components/ui/card"
 
 export default function ReportCenterPage() {
   return (

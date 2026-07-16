@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react"
 
-import { useTheme } from "@/contexts/theme-context"
+import { useTheme } from "@/providers/theme-provider"
 import {
   Phone,
   PhoneCall,
@@ -12,7 +12,7 @@ import {
   Star,
 } from "lucide-react"
 
-import Card from "@/shared/ui/Card"
+import Card from "@/components/ui/card"
 
 import { MONTHS, QUARTERS } from "@/features/voice/constants"
 import { fmt } from "@/features/voice/utils/format"

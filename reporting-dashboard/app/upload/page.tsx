@@ -21,7 +21,7 @@ import {
   History,
 } from "lucide-react"
 
-import { useTheme } from "@/contexts/theme-context"
+import { useTheme } from "@/providers/theme-provider"
 import UploadResultSummaryCard from "@/features/upload/components/UploadResultSummaryCard"
 import type { UploadResult } from "@/features/upload/types/Upload"
 import { API_ORIGIN, apiUrl } from "@/lib/api"
