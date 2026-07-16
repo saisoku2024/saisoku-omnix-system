@@ -178,6 +178,10 @@ alter table public.omnix_cases add column if not exists deleted_at timestamptz;
 alter table public.omnix_cases add column if not exists deleted_reason text;
 alter table public.omnix_cases add column if not exists deleted_by text;
 alter table public.omnix_cases add column if not exists cleanup_batch_id uuid;
+alter table public.voice_interactions add column if not exists deleted_at timestamptz;
+alter table public.voice_interactions add column if not exists deleted_reason text;
+alter table public.voice_interactions add column if not exists deleted_by text;
+alter table public.voice_interactions add column if not exists cleanup_batch_id uuid;
 
 create table if not exists public.cleanup_deleted_omnix_cases (
   id uuid primary key default gen_random_uuid(),
@@ -190,8 +194,21 @@ create table if not exists public.cleanup_deleted_omnix_cases (
   snapshot jsonb not null
 );
 
+create table if not exists public.cleanup_deleted_voice_interactions (
+  id uuid primary key default gen_random_uuid(),
+  voice_interaction_id uuid not null,
+  unique_id text,
+  cleanup_batch_id uuid not null,
+  reason text not null,
+  deleted_by text,
+  deleted_at timestamptz not null default now(),
+  snapshot jsonb not null
+);
+
 create index if not exists idx_omnix_cases_deleted_at on public.omnix_cases(deleted_at);
+create index if not exists idx_voice_interactions_deleted_at on public.voice_interactions(deleted_at);
 create index if not exists idx_cleanup_deleted_omnix_cases_batch on public.cleanup_deleted_omnix_cases(cleanup_batch_id);
+create index if not exists idx_cleanup_deleted_voice_interactions_batch on public.cleanup_deleted_voice_interactions(cleanup_batch_id);
 
 create or replace function public.get_voice_dashboard(
   p_start timestamptz,

@@ -8,7 +8,15 @@ export interface CleanupMatchedVoice {
   clid_normalized: string | null
 }
 
+export interface CleanupMatchedOmnix {
+  id: string
+  ticket_id: string | null
+  interaction_at: string | null
+  customer_hp: string | null
+}
+
 export interface CleanupCandidate {
+  target_table: "voice_interactions" | "omnix_cases"
   id: string
   ticket_id: string | null
   customer_hp: string | null
@@ -22,6 +30,7 @@ export interface CleanupCandidate {
   agent_name: string | null
   reasons: CleanupRule[]
   matched_voice: CleanupMatchedVoice | null
+  matched_omnix: CleanupMatchedOmnix | null
 }
 
 export interface CleanupRuleCounts {
@@ -41,6 +50,7 @@ export interface CleanupPreviewResponse {
   date_to: string
   rules: CleanupRule[]
   total_scanned_omnix: number
+  total_scanned_voice: number
   total_candidates: number
   rule_counts: CleanupRuleCounts
   items: CleanupCandidate[]

@@ -31,8 +31,8 @@ const RULES: Array<{
 }> = [
   {
     id: "abandon_match",
-    title: "Abandon Voice Match",
-    description: "Nomor HP abandon di Voice cocok dengan Omnix pada tanggal yang sama.",
+    title: "Voice Abandon Cleanup",
+    description: "Soft-clean Voice abandon jika nomor HP dan tanggalnya sudah ada di Omnix.",
     icon: PhoneOffIcon,
   },
   {
@@ -79,6 +79,10 @@ function formatRule(rule: CleanupRule): string {
   return labels[rule]
 }
 
+function formatTargetTable(target: CleanupCandidate["target_table"]): string {
+  return target === "voice_interactions" ? "Voice" : "Omnix"
+}
+
 function MetricCard({
   label,
   value,
@@ -118,7 +122,7 @@ function CandidateTable({ items }: { items: CleanupCandidate[] }) {
           <ShieldCheckIcon className="mx-auto mb-3 text-(--c-success)" size={28} />
           <p className="text-sm font-semibold text-(--c-text)">Belum ada kandidat cleanup</p>
           <p className="mt-1 text-xs text-(--c-muted)">
-            Jalankan scan untuk melihat data Omnix yang cocok dengan rule.
+            Jalankan scan untuk melihat data Voice atau Omnix yang cocok dengan rule.
           </p>
         </div>
       </div>
@@ -132,6 +136,7 @@ function CandidateTable({ items }: { items: CleanupCandidate[] }) {
           <thead className="sticky top-0 z-10 border-b border-(--c-border) bg-(--c-surface) text-[10px] uppercase tracking-[0.14em] text-(--c-muted)">
             <tr>
               <th className="px-4 py-3">Ticket</th>
+              <th className="px-4 py-3">Target</th>
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Category</th>
@@ -145,6 +150,17 @@ function CandidateTable({ items }: { items: CleanupCandidate[] }) {
               <tr key={item.id} className="hover:bg-(--c-overlay-2)">
                 <td className="px-4 py-3 font-mono text-(--c-text)">
                   {item.ticket_id || "-"}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+                      item.target_table === "voice_interactions"
+                        ? "border-sky-400/30 bg-sky-400/10 text-sky-300"
+                        : "border-violet-400/30 bg-violet-400/10 text-violet-300"
+                    }`}
+                  >
+                    {formatTargetTable(item.target_table)}
+                  </span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="font-semibold text-(--c-text)">
@@ -395,18 +411,18 @@ export default function DataCleanupPage() {
             Ringkasan Cleanup
           </p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <MetricCard
-              label="Scanned Omnix"
-              value={formatNumber(scannedCount)}
-              tone="accent"
-            />
-            <MetricCard
-              label="Candidates"
-              value={formatNumber(candidateCount)}
-              tone={candidateCount > 0 ? "warning" : "success"}
-            />
-            <MetricCard label="Deleted Now" value="0" tone="danger" />
-          </div>
+              <MetricCard label="Scanned Omnix" value={formatNumber(scannedCount)} tone="accent" />
+              <MetricCard
+                label="Scanned Voice"
+                value={formatNumber(preview?.total_scanned_voice ?? 0)}
+                tone="accent"
+              />
+              <MetricCard
+                label="Candidates"
+                value={formatNumber(candidateCount)}
+                tone={candidateCount > 0 ? "warning" : "success"}
+              />
+            </div>
         </section>
 
         <section className="mt-5 rounded-[20px] border border-white/10 bg-white/[0.03] p-5 shadow-sm sm:p-6">

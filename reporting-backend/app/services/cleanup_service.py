@@ -69,6 +69,7 @@ def _contains_text(row, needle: str) -> bool:
 
 def _candidate_from_omnix(row) -> dict:
     return {
+        "target_table": "omnix_cases",
         "id": row.get("id"),
         "ticket_id": row.get("ticket_id"),
         "customer_hp": row.get("customer_hp"),
@@ -82,6 +83,33 @@ def _candidate_from_omnix(row) -> dict:
         "agent_name": row.get("agent_name"),
         "reasons": [],
         "matched_voice": None,
+        "matched_omnix": None,
+    }
+
+
+def _candidate_from_voice(row) -> dict:
+    return {
+        "target_table": "voice_interactions",
+        "id": row.get("id"),
+        "ticket_id": row.get("unique_id"),
+        "customer_hp": row.get("clid_normalized") or row.get("clid_raw"),
+        "interaction_date": _jakarta_date(row.get("interaction_at")),
+        "interaction_at": row.get("interaction_at"),
+        "customer_name": None,
+        "channel": row.get("channel") or "voice",
+        "main_category": row.get("call_status"),
+        "category": row.get("call_event"),
+        "subcategory": row.get("queue_name"),
+        "agent_name": row.get("agent_name"),
+        "reasons": [],
+        "matched_voice": {
+            "id": row.get("id"),
+            "interaction_at": row.get("interaction_at"),
+            "call_event": row.get("call_event"),
+            "call_status": row.get("call_status"),
+            "clid_normalized": row.get("clid_normalized"),
+        },
+        "matched_omnix": None,
     }
 
 
@@ -131,20 +159,32 @@ class CleanupService:
             "internal_email": 0,
         }
 
+        total_scanned_voice = 0
+
         if "abandon_match" in rules:
             voice_res = (
                 supabase.table("voice_interactions")
                 .select(
-                    "id,interaction_at,clid_normalized,clid_raw,call_event,call_status,agent_name"
+                    "id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status,queue_name,agent_name,channel"
                 )
                 .gte("interaction_at", start_iso)
                 .lt("interaction_at", end_iso)
                 .limit(10000)
                 .execute()
             )
-            abandon_lookup = {}
+            voice_rows = voice_res.data or []
+            total_scanned_voice = len(voice_rows)
 
-            for row in voice_res.data or []:
+            omnix_lookup = {}
+            for row in omnix_rows:
+                phone = str(row.get("customer_hp") or "").strip()
+                interaction_date = _jakarta_date(row.get("interaction_at"))
+                if not phone or not interaction_date:
+                    continue
+
+                omnix_lookup.setdefault((phone, interaction_date), row)
+
+            for row in voice_rows:
                 if not _is_abandon(row):
                     continue
 
@@ -153,28 +193,20 @@ class CleanupService:
                 if not phone or not interaction_date:
                     continue
 
-                abandon_lookup.setdefault((phone, interaction_date), row)
-
-            for row in omnix_rows:
-                key = (
-                    str(row.get("customer_hp") or "").strip(),
-                    _jakarta_date(row.get("interaction_at")),
-                )
-                matched_voice = abandon_lookup.get(key)
-                if not matched_voice:
+                matched_omnix = omnix_lookup.get((phone, interaction_date))
+                if not matched_omnix:
                     continue
 
-                candidate = candidates.setdefault(row["id"], _candidate_from_omnix(row))
+                candidate = candidates.setdefault(row["id"], _candidate_from_voice(row))
                 if "abandon_match" not in candidate["reasons"]:
                     candidate["reasons"].append("abandon_match")
                     rule_counts["abandon_match"] += 1
 
-                candidate["matched_voice"] = {
-                    "id": matched_voice.get("id"),
-                    "interaction_at": matched_voice.get("interaction_at"),
-                    "call_event": matched_voice.get("call_event"),
-                    "call_status": matched_voice.get("call_status"),
-                    "clid_normalized": matched_voice.get("clid_normalized"),
+                candidate["matched_omnix"] = {
+                    "id": matched_omnix.get("id"),
+                    "ticket_id": matched_omnix.get("ticket_id"),
+                    "interaction_at": matched_omnix.get("interaction_at"),
+                    "customer_hp": matched_omnix.get("customer_hp"),
                 }
 
         if "test_omnix" in rules:
@@ -207,6 +239,7 @@ class CleanupService:
             "date_to": date_to,
             "rules": rules,
             "total_scanned_omnix": len(omnix_rows),
+            "total_scanned_voice": total_scanned_voice,
             "total_candidates": len(items),
             "rule_counts": rule_counts,
             "items": items[:500],
