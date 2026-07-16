@@ -56,6 +56,29 @@ def _as_lower(value) -> str:
     return str(value or "").strip().lower()
 
 
+def _phone_profile(value) -> dict:
+    phone = str(value or "").strip()
+    return {
+        "prefix": phone[:3] if phone else "empty",
+        "length": len(phone),
+        "empty": phone == "",
+    }
+
+
+def _phone_bucket(value) -> str:
+    profile = _phone_profile(value)
+    return "empty" if profile["empty"] else f"{profile['prefix']} / {profile['length']} digit"
+
+
+def _mask_phone(value) -> str:
+    phone = str(value or "").strip()
+    if not phone:
+        return ""
+    if len(phone) <= 6:
+        return f"{phone[:2]}***"
+    return f"{phone[:4]}***{phone[-3:]}"
+
+
 def _is_abandon(row) -> bool:
     return "abandon" in _as_lower(row.get("call_event")) or "abandon" in _as_lower(
         row.get("call_status")
@@ -244,4 +267,117 @@ class CleanupService:
             "rule_counts": rule_counts,
             "items": items[:500],
             "truncated": len(items) > 500,
+        }
+
+    @staticmethod
+    def phone_diagnostics(date_from: str, date_to: str) -> dict:
+        start_date = _parse_date(date_from)
+        end_date = _parse_date(date_to)
+        if end_date < start_date:
+            raise ValueError("date_to must be greater than or equal to date_from")
+
+        start_iso = _date_to_utc_iso(start_date)
+        end_iso = _date_to_utc_iso(end_date + timedelta(days=1))
+
+        voice_res = (
+            supabase.table("voice_interactions")
+            .select("id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status")
+            .gte("interaction_at", start_iso)
+            .lt("interaction_at", end_iso)
+            .limit(10000)
+            .execute()
+        )
+        omnix_res = (
+            supabase.table("omnix_cases")
+            .select("id,ticket_id,interaction_at,created_at,customer_hp")
+            .gte("interaction_at", start_iso)
+            .lt("interaction_at", end_iso)
+            .limit(10000)
+            .execute()
+        )
+
+        voice_rows = [row for row in (voice_res.data or []) if _is_abandon(row)]
+        omnix_rows = omnix_res.data or []
+        omnix_by_phone = {}
+        omnix_by_phone_interaction_date = {}
+        omnix_by_phone_created_date = {}
+
+        for row in omnix_rows:
+            phone = str(row.get("customer_hp") or "").strip()
+            if not phone:
+                continue
+
+            omnix_by_phone.setdefault(phone, []).append(row)
+            interaction_date = _jakarta_date(row.get("interaction_at"))
+            created_date = _jakarta_date(row.get("created_at"))
+            if interaction_date:
+                omnix_by_phone_interaction_date.setdefault((phone, interaction_date), []).append(row)
+            if created_date:
+                omnix_by_phone_created_date.setdefault((phone, created_date), []).append(row)
+
+        voice_format_counts = {}
+        omnix_format_counts = {}
+        phone_only_matches = 0
+        interaction_date_matches = 0
+        created_date_matches = 0
+        sample_voice = []
+        sample_matches = []
+
+        for row in voice_rows:
+            phone = str(row.get("clid_normalized") or "").strip()
+            bucket = _phone_bucket(phone)
+            voice_format_counts[bucket] = voice_format_counts.get(bucket, 0) + 1
+
+            if len(sample_voice) < 12:
+                sample_voice.append(
+                    {
+                        "unique_id": row.get("unique_id"),
+                        "phone": _mask_phone(phone),
+                        "raw_phone": _mask_phone(row.get("clid_raw")),
+                        "bucket": bucket,
+                        "date": _jakarta_date(row.get("interaction_at")),
+                        "event": row.get("call_event") or row.get("call_status"),
+                    }
+                )
+
+            if phone in omnix_by_phone:
+                phone_only_matches += 1
+
+            interaction_key = (phone, _jakarta_date(row.get("interaction_at")))
+            if interaction_key in omnix_by_phone_interaction_date:
+                interaction_date_matches += 1
+                if len(sample_matches) < 12:
+                    matched = omnix_by_phone_interaction_date[interaction_key][0]
+                    sample_matches.append(
+                        {
+                            "voice_unique_id": row.get("unique_id"),
+                            "voice_phone": _mask_phone(phone),
+                            "voice_date": interaction_key[1],
+                            "omnix_ticket_id": matched.get("ticket_id"),
+                            "omnix_phone": _mask_phone(matched.get("customer_hp")),
+                            "omnix_interaction_date": _jakarta_date(matched.get("interaction_at")),
+                            "match_type": "interaction_at",
+                        }
+                    )
+
+            created_key = (phone, _jakarta_date(row.get("interaction_at")))
+            if created_key in omnix_by_phone_created_date:
+                created_date_matches += 1
+
+        for row in omnix_rows:
+            bucket = _phone_bucket(row.get("customer_hp"))
+            omnix_format_counts[bucket] = omnix_format_counts.get(bucket, 0) + 1
+
+        return {
+            "date_from": date_from,
+            "date_to": date_to,
+            "voice_abandon_total": len(voice_rows),
+            "omnix_total": len(omnix_rows),
+            "voice_phone_formats": voice_format_counts,
+            "omnix_phone_formats": omnix_format_counts,
+            "phone_only_matches": phone_only_matches,
+            "interaction_date_matches": interaction_date_matches,
+            "created_date_matches": created_date_matches,
+            "sample_voice_abandon": sample_voice,
+            "sample_interaction_date_matches": sample_matches,
         }

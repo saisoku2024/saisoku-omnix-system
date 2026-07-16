@@ -32,3 +32,16 @@ def preview_cleanup(payload: CleanupPreviewRequest):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Cleanup preview failed: {exc}") from exc
+
+
+@router.post("/diagnostics/phone-format")
+def phone_format_diagnostics(payload: CleanupPreviewRequest):
+    try:
+        return CleanupService.phone_diagnostics(
+            date_from=payload.date_from,
+            date_to=payload.date_to,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Phone diagnostics failed: {exc}") from exc
