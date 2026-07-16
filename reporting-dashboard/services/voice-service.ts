@@ -10,6 +10,7 @@ import type {
   VoiceResponse,
 } from "@/features/voice/types/voice"
 import { buildPeriodQuery } from "@/services/period"
+import { MONTHS } from "@/features/voice/constants"
 
 const VOICE_API = apiUrl("/api/voice")
 const EMPTY_SUMMARY: SummaryData = {
@@ -48,10 +49,52 @@ function fallbackArray<T>(value: T[] | undefined) {
   return Array.isArray(value) ? value : []
 }
 
-function normalizeVoiceResponse(response: VoiceResponse): VoicePayload {
+function normalizeDayLabel(value: string | number | undefined): string {
+  const day = Number(String(value ?? "").replace(/\D/g, ""))
+  return Number.isFinite(day) && day > 0 ? String(day).padStart(2, "0") : ""
+}
+
+function getMonthDays(period: string, year: number): string[] {
+  const monthIndex = MONTHS.indexOf(period)
+  const daysInMonth =
+    monthIndex === -1 ? 31 : new Date(year, monthIndex + 1, 0).getDate()
+
+  return Array.from({ length: daysInMonth }, (_, index) =>
+    String(index + 1).padStart(2, "0")
+  )
+}
+
+function normalizeDailyData(
+  rows: DailyData[] | undefined,
+  mode: ModeType,
+  period: string,
+  year: number
+): DailyData[] {
+  const rowMap = new Map(
+    fallbackArray(rows)
+      .map((row) => [normalizeDayLabel(row.label), row.count] as const)
+      .filter(([label]) => label !== "")
+  )
+
+  if (mode === "monthly") {
+    return getMonthDays(period, year).map((label) => ({
+      label,
+      count: rowMap.get(label) ?? 0,
+    }))
+  }
+
+  return fallbackArray(rows)
+}
+
+function normalizeVoiceResponse(
+  response: VoiceResponse,
+  mode: ModeType,
+  period: string,
+  year: number
+): VoicePayload {
   return {
     summary: sanitizeSummary(response.summary),
-    daily: fallbackArray(response.daily),
+    daily: normalizeDailyData(response.daily, mode, period, year),
     hourly: fallbackArray(response.hourly),
     byDay: fallbackArray(response.byDay),
     agentHandling: fallbackArray(response.agentHandling),
@@ -70,5 +113,5 @@ export async function fetchVoiceData(mode: ModeType, period: string, year: numbe
     throw new Error(`HTTP ${response.status}`)
   }
 
-  return normalizeVoiceResponse((await response.json()) as VoiceResponse)
+  return normalizeVoiceResponse((await response.json()) as VoiceResponse, mode, period, year)
 }
