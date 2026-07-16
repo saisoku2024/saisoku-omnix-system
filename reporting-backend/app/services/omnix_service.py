@@ -190,6 +190,7 @@ class OmnixService:
             .select("category")
             .gte("interaction_at", start)
             .lt("interaction_at", end)
+            .is_("deleted_at", "null")
             .execute()
         )
 

@@ -226,6 +226,7 @@ with filtered as (
   from public.voice_interactions
   where interaction_at >= p_start
     and interaction_at < p_end
+    and deleted_at is null
 ),
 summary_data as (
   select
@@ -344,12 +345,14 @@ with filtered as (
   from public.omnix_cases
   where interaction_at >= p_start
     and interaction_at < p_end
+    and deleted_at is null
 ),
 trend_filtered as (
   select *
   from public.omnix_cases
   where interaction_at >= case when p_mode = 'monthly' then p_start else make_timestamptz(p_year, 1, 1, 0, 0, 0) end
     and interaction_at < case when p_mode = 'monthly' then p_end else make_timestamptz(p_year + 1, 1, 1, 0, 0, 0) end
+    and deleted_at is null
 ),
 summary_data as (
   select
@@ -422,10 +425,12 @@ customer_data as (
    and o.interaction_at < m.month_start + interval '1 month'
    and o.customer_hp is not null
    and nullif(o.customer_hp, '') is not null
+   and o.deleted_at is null
   left join lateral (
     select date_trunc('month', min(oc.interaction_at)) as first_month
     from public.omnix_cases oc
     where oc.customer_hp = o.customer_hp
+      and oc.deleted_at is null
   ) first_seen on true
   group by m.month_start
   order by m.month_start
@@ -467,6 +472,7 @@ with omnix_filtered as (
   from public.omnix_cases
   where interaction_at >= p_start
     and interaction_at < p_end
+    and deleted_at is null
 ),
 csat_filtered as (
   select *
@@ -538,6 +544,7 @@ new_customer_totals as (
     from public.omnix_cases previous
     where previous.customer_hp = current_customers.customer_hp
       and previous.interaction_at < p_start
+      and previous.deleted_at is null
   )
 )
 select jsonb_build_object(

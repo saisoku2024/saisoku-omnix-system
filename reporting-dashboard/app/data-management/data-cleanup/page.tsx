@@ -115,6 +115,70 @@ function MetricCard({
   )
 }
 
+function CleanupSuccessCard({ result }: { result: CleanupSoftDeleteResponse }) {
+  const stats = [
+    {
+      label: "Voice",
+      value: result.deleted.voice_interactions,
+      tone: "text-sky-300 bg-sky-400/10",
+    },
+    {
+      label: "Omnix",
+      value: result.deleted.omnix_cases,
+      tone: "text-violet-300 bg-violet-400/10",
+    },
+    {
+      label: "Skipped",
+      value: result.skipped,
+      tone: "text-amber-300 bg-amber-400/10",
+    },
+    {
+      label: "Total",
+      value: result.total_deleted,
+      tone: "text-emerald-300 bg-emerald-400/10",
+    },
+  ]
+
+  return (
+    <div className="mb-5 overflow-hidden rounded-3xl border border-emerald-400/20 bg-[#071018]/90 p-5 shadow-[0_0_60px_rgba(0,0,0,0.35)]">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
+            <CheckCircle2Icon size={26} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Soft Delete Completed</h2>
+            <p className="mt-1 text-sm text-white/50">
+              Data disembunyikan dan snapshot tersimpan di cleanup log.
+            </p>
+            <p className="mt-2 font-mono text-[11px] text-white/40">
+              Batch: <span className="text-cyan-300">{result.cleanup_batch_id}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[520px]">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-white/5 bg-white/[0.04] p-4"
+            >
+              <p className="text-[10px] uppercase tracking-[0.15em] text-white/40">
+                {stat.label}
+              </p>
+              <div className={`mt-2 rounded-xl px-3 py-2 ${stat.tone}`}>
+                <span className="font-mono text-2xl font-bold">
+                  {formatNumber(stat.value)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function getCandidateKey(item: CleanupCandidate): string {
   return `${item.target_table}:${item.id}`
 }
@@ -352,7 +416,11 @@ export default function DataCleanupPage() {
         })),
       })
       setDeleteResult(result)
-      await loadPreview()
+      setDateFrom(defaults.dateFrom)
+      setDateTo(defaults.dateTo)
+      setRules(["abandon_match", "test_omnix", "internal_email"])
+      setPreview(null)
+      setSelectedKeys(new Set())
     } catch (err) {
       setError(err instanceof Error ? err.message : "Soft delete failed")
     } finally {
@@ -378,6 +446,8 @@ export default function DataCleanupPage() {
             Scan kandidat soft cleanup dari abandon call, test data, dan internal email sebelum admin menjalankan aksi final.
           </p>
         </header>
+
+        {deleteResult ? <CleanupSuccessCard result={deleteResult} /> : null}
 
         <section className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5 shadow-sm sm:p-7">
           <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -578,17 +648,6 @@ export default function DataCleanupPage() {
               </div>
             ) : null}
           </div>
-
-          {deleteResult ? (
-            <div className="mb-4 rounded-xl border border-(--c-success)/25 bg-(--c-success-soft) p-3 text-xs text-(--c-text-soft)">
-              Soft delete selesai: {formatNumber(deleteResult.total_deleted)} data
-              disembunyikan, {formatNumber(deleteResult.skipped)} dilewati. Batch{" "}
-              <span className="font-mono text-(--c-text)">
-                {deleteResult.cleanup_batch_id}
-              </span>
-              .
-            </div>
-          ) : null}
 
           <CandidateTable
             items={preview?.items ?? []}

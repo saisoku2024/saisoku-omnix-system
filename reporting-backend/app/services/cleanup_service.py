@@ -125,6 +125,7 @@ def _fetch_period_rows(table: str, columns: str, start_iso: str, end_iso: str) -
             .select(columns)
             .gte("interaction_at", start_iso)
             .lt("interaction_at", end_iso)
+            .is_("deleted_at", "null")
             .order("interaction_at")
             .range(offset, offset + SCAN_PAGE_SIZE - 1)
             .execute()
