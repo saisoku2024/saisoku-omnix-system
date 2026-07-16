@@ -64,6 +64,12 @@ function getMonthDays(period: string, year: number): string[] {
   )
 }
 
+function getQuarterCutoffIndex(period: string): number {
+  const quarterOrder = ["Q1", "Q2", "Q3", "Q4"]
+  const quarterIndex = quarterOrder.indexOf(period)
+  return quarterIndex === -1 ? MONTHS.length - 1 : (quarterIndex + 1) * 3 - 1
+}
+
 function normalizeDailyData(
   rows: DailyData[] | undefined,
   mode: ModeType,
@@ -83,7 +89,16 @@ function normalizeDailyData(
     }))
   }
 
-  return fallbackArray(rows)
+  const monthMap = new Map(
+    fallbackArray(rows).map((row) => [String(row.label ?? "").trim(), row.count] as const)
+  )
+  const cutoffIndex =
+    mode === "quarterly" ? getQuarterCutoffIndex(period) : MONTHS.length - 1
+
+  return MONTHS.map((label, index) => ({
+    label,
+    count: index <= cutoffIndex ? monthMap.get(label) ?? 0 : 0,
+  }))
 }
 
 function normalizeVoiceResponse(
@@ -104,14 +119,44 @@ function normalizeVoiceResponse(
 }
 
 export async function fetchVoiceData(mode: ModeType, period: string, year: number) {
-  const qs = buildPeriodQuery(mode, period, year)
-  const response = await fetch(`${VOICE_API}/all?${qs.toString()}`, {
+  const currentQs = buildPeriodQuery(mode, period, year)
+  const currentResponse = await fetch(`${VOICE_API}/all?${currentQs.toString()}`, {
     cache: "no-store",
   })
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
+  if (!currentResponse.ok) {
+    throw new Error(`HTTP ${currentResponse.status}`)
   }
 
-  return normalizeVoiceResponse((await response.json()) as VoiceResponse, mode, period, year)
+  const currentPayload = normalizeVoiceResponse(
+    (await currentResponse.json()) as VoiceResponse,
+    mode,
+    period,
+    year
+  )
+
+  if (mode === "monthly" || mode === "yearly") {
+    return currentPayload
+  }
+
+  const yearlyQs = buildPeriodQuery("yearly", "all", year)
+  const yearlyResponse = await fetch(`${VOICE_API}/all?${yearlyQs.toString()}`, {
+    cache: "no-store",
+  })
+
+  if (!yearlyResponse.ok) {
+    throw new Error(`HTTP ${yearlyResponse.status}`)
+  }
+
+  const yearlyPayload = normalizeVoiceResponse(
+    (await yearlyResponse.json()) as VoiceResponse,
+    mode,
+    period,
+    year
+  )
+
+  return {
+    ...currentPayload,
+    daily: yearlyPayload.daily,
+  }
 }

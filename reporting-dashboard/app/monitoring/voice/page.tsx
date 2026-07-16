@@ -14,7 +14,7 @@ import {
 
 import Card from "@/components/ui/card"
 
-import { MONTHS, QUARTERS } from "@/features/voice/constants"
+import { MONTHS, QUARTERS, QUARTER_MONTHS } from "@/features/voice/constants"
 import { fmt } from "@/features/voice/utils/format"
 import { useVoiceData } from "@/features/voice/hooks/useVoiceData"
 import type { ModeType } from "@/features/voice/types/voice"
@@ -100,6 +100,12 @@ export default function VoicePage() {
     return []
   }, [mode])
 
+  const highlightedDailyLabels = useMemo(() => {
+    if (mode === "quarterly") return QUARTER_MONTHS[period] ?? []
+    if (mode === "yearly") return MONTHS
+    return []
+  }, [mode, period])
+
   const KPI_CARDS = useMemo(
     () => [
       { label: "Total Calls", value: fmt(summary?.total_calls || 0), rawValue: summary?.total_calls || 0, color: "#0ea5e9", Icon: Phone },
@@ -176,6 +182,7 @@ export default function VoicePage() {
             ) : (
               <DailyChart
                 data={daily}
+                highlightedLabels={highlightedDailyLabels}
                 gridColor={gridColor}
                 tickColor={tickColor}
                 isDark={isDark}

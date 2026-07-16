@@ -18,6 +18,7 @@ import type { DailyData } from "@/features/voice/types/voice"
 
 type Props = {
   data: DailyData[]
+  highlightedLabels?: string[]
   gridColor: string
   tickColor: string
   isDark: boolean
@@ -25,6 +26,7 @@ type Props = {
 
 const DailyChart = memo(function DailyChart({
   data,
+  highlightedLabels = [],
   gridColor,
   tickColor,
   isDark,
@@ -37,6 +39,7 @@ const DailyChart = memo(function DailyChart({
   const tickInterval = data.length > 20 ? 1 : 0
   const peakColor = "#22c55e"
   const normalColor = isDark ? "rgba(34,197,94,0.72)" : "rgba(34,197,94,0.78)"
+  const hasHighlights = highlightedLabels.length > 0
 
   return (
     <div className="h-full w-full min-w-0">
@@ -53,7 +56,24 @@ const DailyChart = memo(function DailyChart({
           />
           <XAxis
             dataKey="label"
-            tick={{ fill: tickColor, fontSize: 10 }}
+            tick={({ x, y, payload }) => {
+              const value = String(payload?.value ?? "")
+              const isHighlighted = highlightedLabels.includes(value)
+
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  dy={12}
+                  textAnchor="middle"
+                  fontSize={isHighlighted ? 11 : 10}
+                  fontWeight={isHighlighted ? 800 : 500}
+                  fill={isHighlighted ? (isDark ? "#ffffff" : "#111827") : tickColor}
+                >
+                  {value}
+                </text>
+              )
+            }}
             tickLine={false}
             axisLine={false}
             interval={tickInterval}
@@ -90,14 +110,16 @@ const DailyChart = memo(function DailyChart({
             />
             {data.map((entry) => {
               const isPeak = entry.count === maxCount && maxCount > 0
+              const isHighlighted = highlightedLabels.includes(entry.label)
+              const shouldHighlight = hasHighlights ? isHighlighted : isPeak
 
               return (
                 <Cell
                   key={entry.label}
-                  fill={isPeak ? peakColor : normalColor}
-                  fillOpacity={entry.count === 0 ? 0.14 : 1}
-                  stroke={isPeak ? "#86efac" : "none"}
-                  strokeWidth={isPeak ? 1.5 : 0}
+                  fill={shouldHighlight ? peakColor : normalColor}
+                  fillOpacity={entry.count === 0 ? 0.14 : shouldHighlight ? 1 : 0.5}
+                  stroke={shouldHighlight ? "#86efac" : "none"}
+                  strokeWidth={shouldHighlight ? 1.5 : 0}
                 />
               )
             })}
