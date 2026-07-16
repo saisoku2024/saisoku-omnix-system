@@ -455,6 +455,313 @@ select jsonb_build_object(
 );
 $$;
 
+-- ============================================================
+-- Report RPCs
+-- ============================================================
+-- Inbound report reads from voice_clean for report-shaped columns, then joins
+-- voice_interactions so soft-deleted cleanup rows are excluded from preview
+-- and export. Digital report RPCs are intentionally left untouched.
+
+create or replace function public.report_preview_inbound_daily(
+  p_start_date date,
+  p_end_date date,
+  p_divisi text default ''::text,
+  p_departemen text default ''::text,
+  p_customer text default ''::text,
+  p_nama_layanan text default ''::text,
+  p_nama_sub_layanan text default ''::text,
+  p_layanan_cc_non_cc text default ''::text,
+  p_segment text default ''::text,
+  p_sub_segment text default ''::text,
+  p_kota text default ''::text
+)
+returns table(
+  bulan text,
+  divisi text,
+  departemen text,
+  customer text,
+  nama_layanan text,
+  nama_sub_layanan text,
+  layanan_cc_non_cc text,
+  segment text,
+  sub_segment text,
+  kota text,
+  tanggal date,
+  hari text,
+  i_agent_inbound bigint,
+  i_call_offered bigint,
+  i_acd bigint,
+  i_acd_within_sl bigint,
+  target_sl_detik numeric,
+  i_abandon integer,
+  aht numeric,
+  target_aht numeric,
+  i_sl numeric,
+  target_sl numeric,
+  i_scr numeric,
+  target_scr numeric,
+  i_achievement numeric,
+  i_analisis_kategori text,
+  i_action_plan text
+)
+language sql
+stable
+as $function$
+with calendar as (
+  select gs::date as report_date
+  from generate_series(p_start_date, p_end_date, interval '1 day') as gs
+),
+base as (
+  select
+    vc.created_at::date as call_date,
+    vc.agent_name,
+    vc.call_status,
+    vc.wait_time_sec,
+    vc.talk_time_sec
+  from voice_clean vc
+  join public.voice_interactions vi on vi.id = vc.id
+  where vc.created_at >= p_start_date
+    and vc.created_at < (p_end_date + interval '1 day')
+    and vi.deleted_at is null
+),
+daily as (
+  select
+    call_date,
+    count(distinct agent_name) as agent,
+    count(*) as call_offered,
+    count(*) filter (where call_status = 'answered') as acd,
+    count(*) filter (where call_status = 'answered' and wait_time_sec <= 15) as acd_within_sl,
+    count(*) filter (where call_status = 'abandoned') as abandon,
+    avg(talk_time_sec) as aht_raw
+  from base
+  group by call_date
+),
+summary as (
+  select
+    c.report_date as call_date,
+    coalesce(d.agent, 0)::bigint as agent,
+    coalesce(d.call_offered, 0)::bigint as call_offered,
+    coalesce(d.acd, 0)::bigint as acd,
+    coalesce(d.acd_within_sl, 0)::bigint as acd_within_sl,
+    coalesce(d.abandon, 0)::integer as abandon,
+    coalesce(d.aht_raw, 0) as aht
+  from calendar c
+  left join daily d on d.call_date = c.report_date
+),
+score as (
+  select
+    s.*,
+    15.0::numeric as target_sl_detik,
+    300.0::numeric as target_aht,
+    90.0::numeric as target_sl,
+    85.0::numeric as target_scr,
+    round(coalesce(s.acd_within_sl::numeric / nullif(s.acd, 0), 0) * 100, 2) as sl,
+    round(coalesce(s.acd::numeric / nullif(s.call_offered, 0), 0) * 100, 2) as scr
+  from summary s
+),
+scored as (
+  select
+    sc.*,
+    greatest(0, least(100,
+      case
+        when sc.aht <= sc.target_aht then 100
+        else 100 + (100 - (sc.aht / sc.target_aht * 100))
+      end
+    )) as score_aht,
+    greatest(0, least(100, round(coalesce((sc.sl / nullif(sc.target_sl, 0)) * 100, 0), 2))) as score_sl,
+    greatest(0, least(100, round(coalesce((sc.scr / nullif(sc.target_scr, 0)) * 100, 0), 2))) as score_scr
+  from score sc
+),
+final as (
+  select
+    sd.*,
+    greatest(0, least(100, round((sd.score_aht + sd.score_sl + sd.score_scr) / 3.0, 2))) as achievement
+  from scored sd
+)
+select
+  to_char(f.call_date, 'Mon-YY') as bulan,
+  p_divisi,
+  p_departemen,
+  p_customer,
+  p_nama_layanan,
+  p_nama_sub_layanan,
+  p_layanan_cc_non_cc,
+  p_segment,
+  p_sub_segment,
+  p_kota,
+  f.call_date as tanggal,
+  trim(to_char(f.call_date, 'Dy')) as hari,
+  f.agent as i_agent_inbound,
+  f.call_offered as i_call_offered,
+  f.acd as i_acd,
+  f.acd_within_sl as i_acd_within_sl,
+  f.target_sl_detik,
+  f.abandon as i_abandon,
+  round(f.aht, 2) as aht,
+  f.target_aht,
+  f.sl as i_sl,
+  f.target_sl,
+  f.scr as i_scr,
+  f.target_scr,
+  f.achievement as i_achievement,
+  ''::text as i_analisis_kategori,
+  ''::text as i_action_plan
+from final f
+order by f.call_date
+limit 10;
+$function$;
+
+create or replace function public.report_export_inbound_daily(
+  p_start_date date,
+  p_end_date date,
+  p_brand text default null::text,
+  p_channel text default null::text,
+  p_main_category text default null::text,
+  p_divisi text default ''::text,
+  p_departemen text default ''::text,
+  p_customer text default ''::text,
+  p_nama_layanan text default ''::text,
+  p_nama_sub_layanan text default ''::text,
+  p_layanan_cc_non_cc text default ''::text,
+  p_segment text default ''::text,
+  p_sub_segment text default ''::text,
+  p_kota text default ''::text
+)
+returns table(
+  bulan text,
+  divisi text,
+  departemen text,
+  customer text,
+  nama_layanan text,
+  nama_sub_layanan text,
+  layanan_cc_non_cc text,
+  segment text,
+  sub_segment text,
+  kota text,
+  tanggal date,
+  hari text,
+  i_agent_inbound bigint,
+  i_call_offered bigint,
+  i_acd bigint,
+  i_acd_within_sl bigint,
+  i_target_sl_detik numeric,
+  i_abandon integer,
+  i_aht numeric,
+  i_target_aht numeric,
+  i_sl numeric,
+  i_target_sl numeric,
+  i_scr numeric,
+  i_target_scr numeric,
+  i_achievement numeric,
+  i_analisis_kategori text,
+  i_action_plan text
+)
+language sql
+stable
+as $function$
+with calendar as (
+  select gs::date as report_date
+  from generate_series(p_start_date, p_end_date, interval '1 day') as gs
+),
+base as (
+  select
+    vc.created_at::date as call_date,
+    vc.agent_name,
+    vc.call_status,
+    vc.wait_time_sec,
+    vc.talk_time_sec
+  from voice_clean vc
+  join public.voice_interactions vi on vi.id = vc.id
+  where vc.created_at >= p_start_date
+    and vc.created_at < (p_end_date + interval '1 day')
+    and vi.deleted_at is null
+),
+daily as (
+  select
+    call_date,
+    count(distinct agent_name) as agent,
+    count(*) as call_offered,
+    count(*) filter (where call_status = 'answered') as acd,
+    count(*) filter (where call_status = 'answered' and wait_time_sec <= 15) as acd_within_sl,
+    count(*) filter (where call_status = 'abandoned') as abandon,
+    avg(talk_time_sec) as aht_raw
+  from base
+  group by call_date
+),
+summary as (
+  select
+    c.report_date as call_date,
+    coalesce(d.agent, 0)::bigint as agent,
+    coalesce(d.call_offered, 0)::bigint as call_offered,
+    coalesce(d.acd, 0)::bigint as acd,
+    coalesce(d.acd_within_sl, 0)::bigint as acd_within_sl,
+    coalesce(d.abandon, 0)::integer as abandon,
+    coalesce(d.aht_raw, 0) as aht
+  from calendar c
+  left join daily d on d.call_date = c.report_date
+),
+score as (
+  select
+    s.*,
+    15.0::numeric as target_sl_detik,
+    300.0::numeric as target_aht,
+    90.0::numeric as target_sl,
+    85.0::numeric as target_scr,
+    round(coalesce(s.acd_within_sl::numeric / nullif(s.acd, 0), 0) * 100, 2) as sl,
+    round(coalesce(s.acd::numeric / nullif(s.call_offered, 0), 0) * 100, 2) as scr
+  from summary s
+),
+scored as (
+  select
+    sc.*,
+    greatest(0, least(100,
+      case
+        when sc.aht <= sc.target_aht then 100
+        else 100 + (100 - (sc.aht / sc.target_aht * 100))
+      end
+    )) as score_aht,
+    greatest(0, least(100, round(coalesce((sc.sl / nullif(sc.target_sl, 0)) * 100, 0), 2))) as score_sl,
+    greatest(0, least(100, round(coalesce((sc.scr / nullif(sc.target_scr, 0)) * 100, 0), 2))) as score_scr
+  from score sc
+),
+final as (
+  select
+    sd.*,
+    greatest(0, least(100, round((sd.score_aht + sd.score_sl + sd.score_scr) / 3.0, 2))) as achievement
+  from scored sd
+)
+select
+  to_char(f.call_date, 'Mon-YY') as bulan,
+  p_divisi,
+  p_departemen,
+  p_customer,
+  p_nama_layanan,
+  p_nama_sub_layanan,
+  p_layanan_cc_non_cc,
+  p_segment,
+  p_sub_segment,
+  p_kota,
+  f.call_date as tanggal,
+  trim(to_char(f.call_date, 'Dy')) as hari,
+  f.agent as i_agent_inbound,
+  f.call_offered as i_call_offered,
+  f.acd as i_acd,
+  f.acd_within_sl as i_acd_within_sl,
+  f.target_sl_detik,
+  f.abandon as i_abandon,
+  round(f.aht, 2) as i_aht,
+  f.target_aht,
+  f.sl as i_sl,
+  f.target_sl,
+  f.scr as i_scr,
+  f.target_scr,
+  f.achievement as i_achievement,
+  ''::text as i_analisis_kategori,
+  ''::text as i_action_plan
+from final f
+order by f.call_date;
+$function$;
+
 create or replace function public.get_dashboard_home(
   p_start timestamptz,
   p_end timestamptz,
