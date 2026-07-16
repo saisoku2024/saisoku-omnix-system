@@ -53,6 +53,15 @@ def _jakarta_date(value):
     return parsed.astimezone(JAKARTA_TZ).date().isoformat()
 
 
+def _stored_date(value):
+    parsed = _parse_timestamp(value)
+    if parsed:
+        return parsed.date().isoformat()
+
+    text = str(value or "").strip()
+    return text[:10] if len(text) >= 10 else None
+
+
 def _as_lower(value) -> str:
     return str(value or "").strip().lower()
 
@@ -110,7 +119,7 @@ def _candidate_from_omnix(row) -> dict:
         "id": row.get("id"),
         "ticket_id": row.get("ticket_id"),
         "customer_hp": row.get("customer_hp"),
-        "interaction_date": _jakarta_date(row.get("interaction_at")),
+        "interaction_date": _stored_date(row.get("interaction_at")),
         "interaction_at": row.get("interaction_at"),
         "customer_name": row.get("customer_name"),
         "channel": row.get("channel"),
@@ -130,7 +139,7 @@ def _candidate_from_voice(row) -> dict:
         "id": row.get("id"),
         "ticket_id": row.get("unique_id"),
         "customer_hp": row.get("clid_normalized") or row.get("clid_raw"),
-        "interaction_date": _jakarta_date(row.get("interaction_at")),
+        "interaction_date": _stored_date(row.get("interaction_at")),
         "interaction_at": row.get("interaction_at"),
         "customer_name": None,
         "channel": row.get("channel") or "voice",
@@ -215,7 +224,7 @@ class CleanupService:
             omnix_lookup = {}
             for row in omnix_rows:
                 phone = _normalize_compare_phone(row.get("customer_hp"))
-                interaction_date = _jakarta_date(row.get("interaction_at"))
+                interaction_date = _stored_date(row.get("interaction_at"))
                 if not phone or not interaction_date:
                     continue
 
@@ -228,7 +237,7 @@ class CleanupService:
                 phone = _normalize_compare_phone(
                     row.get("clid_normalized") or row.get("clid_raw")
                 )
-                interaction_date = _jakarta_date(row.get("interaction_at"))
+                interaction_date = _stored_date(row.get("interaction_at"))
                 if not phone or not interaction_date:
                     continue
 
@@ -324,8 +333,8 @@ class CleanupService:
                 continue
 
             omnix_by_phone.setdefault(phone, []).append(row)
-            interaction_date = _jakarta_date(row.get("interaction_at"))
-            created_date = _jakarta_date(row.get("created_at"))
+            interaction_date = _stored_date(row.get("interaction_at"))
+            created_date = _stored_date(row.get("created_at"))
             if interaction_date:
                 omnix_by_phone_interaction_date.setdefault((phone, interaction_date), []).append(row)
             if created_date:
@@ -351,7 +360,7 @@ class CleanupService:
                         "phone": _mask_phone(phone),
                         "raw_phone": _mask_phone(row.get("clid_raw")),
                         "bucket": bucket,
-                        "date": _jakarta_date(row.get("interaction_at")),
+                        "date": _stored_date(row.get("interaction_at")),
                         "event": row.get("call_event") or row.get("call_status"),
                     }
                 )
@@ -359,7 +368,7 @@ class CleanupService:
             if phone in omnix_by_phone:
                 phone_only_matches += 1
 
-            interaction_key = (phone, _jakarta_date(row.get("interaction_at")))
+            interaction_key = (phone, _stored_date(row.get("interaction_at")))
             if interaction_key in omnix_by_phone_interaction_date:
                 interaction_date_matches += 1
                 if len(sample_matches) < 12:
@@ -371,12 +380,12 @@ class CleanupService:
                             "voice_date": interaction_key[1],
                             "omnix_ticket_id": matched.get("ticket_id"),
                             "omnix_phone": _mask_phone(matched.get("customer_hp")),
-                            "omnix_interaction_date": _jakarta_date(matched.get("interaction_at")),
+                            "omnix_interaction_date": _stored_date(matched.get("interaction_at")),
                             "match_type": "interaction_at",
                         }
                     )
 
-            created_key = (phone, _jakarta_date(row.get("interaction_at")))
+            created_key = (phone, _stored_date(row.get("interaction_at")))
             if created_key in omnix_by_phone_created_date:
                 created_date_matches += 1
 
