@@ -5,6 +5,7 @@ import {
   FileSpreadsheetIcon,
   PieChartIcon,
   TerminalSquareIcon,
+  Trash2Icon,
   UploadIcon,
 } from "lucide-react"
 
@@ -74,6 +75,11 @@ export const sidebarMenu: SidebarMenuItem[] = [
         title: "Customer Journey",
         url: "/data-management/customer-journey",
         icon: <TerminalSquareIcon />,
+      },
+      {
+        title: "Data Cleanup",
+        url: "/data-management/data-cleanup",
+        icon: <Trash2Icon />,
       },
     ],
   },
