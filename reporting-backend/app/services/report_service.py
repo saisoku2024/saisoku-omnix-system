@@ -65,6 +65,16 @@ def _month_label(value: date) -> str:
     return value.strftime("%Y - %m")
 
 
+def _duration_label(seconds_value) -> str:
+    try:
+        seconds = int(round(float(seconds_value or 0)))
+    except (TypeError, ValueError):
+        seconds = 0
+
+    minutes, seconds = divmod(max(seconds, 0), 60)
+    return f"{minutes}:{seconds:02d}"
+
+
 def _with_report_defaults(payload: dict, sub_segment: str = "") -> dict:
     return {
         "divisi": payload.get("divisi") or DIGITAL_REPORT_DEFAULTS["divisi"],
@@ -270,8 +280,8 @@ class ReportService:
                     key = (day, channel)
                     case_total = counts[key]
                     times = response_times[key]
-                    avg_response_minutes = (
-                        round((sum(times) / len(times)) / 60, 2)
+                    avg_response_seconds = (
+                        round(sum(times) / len(times))
                         if times else 0
                     )
                     defaults = _with_report_defaults(payload, channel)
@@ -286,10 +296,10 @@ class ReportService:
                         "d_case_out": case_total,
                         "d_case_out_within_sl": case_total,
                         "d_abandon": 0,
-                        "d_aht": 0,
-                        "d_target_aht": 0,
-                        "d_response_time": avg_response_minutes,
-                        "d_target_response_time": 0,
+                        "d_aht": _duration_label(0),
+                        "d_target_aht": _duration_label(0),
+                        "d_response_time": _duration_label(avg_response_seconds),
+                        "d_target_response_time": _duration_label(0),
                         "d_response_rate": 100 if case_total else 0,
                         "d_target_response_rate": 0,
                         "d_achievement": 100 if case_total else 0,
@@ -338,6 +348,8 @@ class ReportService:
                 result.append({
                     **row,
                     "bulan": _month_label(row_date),
+                    "i_aht": _duration_label(row.get("i_aht")),
+                    "i_target_aht": _duration_label(row.get("i_target_aht")),
                     **_with_report_defaults({
                         **payload,
                         "segment": payload.get("segment") or "Voice",
