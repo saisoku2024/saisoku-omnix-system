@@ -1,4 +1,132 @@
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+
 from app.core.supabase import supabase
+
+
+DIGITAL_REPORT_DEFAULTS = {
+    "divisi": "Industrial & Consumer Service",
+    "departemen": "Industrial & Consumer Service",
+    "customer": "Mazuta Group",
+    "nama_layanan": "Mazuta Care",
+    "nama_sub_layanan": "",
+    "layanan_cc_non_cc": "CC",
+    "segment": "Digital",
+    "kota": "Surabaya",
+}
+
+DIGITAL_CHANNELS = ["Whatsapp", "DM Instagram", "Email"]
+DIGITAL_AGENT_TARGET = 12
+SCAN_PAGE_SIZE = 1000
+
+
+def _as_date(value) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    return datetime.fromisoformat(str(value)).date()
+
+
+def _date_range(start_date, end_date):
+    start = _as_date(start_date)
+    end = _as_date(end_date)
+    days = (end - start).days
+
+    return [start + timedelta(days=offset) for offset in range(days + 1)]
+
+
+def _iso_date(value) -> str:
+    return _as_date(value).isoformat()
+
+
+def _normalize_channel(value: str | None) -> str | None:
+    normalized = (value or "").strip().lower()
+
+    if normalized in {"whatsapp", "wa"}:
+        return "Whatsapp"
+
+    if normalized in {"ig message", "instagram", "dm instagram", "ig"}:
+        return "DM Instagram"
+
+    if normalized == "email":
+        return "Email"
+
+    return None
+
+
+def _weekday_label(value: date) -> str:
+    return value.strftime("%a")
+
+
+def _month_label(value: date) -> str:
+    return value.strftime("%Y - %m")
+
+
+def _with_report_defaults(payload: dict, sub_segment: str = "") -> dict:
+    return {
+        "divisi": payload.get("divisi") or DIGITAL_REPORT_DEFAULTS["divisi"],
+        "departemen": payload.get("departemen") or DIGITAL_REPORT_DEFAULTS["departemen"],
+        "customer": payload.get("customer") or DIGITAL_REPORT_DEFAULTS["customer"],
+        "nama_layanan": payload.get("nama_layanan") or DIGITAL_REPORT_DEFAULTS["nama_layanan"],
+        "nama_sub_layanan": payload.get("nama_sub_layanan") or DIGITAL_REPORT_DEFAULTS["nama_sub_layanan"],
+        "layanan_cc_non_cc": payload.get("layanan_cc_non_cc") or DIGITAL_REPORT_DEFAULTS["layanan_cc_non_cc"],
+        "segment": payload.get("segment") or DIGITAL_REPORT_DEFAULTS["segment"],
+        "sub_segment": payload.get("sub_segment") or sub_segment,
+        "kota": payload.get("kota") or DIGITAL_REPORT_DEFAULTS["kota"],
+    }
+
+
+def _fetch_omnix_digital_rows(start_date, end_date, payload: dict) -> list[dict]:
+    rows = []
+    offset = 0
+    end_exclusive = (_as_date(end_date) + timedelta(days=1)).isoformat()
+
+    while True:
+        query = (
+            supabase.table("omnix_cases")
+            .select(
+                "interaction_at,source_name,channel,agent_name,response_time_sec,"
+                "brand,main_category"
+            )
+            .gte("interaction_at", _iso_date(start_date))
+            .lt("interaction_at", end_exclusive)
+            .is_("deleted_at", "null")
+            .order("interaction_at")
+            .range(offset, offset + SCAN_PAGE_SIZE - 1)
+        )
+
+        brand = payload.get("brand")
+        if brand:
+            query = query.eq("brand", brand)
+
+        main_category = payload.get("main_category")
+        if main_category:
+            query = query.eq("main_category", main_category)
+
+        response = query.execute()
+        batch = response.data or []
+        rows.extend(batch)
+
+        if len(batch) < SCAN_PAGE_SIZE:
+            break
+
+        offset += SCAN_PAGE_SIZE
+
+    channel_filter = _normalize_channel(payload.get("channel"))
+    if not channel_filter:
+        return rows
+
+    return [
+        row
+        for row in rows
+        if (
+            _normalize_channel(row.get("source_name"))
+            or _normalize_channel(row.get("channel"))
+        ) == channel_filter
+    ]
 
 
 class ReportService:
@@ -106,30 +234,71 @@ class ReportService:
         try:
             start_date = payload.get("start_date")
             end_date = payload.get("end_date")
+            if not start_date or not end_date:
+                return []
 
-            rpc_payload = {
-                "p_start_date": start_date.isoformat() if hasattr(start_date, "isoformat") else start_date,
-                "p_end_date": end_date.isoformat() if hasattr(end_date, "isoformat") else end_date,
-                "p_brand": payload.get("brand", ""),
-                "p_channel": payload.get("channel", ""),
-                "p_main_category": payload.get("main_category", ""),
-                "p_divisi": payload.get("divisi", ""),
-                "p_departemen": payload.get("departemen", ""),
-                "p_customer": payload.get("customer", ""),
-                "p_nama_layanan": payload.get("nama_layanan", ""),
-                "p_nama_sub_layanan": payload.get("nama_sub_layanan", ""),
-                "p_layanan_cc_non_cc": payload.get("layanan_cc_non_cc", ""),
-                "p_segment": payload.get("segment", ""),
-                "p_sub_segment": payload.get("sub_segment", ""),
-                "p_kota": payload.get("kota", ""),
-            }
+            counts = defaultdict(int)
+            response_times = defaultdict(list)
+            rows = _fetch_omnix_digital_rows(start_date, end_date, payload)
 
-            res = supabase.rpc(
-                "report_export_digital_daily",
-                rpc_payload,
-            ).execute()
+            for row in rows:
+                channel = (
+                    _normalize_channel(row.get("source_name"))
+                    or _normalize_channel(row.get("channel"))
+                )
+                if channel not in DIGITAL_CHANNELS:
+                    continue
 
-            return res.data or []
+                day = _as_date(row.get("interaction_at"))
+                key = (day, channel)
+                counts[key] += 1
+
+                response_time = row.get("response_time_sec")
+                if response_time is not None:
+                    response_times[key].append(float(response_time or 0))
+
+            selected_channels = [
+                _normalize_channel(payload.get("channel"))
+            ] if _normalize_channel(payload.get("channel")) else DIGITAL_CHANNELS
+
+            output = []
+            for day in _date_range(start_date, end_date):
+                for channel in selected_channels:
+                    if not channel:
+                        continue
+
+                    key = (day, channel)
+                    case_total = counts[key]
+                    times = response_times[key]
+                    avg_response_minutes = (
+                        round((sum(times) / len(times)) / 60, 2)
+                        if times else 0
+                    )
+                    defaults = _with_report_defaults(payload, channel)
+
+                    output.append({
+                        "bulan": _month_label(day),
+                        **defaults,
+                        "tanggal": day.isoformat(),
+                        "hari": _weekday_label(day),
+                        "d_agent_digital": DIGITAL_AGENT_TARGET,
+                        "d_case_in": case_total,
+                        "d_case_out": case_total,
+                        "d_case_out_within_sl": case_total,
+                        "d_abandon": 0,
+                        "d_aht": 0,
+                        "d_target_aht": 0,
+                        "d_response_time": avg_response_minutes,
+                        "d_target_response_time": 0,
+                        "d_response_rate": 100 if case_total else 0,
+                        "d_target_response_rate": 0,
+                        "d_achievement": 100 if case_total else 0,
+                        "d_analisis_kategori": "",
+                        "d_analisis_detail": "",
+                        "d_action_plan": "",
+                    })
+
+            return output
 
         except Exception as e:
             print(f"DIGITAL EXPORT ERROR : {e}")
@@ -163,7 +332,20 @@ class ReportService:
                 rpc_payload,
             ).execute()
 
-            return res.data or []
+            result = []
+            for row in res.data or []:
+                row_date = _as_date(row.get("tanggal"))
+                result.append({
+                    **row,
+                    "bulan": _month_label(row_date),
+                    **_with_report_defaults({
+                        **payload,
+                        "segment": payload.get("segment") or "Voice",
+                        "sub_segment": payload.get("sub_segment") or "Voice",
+                    }, "Voice"),
+                })
+
+            return result
 
         except Exception as e:
             print(f"VOICE EXPORT ERROR : {e}")

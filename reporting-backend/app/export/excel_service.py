@@ -19,7 +19,7 @@ class ExcelService:
 
     HEADER_FILL = PatternFill(
         fill_type="solid",
-        fgColor="1F4E78"
+        fgColor="34A853"
     )
 
     HEADER_FONT = Font(
@@ -80,6 +80,9 @@ class ExcelService:
             cell.border = ExcelService.THIN_BORDER
             cell.alignment = ExcelService.CENTER
 
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+
     @staticmethod
     def write_rows(ws, rows: list):
         """
@@ -99,6 +102,8 @@ class ExcelService:
                 cell.font = ExcelService.BODY_FONT
                 cell.border = ExcelService.THIN_BORDER
                 cell.alignment = ExcelService.LEFT
+
+        ws.auto_filter.ref = ws.dimensions
 
     @staticmethod
     def auto_width(ws):
@@ -128,7 +133,7 @@ class ExcelService:
                 except Exception:
                     pass
 
-            ws.column_dimensions[column].width = max_length + 3
+            ws.column_dimensions[column].width = min(max_length + 3, 34)
 
     @staticmethod
     def to_bytes(workbook):
