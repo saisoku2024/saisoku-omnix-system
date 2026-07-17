@@ -35,7 +35,7 @@ const ChannelDonut = memo(function ChannelDonut({
 
   return (
     <div className="h-40 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <PieChart>
           <Pie
             data={data}

@@ -5,6 +5,7 @@ import {
   buildDashboardTrendData,
   isValidDashboardPeriod,
 } from "@/features/dashboard/utils/data"
+import { captureClientError } from "@/lib/client-error"
 import { fetchDashboardAll } from "@/services/dashboard-service"
 import type {
   BrandItem,
@@ -52,7 +53,7 @@ export function useDashboardData(mode: ModeType, period: string, year: number) {
         setNewCustomer(data.newCustomer)
       })
       .catch((err) => {
-        console.error("[useDashboardData] ERROR:", err)
+        captureClientError("dashboard.fetch", err)
         setError(err.message)
       })
       .finally(() => setLoading(false))

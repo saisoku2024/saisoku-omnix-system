@@ -4,6 +4,10 @@ from app.services.omnix_service import OmnixService
 router = APIRouter(prefix="/omnix", tags=["Omnix"])
 
 
+def _omnix_master(mode: str, period: str, year: int):
+    return OmnixService.get_all(mode, period, year)
+
+
 # =========================
 # KPI SUMMARY
 # =========================
@@ -13,7 +17,7 @@ def omnix_summary(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_summary(mode, period, year)
+    return _omnix_master(mode, period, year).get("summary", {})
 
 
 # =========================
@@ -25,7 +29,7 @@ def omnix_daily(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_daily(mode, period, year)
+    return _omnix_master(mode, period, year).get("daily", [])
 
 
 # =========================
@@ -37,7 +41,7 @@ def omnix_hourly(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_hourly(mode, period, year)
+    return _omnix_master(mode, period, year).get("hourly", [])
 
 
 # =========================
@@ -49,7 +53,7 @@ def omnix_by_day(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_by_day(mode, period, year)
+    return _omnix_master(mode, period, year).get("by_day", [])
 
 
 # =========================
@@ -61,7 +65,7 @@ def omnix_by_channel(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_by_channel(mode, period, year)
+    return _omnix_master(mode, period, year).get("channel", [])
 
 
 # =========================
@@ -73,7 +77,7 @@ def omnix_by_category(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_by_category(mode, period, year)
+    return _omnix_master(mode, period, year).get("category", [])
 
 
 # =========================
@@ -85,7 +89,7 @@ def omnix_by_product(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return OmnixService.get_by_product(mode, period, year)
+    return _omnix_master(mode, period, year).get("product", [])
 
 
 # =========================
@@ -97,7 +101,7 @@ def omnix_all(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    raw = OmnixService.get_all(mode, period, year)
+    raw = _omnix_master(mode, period, year)
 
     # SIVA Fix: Langsung ambil data dari service, karena format sudah sempurna dari DB
     trend = raw.get("daily") or []

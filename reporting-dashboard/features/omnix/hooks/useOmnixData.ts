@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { DUMMY } from "@/features/omnix/data/dummy"
+import { captureClientError } from "@/lib/client-error"
 import { fetchOmnixData } from "@/services/omnix-service"
 import type {
   CustomerData,
@@ -45,7 +46,7 @@ export function useOmnixData(
       setTopCases(data.topCases)
       setCustomer(data.customer)
     } catch (err) {
-      console.error("Omnix fetch error:", err)
+      captureClientError("omnix.fetch", err)
       setError(err instanceof Error ? err.message : "Failed to fetch data")
     } finally {
       setLoading(false)

@@ -43,7 +43,7 @@ const DailyChart = memo(function DailyChart({
 
   return (
     <div className="h-full w-full min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
           barCategoryGap="20%"

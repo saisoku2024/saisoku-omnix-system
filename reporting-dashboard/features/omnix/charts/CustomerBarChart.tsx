@@ -40,7 +40,7 @@ const CustomerBarChart = memo(function CustomerBarChart({
 
   return (
     <div className="h-full w-full min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
           margin={{ top: 22, right: 8, bottom: 0, left: 0 }}

@@ -101,7 +101,7 @@ const TrendChart = memo(function TrendChart({
   )
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
       <BarChart data={data} margin={{ top: 30, right: 12, bottom: 12, left: 0 }} barCategoryGap="28%">
         <CartesianGrid
           strokeDasharray="3 3"

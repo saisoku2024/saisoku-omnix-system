@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { fetchCsatData } from "@/services/csat-service"
+import { captureClientError } from "@/lib/client-error"
 import type {
   AgentAvg,
   AgentTotal,
@@ -46,7 +47,7 @@ export function useCsatData(
       setTopAgentTotal(data.topAgentTotal)
       setTopAgentAvg(data.topAgentAvg)
     } catch (err) {
-      console.error("CSAT fetch error:", err)
+      captureClientError("csat.fetch", err)
       setError(err instanceof Error ? err.message : "Failed to fetch data")
     } finally {
       setLoading(false)

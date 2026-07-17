@@ -39,7 +39,7 @@ const ByDayChart = memo(function ByDayChart({
 
   return (
     <div className="h-full w-full min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
           margin={{ top: 30, right: 12, left: 0, bottom: 0 }}

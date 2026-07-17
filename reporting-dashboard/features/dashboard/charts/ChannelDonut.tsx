@@ -8,6 +8,7 @@ import {
   Sector,
   ResponsiveContainer,
 } from "recharts"
+import type { PieSectorDataItem } from "recharts"
 
 import { PALETTE } from "@/features/dashboard/constants"
 import { formatCount } from "@/features/dashboard/utils/format"
@@ -21,7 +22,7 @@ type Props = {
   onActiveChange: (idx: number | null) => void
 }
 
-const renderActiveShape = (props: any) => {
+const renderActiveShape = (props: PieSectorDataItem) => {
   const {
     cx = 0,
     cy = 0,
@@ -103,7 +104,7 @@ const ChannelDonut = memo(function ChannelDonut({
 }: Props) {
   return (
     <div className="h-37.5 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <PieChart>
           <Pie
             data={data}
@@ -117,7 +118,7 @@ const ChannelDonut = memo(function ChannelDonut({
             cornerRadius={8}
             stroke="none"
             {...(typeof activeIndex === "number" ? { activeIndex } : {})}
-            activeShape={renderActiveShape as any}
+            activeShape={renderActiveShape}
             onMouseEnter={(_, index) => onActiveChange(index)}
             onMouseLeave={() => onActiveChange(null)}
             label={renderLabel}

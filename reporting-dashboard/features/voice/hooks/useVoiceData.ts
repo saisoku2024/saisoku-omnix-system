@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { DUMMY } from "@/features/voice/data/dummy"
+import { captureClientError } from "@/lib/client-error"
 import { fetchVoiceData } from "@/services/voice-service"
 import type {
   AgentHandling,
@@ -46,7 +47,7 @@ export function useVoiceData(
       setAgentAht(data.agentAht)
       setAgentAwt(data.agentAwt)
     } catch (err) {
-      console.error(err)
+      captureClientError("voice.fetch", err)
       setError(err instanceof Error ? err.message : "Failed to fetch data")
     } finally {
       setLoading(false)

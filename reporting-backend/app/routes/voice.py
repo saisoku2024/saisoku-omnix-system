@@ -8,13 +8,17 @@ router = APIRouter(
 )
 
 
+def _voice_master(mode: str, period: str, year: int):
+    return VoiceService.get_all(mode, period, year)
+
+
 @router.get("/summary")
 def voice_summary(
     mode: str = Query("monthly"),
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return VoiceService.get_summary(mode, period, year)
+    return _voice_master(mode, period, year).get("summary", {})
 
 
 @router.get("/daily")
@@ -23,7 +27,7 @@ def voice_daily(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return VoiceService.get_daily(mode, period, year)
+    return _voice_master(mode, period, year).get("daily", [])
 
 
 @router.get("/hourly")
@@ -32,7 +36,7 @@ def voice_hourly(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return VoiceService.get_hourly(mode, period, year)
+    return _voice_master(mode, period, year).get("hourly", [])
 
 
 @router.get("/by-day")
@@ -41,7 +45,7 @@ def voice_by_day(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return VoiceService.get_by_day(mode, period, year)
+    return _voice_master(mode, period, year).get("byDay", [])
 
 
 @router.get("/status")
@@ -50,7 +54,11 @@ def voice_status(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return VoiceService.get_by_status(mode, period, year)
+    summary = _voice_master(mode, period, year).get("summary", {})
+    return [
+        {"name": "Answered", "count": summary.get("answered", 0)},
+        {"name": "Abandon", "count": summary.get("abandon", 0)},
+    ]
 
 
 @router.get("/agent")
@@ -59,10 +67,11 @@ def voice_agent(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
+    data = _voice_master(mode, period, year)
     return {
-        "handling": VoiceService.get_agent_handling(mode, period, year),
-        "aht": VoiceService.get_agent_aht(mode, period, year),
-        "awt": VoiceService.get_agent_awt(mode, period, year),
+        "handling": data.get("agentHandling", []),
+        "aht": data.get("agentAht", []),
+        "awt": data.get("agentAwt", []),
     }
 
 
@@ -72,4 +81,4 @@ def voice_all(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return VoiceService.get_all(mode, period, year)
+    return _voice_master(mode, period, year)

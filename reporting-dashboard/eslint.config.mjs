@@ -13,7 +13,6 @@ const eslintConfig = defineConfig([
   ]),
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "react/display-name": "off",
       // ✅ TAMBAHKAN BARIS INI UNTUK MEMBUNGKAM WARNING TANSTACK TABLE

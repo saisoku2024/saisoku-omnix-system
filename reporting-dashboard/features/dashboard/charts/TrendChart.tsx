@@ -70,7 +70,7 @@ const TrendChart = memo(function TrendChart({
       className="h-full w-full"
       onMouseLeave={() => setActiveIndex(null)}
     >
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
           barCategoryGap={mode === "yearly" ? 28 : 14}
