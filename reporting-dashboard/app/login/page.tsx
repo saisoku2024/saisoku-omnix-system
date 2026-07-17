@@ -45,7 +45,7 @@ export default function LoginPage() {
         const body = (await response.json().catch(() => ({}))) as {
           detail?: string
         }
-        throw new Error(body.detail || `Login failed (${response.status})`)
+        throw new Error(body.detail || `Login gagal (kode ${response.status})`)
       }
 
       const nextPath =
@@ -54,7 +54,7 @@ export default function LoginPage() {
       router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard")
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed")
+      setError(err instanceof Error ? err.message : "Login gagal. Silakan coba lagi.")
     } finally {
       setLoading(false)
     }
@@ -75,20 +75,20 @@ export default function LoginPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">
-                  Insight Workspace
+                  Saisoku Omnix
                 </p>
                 <p className="mt-1 text-sm text-slate-400">
-                  Analytics Platform
+                  Analytics platform
                 </p>
               </div>
             </div>
 
             <p className="max-w-md text-4xl font-semibold leading-tight tracking-normal text-white">
-              Secure access for operational reporting.
+              Akses aman untuk pelaporan operasional.
             </p>
             <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">
-              Masuk ke dashboard internal untuk monitoring Omnix, Voice, CSAT,
-              report export, dan data cleanup.
+              Masuk ke dashboard internal untuk memantau OMNIX, Voice, CSAT,
+              ekspor laporan, dan proses pembersihan data.
             </p>
           </div>
 
@@ -100,10 +100,10 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">
-                    Protected admin session
+                    Sesi admin terlindungi
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Cookie session aktif setelah password valid.
+                    Sesi cookie aktif otomatis setelah password terverifikasi.
                   </p>
                 </div>
               </div>
@@ -118,22 +118,22 @@ export default function LoginPage() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
-                Insight Workspace
+                Saisoku Omnix
               </p>
-              <p className="mt-1 text-sm text-slate-400">Analytics Platform</p>
+              <p className="mt-1 text-sm text-slate-400">Analytics platform</p>
             </div>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200">
             <Sparkles className="size-3.5" />
-            Admin access
+            Akses admin
           </div>
 
           <h1 className="mt-5 text-3xl font-semibold tracking-normal text-white sm:text-4xl">
-            Sign in to your workspace
+            Masuk ke workspace Anda
           </h1>
           <p className="mt-3 max-w-md text-sm leading-6 text-slate-400">
-            Gunakan password admin resmi untuk membuka SAISOKU OMNIX dashboard.
+            Gunakan password admin resmi untuk membuka dashboard SAISOKU OMNIX.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-9 space-y-5">
@@ -156,7 +156,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
                   className="text-slate-500 transition hover:text-white"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                 >
                   {showPassword ? (
                     <EyeOff className="size-4" />
@@ -179,7 +179,7 @@ export default function LoginPage() {
               type="submit"
             >
               {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-              {loading ? "Signing in..." : "Login ke dashboard"}
+              {loading ? "Memproses masuk..." : "Masuk ke dashboard"}
               {!loading ? <ArrowRight className="size-4" /> : null}
             </button>
           </form>
@@ -191,11 +191,12 @@ export default function LoginPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">
-                  Secure internal access
+                  Akses internal yang aman
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Jika gagal login, cek environment ADMIN_UI_PASSWORD dan
-                  redeploy Vercel setelah perubahan disimpan.
+                  Jika login gagal, periksa environment variable
+                  ADMIN_UI_PASSWORD, lalu redeploy ke Vercel setelah
+                  perubahan disimpan.
                 </p>
               </div>
             </div>
