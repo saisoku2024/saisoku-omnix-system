@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import { adminHeaders } from "@/lib/admin-api"
 import { apiUrl } from "@/lib/api"
 
 const IconTicket = () => (
@@ -238,7 +239,10 @@ export default function PrincipalReportPage() {
 
     try {
       const res = await fetch(
-        `${principalApi}/export?start_date=${startDate}&end_date=${endDate}`
+        `${principalApi}/export?start_date=${startDate}&end_date=${endDate}`,
+        {
+          headers: adminHeaders(),
+        }
       )
 
       if (!res.ok) {

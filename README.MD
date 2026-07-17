@@ -34,6 +34,7 @@ Environment backend:
 ```txt
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+ADMIN_API_TOKEN=
 ```
 
 ### Frontend
@@ -48,6 +49,9 @@ Environment frontend:
 
 ```txt
 NEXT_PUBLIC_API_URL=http://localhost:8001
+NEXT_PUBLIC_ADMIN_API_TOKEN=
+ADMIN_UI_PASSWORD=
+AUTH_SESSION_SECRET=
 ```
 
 ## URL Lokal
@@ -61,12 +65,20 @@ NEXT_PUBLIC_API_URL=http://localhost:8001
 - Backend Render config ada di `render.yaml`
 - Panduan backend ada di `reporting-backend/DEPLOY_RENDER.md`
 - Frontend Vercel memakai `NEXT_PUBLIC_API_URL` yang mengarah ke backend Render
+- Endpoint write/export dilindungi token minimal:
+  - Render: `ADMIN_API_TOKEN`
+  - Vercel: `NEXT_PUBLIC_ADMIN_API_TOKEN` dengan nilai yang sama
+- Halaman dashboard dilindungi auth UI berbasis cookie:
+  - Vercel: `ADMIN_UI_PASSWORD`
+  - Vercel: `AUTH_SESSION_SECRET`
 
 ## Changelog
 
 ### 2026-07-16
 
 - Merapikan struktur frontend dengan menambahkan `config/`, `providers/`, `services/`, dan `types/`
+- Menambahkan guard token minimal untuk endpoint upload, cleanup soft-delete, dan report export
+- Menambahkan login admin dan middleware session untuk melindungi halaman dashboard/report/upload
 - Menyatukan theme system ke provider global
 - Menyatukan rumah UI ke `components/ui`
 - Memindahkan sidebar menu dan config ke `reporting-dashboard/config/`

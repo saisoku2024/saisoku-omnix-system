@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/api"
+import { adminHeaders } from "@/lib/admin-api"
 import type {
   CleanupPreviewRequest,
   CleanupPreviewResponse,
@@ -47,6 +48,7 @@ export async function softDeleteCleanup(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...adminHeaders(),
     },
     body: JSON.stringify(payload),
   })

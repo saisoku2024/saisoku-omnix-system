@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/api"
+import { adminHeaders } from "@/lib/admin-api"
 import type {
   ExportRequest,
   PreviewRequest,
@@ -82,6 +83,7 @@ export async function exportDigital(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...adminHeaders(),
     },
     body: JSON.stringify(payload),
   })
@@ -100,6 +102,7 @@ export async function exportInbound(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...adminHeaders(),
     },
     body: JSON.stringify(payload),
   })

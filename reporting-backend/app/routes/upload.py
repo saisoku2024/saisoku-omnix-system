@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form
+from app.core.security import require_admin_token
 from app.core.supabase import supabase
 from app.services.upload_service import UploadService
 import pandas as pd
@@ -10,7 +11,8 @@ router = APIRouter(tags=["Upload"])
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    type: str = Form(...)
+    type: str = Form(...),
+    _: None = Depends(require_admin_token),
 ):
     upload_id = str(uuid.uuid4())
     try:

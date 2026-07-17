@@ -24,6 +24,7 @@ import {
 import { useTheme } from "@/providers/theme-provider"
 import UploadResultSummaryCard from "@/features/upload/components/UploadResultSummaryCard"
 import type { UploadResult } from "@/features/upload/types/Upload"
+import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN, apiUrl } from "@/lib/api"
 
 /* ============================================================
@@ -435,6 +436,9 @@ function useFileUpload(
         })
         
         xhr.open("POST", UPLOAD_API)
+        Object.entries(adminHeaders()).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, String(value))
+        })
         xhr.send(formData)
       }),
     [onSuccess]

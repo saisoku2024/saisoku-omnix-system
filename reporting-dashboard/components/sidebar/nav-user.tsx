@@ -44,17 +44,13 @@ export function NavUser({
 }: NavUserProps) {
   const { isMobile } = useSidebar()
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     try {
+      await fetch("/api/auth/logout", { method: "POST" })
       window.localStorage.clear()
       window.sessionStorage.clear()
-      document.cookie.split(";").forEach((cookie) => {
-        const name = cookie.split("=")[0]?.trim()
-        if (!name) return
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
-      })
     } finally {
-      window.location.assign("/")
+      window.location.assign("/login")
     }
   }, [])
 

@@ -1,8 +1,9 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.security import require_admin_token
 from app.services.cleanup_service import CleanupService
 
 
@@ -60,7 +61,10 @@ def phone_format_diagnostics(payload: CleanupPreviewRequest):
 
 
 @router.post("/soft-delete")
-def soft_delete_cleanup(payload: CleanupSoftDeleteRequest):
+def soft_delete_cleanup(
+    payload: CleanupSoftDeleteRequest,
+    _: None = Depends(require_admin_token),
+):
     try:
         return CleanupService.soft_delete(
             items=[item.model_dump() for item in payload.items],
