@@ -9,12 +9,17 @@ import {
   EyeOff,
   Loader2,
   LockKeyhole,
+  Mail,
   ShieldCheck,
   Sparkles,
 } from "lucide-react"
 
+const DEMO_EMAIL = "guest@ssidmail.my.id"
+const DEMO_PASSWORD = "guestonly123"
+
 export default function LoginPage() {
   const router = useRouter()
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
@@ -38,7 +43,7 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       })
 
       if (!response.ok) {
@@ -84,11 +89,12 @@ export default function LoginPage() {
             </div>
 
             <p className="max-w-md text-4xl font-semibold leading-tight tracking-normal text-white">
-              Akses aman untuk pelaporan operasional.
+              Welcome back to{" "}
+              <span className="text-cyan-300">INSIGHT Workspace</span>{" "}
+              Dashboard
             </p>
             <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">
-              Masuk ke dashboard internal untuk memantau OMNIX, Voice, CSAT,
-              ekspor laporan, dan proses pembersihan data.
+              Internal Tool for Monitoring & Analytics.
             </p>
           </div>
 
@@ -103,7 +109,7 @@ export default function LoginPage() {
                     Sesi admin terlindungi
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Sesi cookie aktif otomatis setelah password terverifikasi.
+                    Admin dan demo guest masuk lewat session aman.
                   </p>
                 </div>
               </div>
@@ -130,13 +136,30 @@ export default function LoginPage() {
           </div>
 
           <h1 className="mt-5 text-3xl font-semibold tracking-normal text-white sm:text-4xl">
-            Masuk ke workspace Anda
+            Welcome back to INSIGHT Workspace Dashboard
           </h1>
           <p className="mt-3 max-w-md text-sm leading-6 text-slate-400">
-            Gunakan password admin resmi untuk membuka dashboard SAISOKU OMNIX.
+            Internal Tool for Monitoring & Analytics.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                Email
+              </span>
+              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 transition focus-within:border-cyan-300/70 focus-within:bg-slate-950/70 focus-within:ring-4 focus-within:ring-cyan-300/10">
+                <Mail className="size-4 text-slate-500" />
+                <input
+                  autoComplete="email"
+                  className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
+                  placeholder="guest@ssidmail.my.id"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+            </label>
+
             <label className="block">
               <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                 Password
@@ -172,6 +195,18 @@ export default function LoginPage() {
                 {error}
               </div>
             ) : null}
+
+            <button
+              type="button"
+              onClick={() => {
+                setEmail(DEMO_EMAIL)
+                setPassword(DEMO_PASSWORD)
+                setError("")
+              }}
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.14em] text-cyan-100 transition hover:bg-cyan-300/15"
+            >
+              Use demo guest account
+            </button>
 
             <button
               className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 text-sm font-extrabold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"

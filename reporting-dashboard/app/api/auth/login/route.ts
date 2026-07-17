@@ -6,6 +6,9 @@ import {
   createSessionToken,
 } from "@/lib/auth-token"
 
+const DEMO_GUEST_EMAIL = "guest@ssidmail.my.id"
+const DEMO_GUEST_PASSWORD = "guestonly123"
+
 export async function POST(request: Request) {
   const expectedPassword = process.env.ADMIN_UI_PASSWORD
   const sessionSecret = process.env.AUTH_SESSION_SECRET
@@ -18,14 +21,22 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as {
+    email?: unknown
     password?: unknown
   }
 
-  if (body.password !== expectedPassword) {
-    return NextResponse.json({ detail: "Invalid password" }, { status: 401 })
+  const email =
+    typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+  const password = typeof body.password === "string" ? body.password : ""
+  const isGuest =
+    email === DEMO_GUEST_EMAIL && password === DEMO_GUEST_PASSWORD
+  const isAdmin = password === expectedPassword && email !== DEMO_GUEST_EMAIL
+
+  if (!isGuest && !isAdmin) {
+    return NextResponse.json({ detail: "Invalid credentials" }, { status: 401 })
   }
 
-  const token = await createSessionToken(sessionSecret)
+  const token = await createSessionToken(sessionSecret, isGuest ? "guest" : "admin")
   const response = NextResponse.json({ ok: true })
 
   response.cookies.set(AUTH_COOKIE_NAME, token, {

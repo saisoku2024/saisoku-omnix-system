@@ -3,7 +3,7 @@ export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 12
 
 type SessionPayload = {
   exp: number
-  sub: "admin"
+  sub: "admin" | "guest"
 }
 
 function encodeBase64Url(value: string | Uint8Array) {
@@ -59,10 +59,13 @@ function timingSafeEqual(left: string, right: string) {
   return result === 0
 }
 
-export async function createSessionToken(secret: string) {
+export async function createSessionToken(
+  secret: string,
+  subject: SessionPayload["sub"] = "admin"
+) {
   const payload: SessionPayload = {
     exp: Math.floor(Date.now() / 1000) + AUTH_MAX_AGE_SECONDS,
-    sub: "admin",
+    sub: subject,
   }
   const encodedPayload = encodeBase64Url(JSON.stringify(payload))
   const signature = await sign(encodedPayload, secret)
@@ -81,7 +84,10 @@ export async function verifySessionToken(token: string | undefined, secret: stri
 
   try {
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionPayload
-    return payload.sub === "admin" && payload.exp > Math.floor(Date.now() / 1000)
+    return (
+      (payload.sub === "admin" || payload.sub === "guest") &&
+      payload.exp > Math.floor(Date.now() / 1000)
+    )
   } catch {
     return false
   }
