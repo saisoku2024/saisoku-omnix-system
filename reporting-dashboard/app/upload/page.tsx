@@ -1466,7 +1466,7 @@ export default function UploadPage() {
                             </p>
                           </div>
 
-                          <UploadResultSummaryCard result={uploadResult} />
+                          <UploadResultSummaryCard result={uploadResult} onReset={handleClear} />
                         </div>
                       </motion.div>
                     )}

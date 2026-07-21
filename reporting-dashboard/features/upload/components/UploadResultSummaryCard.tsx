@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle2, AlertTriangle, XCircle, Database } from "lucide-react"
+import { CheckCircle2, AlertTriangle, XCircle, Database, RotateCcw } from "lucide-react"
 
 type Props = {
   result: {
@@ -11,6 +11,7 @@ type Props = {
     invalid_rows: number
     target_table?: string
   }
+  onReset?: () => void
 }
 
 type StatCardProps = {
@@ -44,19 +45,32 @@ function StatCard({ label, value, icon, tone }: StatCardProps) {
   )
 }
 
-export default function UploadResultSummaryCard({ result }: Props) {
+export default function UploadResultSummaryCard({ result, onReset }: Props) {
   return (
     <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#071018]/90 backdrop-blur-2xl p-6 shadow-[0_0_60px_rgba(0,0,0,0.45)] flex flex-col gap-6">
       
-      {/* Header */}
-      <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400">
-          <CheckCircle2 size={26} />
+      {/* Header dengan Tombol Reset di Pojok Kanan Atas Sejajar Upload Completed */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400">
+            <CheckCircle2 size={26} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white">Upload Completed</h2>
+            <p className="mt-1 text-sm text-white/50">File successfully processed and validated</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-white">Upload Completed</h2>
-          <p className="mt-1 text-sm text-white/50">File successfully processed and validated</p>
-        </div>
+
+        {onReset && (
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white/90 transition hover:border-indigo-400 hover:bg-indigo-500/20 hover:text-white"
+          >
+            <RotateCcw size={15} />
+            Reset
+          </button>
+        )}
       </div>
 
       {/* Metrics */}
