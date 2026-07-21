@@ -36,11 +36,7 @@ const MONTH_LABELS = [
 function formatBarLabel(val: unknown) {
   const num = Number(val)
   if (!num || num <= 0) return ""
-  if (num >= 1000) {
-    const k = (num / 1000).toFixed(1).replace(/\.0$/, "")
-    return `${k}k`
-  }
-  return String(num)
+  return String(Math.round(num))
 }
 
 function formatTick(value: string, mode: ModeType): string {
@@ -117,9 +113,23 @@ const TrendChart = memo(function TrendChart({
             axisLine={false}
             tickLine={false}
             tickMargin={10}
-            tick={{
-              fontSize: 10,
-              fill: "var(--c-muted)",
+            tick={({ x, y, payload }) => {
+              const value = String(payload?.value ?? "")
+              const isHL =
+                !isHighlightAll && highlightedMonths?.includes(value)
+
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  fontSize={isHL ? 11 : 10}
+                  fontWeight={isHL ? 800 : 500}
+                  fill={isHL ? (isDark ? "#ffffff" : "#111827") : "var(--c-muted)"}
+                >
+                  {formatTick(value, mode)}
+                </text>
+              )
             }}
           />
 
@@ -164,28 +174,28 @@ const TrendChart = memo(function TrendChart({
               const isOtherHovered =
                 activeIndex !== null && !isHovered
 
-              let fill = isMax
-                ? isDark ? "#6366f1" : "#6366f1"
-                : isHL
-                  ? isDark ? "rgba(99,102,241,0.72)" : "rgba(99,102,241,0.78)"
-                  : isDark ? "rgba(99,102,241,0.16)" : "rgba(99,102,241,0.20)"
+              let fill = isMax ? "#22c55e" : "#16a34a"
 
               if (isHovered) {
-                fill = isMax
-                  ? "#818cf8"
-                  : "#8b5cf6"
+                fill = isMax ? "#4ade80" : "#22c55e"
               }
 
               const opacity = isOtherHovered
                 ? 0.28
-                : 1
+                : entry.count === 0
+                  ? 0.14
+                  : isHL
+                    ? 0.95
+                    : isHighlightAll
+                      ? 0.9
+                      : 0.45
 
               return (
                 <Cell
                   key={index}
                   fill={fill}
                   opacity={opacity}
-                  stroke={isMax ? "#a5b4fc" : "none"}
+                  stroke={isMax ? "#86efac" : "none"}
                   strokeWidth={isMax ? 1.5 : 0}
                   style={{
                     transition:
