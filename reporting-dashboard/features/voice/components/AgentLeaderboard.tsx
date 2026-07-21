@@ -1,6 +1,6 @@
 import React from "react"
 
-import Card from "@/shared/ui/Card"
+import Card from "@/components/ui/card"
 
 import CardHeader from "@/features/voice/components/CardHeader"
 import AgentRow from "@/features/voice/components/AgentRow"

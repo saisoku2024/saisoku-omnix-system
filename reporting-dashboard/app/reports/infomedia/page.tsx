@@ -9,7 +9,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import Card from "@/shared/ui/Card"
+import Card from "@/components/ui/card"
 import CardHeader from "@/features/omnix/components/CardHeader"
 import DigitalFilter from "@/features/report/components/DigitalFilter"
 import VoiceFilter from "@/features/report/components/VoiceFilter"

@@ -27,8 +27,8 @@ import { fmt } from "@/features/csat/utils/format"
 
 import { useCsatData } from "@/features/csat/hooks/useCsatData"
 
-import Card from "@/shared/ui/Card"
-import Skeleton from "@/shared/ui/Skeleton"
+import Card from "@/components/ui/card"
+import Skeleton from "@/components/ui/skeleton"
 import PeriodDropdown from "@/features/csat/components/PeriodDropdown"
 import AgentRow from "@/features/csat/components/AgentRow"
 

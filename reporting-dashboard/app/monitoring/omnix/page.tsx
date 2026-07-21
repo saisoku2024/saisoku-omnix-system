@@ -10,7 +10,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 
-import Card from "@/shared/ui/Card"
+import Card from "@/components/ui/card"
 
 import { MONTHS, QUARTERS } from "@/features/omnix/constants"
 import { fmt } from "@/features/omnix/utils/format"

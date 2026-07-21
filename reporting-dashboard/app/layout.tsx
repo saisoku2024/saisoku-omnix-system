@@ -3,10 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
-import { AppSidebar } from "@/components/sidebar/app-sidebar"
 import { ThemeProvider } from "@/contexts/theme-context"
+import { RootLayoutInner } from "./layout-inner"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Insight Dashboard",
-  description: "Integrated moNitoring System & analytIcs hiGHlighT Dashboard",
+  description: "Integrated moNitoring System & analytics hiGHlighT Dashboard",
 }
 
 // ✅ Satu export default saja, ThemeProvider langsung di dalam RootLayout
@@ -37,17 +36,9 @@ export default function RootLayout({
       <body className="min-h-full flex">
         <ThemeProvider>
           <TooltipProvider>
-            <SidebarProvider defaultOpen={true}>
-
-              {/* SIDEBAR */}
-              <AppSidebar />
-
-              {/* MAIN CONTENT */}
-              <main className="flex-1 overflow-auto">
-                {children}
-              </main>
-
-            </SidebarProvider>
+            <RootLayoutInner>
+              {children}
+            </RootLayoutInner>
             <Toaster richColors closeButton />
           </TooltipProvider>
         </ThemeProvider>

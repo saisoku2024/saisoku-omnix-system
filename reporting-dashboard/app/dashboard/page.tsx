@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react"
 import { useTheme } from "@/contexts/theme-context"
 import { BarChart3, Sun, Moon } from "lucide-react"
-import Card from "@/shared/ui/Card"
+import Card from "@/components/ui/card"
 import { useDashboardData } from "@/features/dashboard/hooks/useDashboardData"
 import type { ModeType, StatsData } from "@/features/dashboard/types/dashboard"
 import { MONTHS, QUARTERS, KPI_CONFIG } from "@/features/dashboard/constants"

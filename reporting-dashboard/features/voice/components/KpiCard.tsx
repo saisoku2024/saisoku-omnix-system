@@ -1,8 +1,8 @@
 import React from "react"
 import type { LucideIcon } from "lucide-react"
 
-import Card from "@/shared/ui/Card"
-import Skeleton from "@/shared/ui/Skeleton"
+import Card from "@/components/ui/card"
+import Skeleton from "@/components/ui/skeleton"
 
 type Props = {
   label: string
