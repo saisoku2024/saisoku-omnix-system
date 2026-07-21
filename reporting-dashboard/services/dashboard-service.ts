@@ -96,5 +96,25 @@ export async function fetchDashboardAll(mode: ModeType, period: string, year: nu
     throw new Error(`HTTP ${response.status}`)
   }
 
-  return normalizeDashboardResponse((await response.json()) as DashboardAllResponse)
+  const payload = normalizeDashboardResponse(
+    (await response.json()) as DashboardAllResponse
+  )
+
+  if (mode !== "quarterly") {
+    return payload
+  }
+
+  const trendResponse = await fetch(
+    `${DASHBOARD_API}/all?mode=yearly&period=all&year=${year}`,
+    { cache: "no-store" }
+  )
+
+  if (!trendResponse.ok) {
+    return payload
+  }
+
+  return {
+    ...payload,
+    trend: resolveDashboardTrend((await trendResponse.json()) as DashboardAllResponse),
+  }
 }
