@@ -99,9 +99,23 @@ class UploadService:
         if not rows:
             return inserted_rows
 
+        # Filter out internal audit fields if table schema does not include them
+        EXTRA_METADATA_KEYS = {
+            "subject_original",
+            "subject_normalized",
+            "mapping_status",
+            "mapping_source",
+            "mapping_version",
+        }
+
+        clean_rows = []
+        for r in rows:
+            clean_r = {k: v for k, v in r.items() if k not in EXTRA_METADATA_KEYS}
+            clean_rows.append(clean_r)
+
         # Chunked bulk insertion to prevent HTTP 413 Payload Too Large & Request Timeouts
-        for i in range(0, len(rows), batch_size):
-            chunk = rows[i : i + batch_size]
+        for i in range(0, len(clean_rows), batch_size):
+            chunk = clean_rows[i : i + batch_size]
             try:
                 res = supabase.table(table).insert(chunk).execute()
                 if res.data:
