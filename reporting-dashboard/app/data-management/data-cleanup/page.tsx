@@ -18,12 +18,49 @@ import {
 } from "lucide-react"
 
 import { previewCleanup, softDeleteCleanup } from "@/services/cleanup-service"
+import PeriodDropdown from "@/features/dashboard/components/PeriodDropdown"
 import type {
   CleanupCandidate,
   CleanupPreviewResponse,
   CleanupRule,
   CleanupSoftDeleteResponse,
 } from "@/features/data-cleanup/types/cleanup"
+
+const MODE_OPTIONS = ["Monthly", "Quarterly", "Yearly", "Custom Date"]
+const MONTH_OPTIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const QUARTER_OPTIONS = ["Q1", "Q2", "Q3", "Q4", "All"]
+const YEAR_OPTIONS = ["2024", "2025", "2026"]
+
+function computeDateRange(mode: string, period: string, year: number) {
+  if (mode === "Monthly") {
+    const monthIndexMap: Record<string, number> = {
+      Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+      Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+    }
+    const m = monthIndexMap[period] ?? 7
+    const monthStr = String(m).padStart(2, "0")
+    const lastDay = new Date(year, m, 0).getDate()
+    const lastDayStr = String(lastDay).padStart(2, "0")
+    return {
+      dateFrom: `${year}-${monthStr}-01`,
+      dateTo: `${year}-${monthStr}-${lastDayStr}`,
+    }
+  }
+
+  if (mode === "Quarterly") {
+    if (period === "Q1") return { dateFrom: `${year}-01-01`, dateTo: `${year}-03-31` }
+    if (period === "Q2") return { dateFrom: `${year}-04-01`, dateTo: `${year}-06-30` }
+    if (period === "Q3") return { dateFrom: `${year}-07-01`, dateTo: `${year}-09-30` }
+    if (period === "Q4") return { dateFrom: `${year}-10-01`, dateTo: `${year}-12-31` }
+    return { dateFrom: `${year}-01-01`, dateTo: `${year}-12-31` }
+  }
+
+  if (mode === "Yearly") {
+    return { dateFrom: `${year}-01-01`, dateTo: `${year}-12-31` }
+  }
+
+  return null
+}
 
 const RULES: Array<{
   id: CleanupRule
@@ -384,6 +421,11 @@ export default function DataCleanupPage() {
   const defaults = useMemo(() => getDefaultDateRange(), [])
   const [dateFrom, setDateFrom] = useState(defaults.dateFrom)
   const [dateTo, setDateTo] = useState(defaults.dateTo)
+
+  const [filterMode, setFilterMode] = useState<string>("Monthly")
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("Jul")
+  const [selectedYear, setSelectedYear] = useState<number>(2026)
+
   const [rules, setRules] = useState<CleanupRule[]>(["abandon_match", "test_omnix", "internal_email"])
   const [preview, setPreview] = useState<CleanupPreviewResponse | null>(null)
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
@@ -409,6 +451,41 @@ export default function DataCleanupPage() {
     }
   }, [])
 
+  const handleModeChange = (newMode: string) => {
+    setFilterMode(newMode)
+    let newPeriod = selectedPeriod
+    if (newMode === "Monthly" && !MONTH_OPTIONS.includes(newPeriod)) {
+      newPeriod = "Jul"
+    } else if (newMode === "Quarterly" && !QUARTER_OPTIONS.includes(newPeriod)) {
+      newPeriod = "Q3"
+    }
+    setSelectedPeriod(newPeriod)
+
+    const range = computeDateRange(newMode, newPeriod, selectedYear)
+    if (range) {
+      setDateFrom(range.dateFrom)
+      setDateTo(range.dateTo)
+    }
+  }
+
+  const handlePeriodChange = (newPeriod: string) => {
+    setSelectedPeriod(newPeriod)
+    const range = computeDateRange(filterMode, newPeriod, selectedYear)
+    if (range) {
+      setDateFrom(range.dateFrom)
+      setDateTo(range.dateTo)
+    }
+  }
+
+  const handleYearChange = (newYear: number) => {
+    setSelectedYear(newYear)
+    const range = computeDateRange(filterMode, selectedPeriod, newYear)
+    if (range) {
+      setDateFrom(range.dateFrom)
+      setDateTo(range.dateTo)
+    }
+  }
+
   const toggleRule = (rule: CleanupRule) => {
     setRules((current) =>
       current.includes(rule) ? current.filter((item) => item !== rule) : [...current, rule]
@@ -416,8 +493,17 @@ export default function DataCleanupPage() {
   }
 
   const resetFilters = () => {
-    setDateFrom(defaults.dateFrom)
-    setDateTo(defaults.dateTo)
+    setFilterMode("Monthly")
+    setSelectedPeriod("Jul")
+    setSelectedYear(2026)
+    const range = computeDateRange("Monthly", "Jul", 2026)
+    if (range) {
+      setDateFrom(range.dateFrom)
+      setDateTo(range.dateTo)
+    } else {
+      setDateFrom(defaults.dateFrom)
+      setDateTo(defaults.dateTo)
+    }
     setRules(["abandon_match", "test_omnix", "internal_email"])
     setPreview(null)
     setSelectedKeys(new Set())
@@ -543,29 +629,71 @@ export default function DataCleanupPage() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-2">
+            <div className="flex flex-col gap-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-(--c-muted)">
-                  Date From
+                  Filter Periode Dashboard
                 </span>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(event) => setDateFrom(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-sm text-(--c-text) outline-none transition [color-scheme:dark] focus:border-(--c-accent)/50 focus:ring-4 focus:ring-(--c-accent)/10"
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-(--c-muted)">
-                  Date To
+                <span className="rounded-full border border-(--c-accent)/20 bg-(--c-accent-soft) px-2.5 py-0.5 font-mono text-[11px] font-semibold text-(--c-accent)">
+                  {dateFrom} s.d. {dateTo}
                 </span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(event) => setDateTo(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-sm text-(--c-text) outline-none transition [color-scheme:dark] focus:border-(--c-accent)/50 focus:ring-4 focus:ring-(--c-accent)/10"
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-(--c-border) bg-(--c-overlay) p-2">
+                <PeriodDropdown
+                  options={MODE_OPTIONS}
+                  value={filterMode}
+                  onChange={handleModeChange}
+                  isDark={true}
                 />
-              </label>
+
+                {filterMode !== "Yearly" && filterMode !== "Custom Date" && (
+                  <>
+                    <div className="h-4 w-px bg-(--c-border)" />
+                    <PeriodDropdown
+                      options={filterMode === "Monthly" ? MONTH_OPTIONS : QUARTER_OPTIONS}
+                      value={selectedPeriod}
+                      onChange={handlePeriodChange}
+                      isDark={true}
+                    />
+                  </>
+                )}
+
+                {filterMode !== "Custom Date" && (
+                  <>
+                    <div className="h-4 w-px bg-(--c-border)" />
+                    <PeriodDropdown
+                      options={YEAR_OPTIONS}
+                      value={String(selectedYear)}
+                      onChange={(v) => handleYearChange(Number(v))}
+                      isDark={true}
+                    />
+                  </>
+                )}
+              </div>
+
+              {filterMode === "Custom Date" && (
+                <div className="mt-1 grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold text-(--c-muted)">Date From</span>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(event) => setDateFrom(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none transition [color-scheme:dark] focus:border-(--c-accent)/50"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-semibold text-(--c-muted)">Date To</span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(event) => setDateTo(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none transition [color-scheme:dark] focus:border-(--c-accent)/50"
+                    />
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
