@@ -82,6 +82,23 @@ export default function ReportCenterPage() {
   const [form, setForm] = useState(() => getDefaultForm("digital"))
 
   const [previewData, setPreviewData] = useState<PreviewRow[]>([])
+  const [sessionRole, setSessionRole] = useState<"admin" | "guest" | null>(null)
+  const isAdmin = sessionRole === "admin"
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { role?: "admin" | "guest" }) => {
+        if (active) setSessionRole(data.role ?? null)
+      })
+      .catch(() => {
+        if (active) setSessionRole(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const {
     loading,
@@ -150,6 +167,11 @@ export default function ReportCenterPage() {
   }
 
   const handleExport = async () => {
+    if (!isAdmin) {
+      toast.error("Mode Guest: Aksi ekspor khusus untuk role Admin.")
+      return
+    }
+
     if (!validateDates()) {
       return
     }
@@ -281,9 +303,9 @@ export default function ReportCenterPage() {
             <Search className="h-4 w-4" />
             {loadingPreview ? "Loading..." : "Preview"}
           </button>
-          <button onClick={handleExport} disabled={loadingExport || loadingPreview || loadingOptions} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50">
+          <button onClick={handleExport} disabled={loadingExport || loadingPreview || loadingOptions || !isAdmin} title={!isAdmin ? "Aksi ekspor khusus untuk role Admin" : undefined} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50">
             <Download className="h-4 w-4" />
-            {loadingExport ? "Exporting..." : "Export Excel"}
+            {!isAdmin ? "Mode Guest (Read-Only)" : loadingExport ? "Exporting..." : "Export Excel"}
           </button>
         </div>
       </Card>

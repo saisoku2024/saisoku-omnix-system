@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { apiUrl } from "@/lib/api"
 
@@ -189,6 +189,23 @@ export default function PrincipalReportPage() {
   const [generated, setGenerated] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [sessionRole, setSessionRole] = useState<"admin" | "guest" | null>(null)
+  const isAdmin = sessionRole === "admin"
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { role?: "admin" | "guest" }) => {
+        if (active) setSessionRole(data.role ?? null)
+      })
+      .catch(() => {
+        if (active) setSessionRole(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const principalApi = apiUrl("/api/principal-report")
 
@@ -231,6 +248,11 @@ export default function PrincipalReportPage() {
   }
 
   const exportExcel = async () => {
+    if (!isAdmin) {
+      setError("Aksi ekspor khusus untuk role Admin (Mode Guest: Read-Only).")
+      return
+    }
+
     if (!validateDates()) return
 
     setExporting(true)
@@ -260,7 +282,7 @@ export default function PrincipalReportPage() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to export")
+      setError(err instanceof Error ? err.message : "Export failed")
     } finally {
       setExporting(false)
     }
@@ -313,9 +335,10 @@ export default function PrincipalReportPage() {
                 <button
                   className="pr-btn-secondary"
                   onClick={exportExcel}
-                  disabled={exporting || loading}
+                  disabled={exporting || loading || !isAdmin}
+                  title={!isAdmin ? "Aksi ekspor khusus untuk role Admin" : undefined}
                 >
-                  <IconDownload /> {exporting ? "Preparing..." : "Export"}
+                  <IconDownload /> {!isAdmin ? "Mode Guest (Read-Only)" : exporting ? "Preparing..." : "Export"}
                 </button>
                 <button
                   className="pr-btn-primary"

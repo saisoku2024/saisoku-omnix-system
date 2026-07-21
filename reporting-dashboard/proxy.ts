@@ -3,11 +3,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { AUTH_COOKIE_NAME, getSessionPayload } from "@/lib/auth-token"
 
 const PUBLIC_FILE = /\.(.*)$/
-const ADMIN_ONLY_ROUTES = [
-  "/upload",
-  "/data-management/data-cleanup",
-  "/reports/principal",
-]
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
@@ -39,14 +34,6 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url)
     loginUrl.searchParams.set("next", `${pathname}${search}`)
     return NextResponse.redirect(loginUrl)
-  }
-
-  // Proteksi khusus rute sensitif (hanya untuk role admin)
-  if (
-    ADMIN_ONLY_ROUTES.some((route) => pathname.startsWith(route)) &&
-    session?.sub !== "admin"
-  ) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
   return NextResponse.next()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangleIcon,
   CalendarDaysIcon,
@@ -322,6 +322,23 @@ export default function DataCleanupPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [sessionRole, setSessionRole] = useState<"admin" | "guest" | null>(null)
+  const isAdmin = sessionRole === "admin"
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { role?: "admin" | "guest" }) => {
+        if (active) setSessionRole(data.role ?? null)
+      })
+      .catch(() => {
+        if (active) setSessionRole(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const toggleRule = (rule: CleanupRule) => {
     setRules((current) =>
@@ -388,6 +405,11 @@ export default function DataCleanupPage() {
   }
 
   const softDeleteSelected = async () => {
+    if (!isAdmin) {
+      setError("Aksi Soft Delete khusus untuk role Admin (Mode Guest: Read-Only).")
+      return
+    }
+
     const candidates = preview?.items ?? []
     const selectedItems = candidates.filter((item) =>
       selectedKeys.has(getCandidateKey(item))
@@ -635,7 +657,8 @@ export default function DataCleanupPage() {
                 <button
                   type="button"
                   onClick={softDeleteSelected}
-                  disabled={deleting || selectedCount === 0}
+                  disabled={deleting || selectedCount === 0 || !isAdmin}
+                  title={!isAdmin ? "Aksi Soft Delete khusus untuk role Admin" : undefined}
                   className="inline-flex items-center gap-1.5 rounded-full border border-(--c-danger)/30 bg-(--c-danger-soft) px-3 py-1 font-bold text-(--c-danger) transition hover:bg-(--c-danger-soft) disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {deleting ? (
@@ -643,7 +666,9 @@ export default function DataCleanupPage() {
                   ) : (
                     <Trash2Icon size={12} />
                   )}
-                  Soft Delete Selected ({formatNumber(selectedCount)})
+                  {!isAdmin
+                    ? "Mode Guest (Read-Only)"
+                    : `Soft Delete Selected (${formatNumber(selectedCount)})`}
                 </button>
               </div>
             ) : null}
