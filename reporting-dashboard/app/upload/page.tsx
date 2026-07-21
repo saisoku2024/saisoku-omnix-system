@@ -73,7 +73,7 @@ interface UploadMetrics {
    CONSTANTS
    ============================================================ */
 
-const UPLOAD_API = apiUrl("/api/upload")
+const UPLOAD_API = "/api/backend/upload"
 
 const ALLOWED_TYPES = [
   "text/csv",
@@ -446,9 +446,6 @@ function useFileUpload(
         })
         
         xhr.open("POST", UPLOAD_API)
-        Object.entries(adminHeaders()).forEach(([key, value]) => {
-          xhr.setRequestHeader(key, String(value))
-        })
         xhr.send(formData)
       }),
     [onSuccess]

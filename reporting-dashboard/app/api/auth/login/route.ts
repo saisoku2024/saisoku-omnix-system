@@ -6,8 +6,9 @@ import {
   createSessionToken,
 } from "@/lib/auth-token"
 
-const DEMO_GUEST_EMAIL = "guest@ssidmail.my.id"
-const DEMO_GUEST_PASSWORD = "guestonly123"
+const DEMO_GUEST_EMAIL = (process.env.DEMO_GUEST_EMAIL || "guest@ssidmail.my.id").trim().toLowerCase()
+const DEMO_GUEST_PASSWORD = process.env.DEMO_GUEST_PASSWORD || "guestonly123"
+const ENABLE_DEMO_GUEST = process.env.ENABLE_DEMO_GUEST !== "false"
 
 export async function POST(request: Request) {
   const expectedPassword = process.env.ADMIN_UI_PASSWORD
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
     typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
   const password = typeof body.password === "string" ? body.password : ""
   const isGuest =
-    email === DEMO_GUEST_EMAIL && password === DEMO_GUEST_PASSWORD
+    ENABLE_DEMO_GUEST &&
+    email === DEMO_GUEST_EMAIL &&
+    password === DEMO_GUEST_PASSWORD
   const isAdmin = password === expectedPassword && email !== DEMO_GUEST_EMAIL
 
   if (!isGuest && !isAdmin) {

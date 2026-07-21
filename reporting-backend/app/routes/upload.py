@@ -116,4 +116,5 @@ async def upload_file(
             )
         except:
             pass
-        return {"success": False, "error": str(e)}
+        status_code = 400 if isinstance(e, ValueError) else 500
+        raise HTTPException(status_code=status_code, detail=str(e))

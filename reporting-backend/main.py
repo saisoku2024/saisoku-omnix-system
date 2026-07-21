@@ -29,13 +29,18 @@ app = FastAPI(
 # ============================================================
 # CORS
 # ============================================================
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+raw_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,https://saisoku-omnix-system.vercel.app"
+)
+allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=allowed_origins if allowed_origins else ["*"],
     allow_credentials=True if allowed_origins != ["*"] else False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "PUT", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "X-Admin-Token", "Authorization"],
 )
 
 # ============================================================
@@ -71,3 +76,9 @@ def health():
         "status": "ok",
         "service": "SAISOKU OMNIX Backend",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

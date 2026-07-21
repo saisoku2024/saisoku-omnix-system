@@ -44,11 +44,10 @@ export async function previewCleanup(
 export async function softDeleteCleanup(
   payload: CleanupSoftDeleteRequest
 ): Promise<CleanupSoftDeleteResponse> {
-  const response = await fetch(`${CLEANUP_API}/soft-delete`, {
+  const response = await fetch("/api/backend/cleanup/soft-delete", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...adminHeaders(),
     },
     body: JSON.stringify(payload),
   })

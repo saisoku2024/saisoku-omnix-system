@@ -1,7 +1,9 @@
+import { cookies } from "next/headers"
+
 export const AUTH_COOKIE_NAME = "saisoku_session"
 export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 12
 
-type SessionPayload = {
+export type SessionPayload = {
   exp: number
   sub: "admin" | "guest"
 }
@@ -73,22 +75,44 @@ export async function createSessionToken(
   return `${encodedPayload}.${signature}`
 }
 
-export async function verifySessionToken(token: string | undefined, secret: string) {
-  if (!token) return false
+export async function getSessionPayload(
+  token: string | undefined,
+  secret: string
+): Promise<SessionPayload | null> {
+  if (!token) return null
 
   const [encodedPayload, signature] = token.split(".")
-  if (!encodedPayload || !signature) return false
+  if (!encodedPayload || !signature) return null
 
   const expectedSignature = await sign(encodedPayload, secret)
-  if (!timingSafeEqual(signature, expectedSignature)) return false
+  if (!timingSafeEqual(signature, expectedSignature)) return null
 
   try {
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionPayload
-    return (
+    if (
       (payload.sub === "admin" || payload.sub === "guest") &&
       payload.exp > Math.floor(Date.now() / 1000)
-    )
+    ) {
+      return payload
+    }
+    return null
   } catch {
-    return false
+    return null
   }
+}
+
+export async function verifySessionToken(token: string | undefined, secret: string) {
+  const payload = await getSessionPayload(token, secret)
+  return payload !== null
+}
+
+export async function requireAdminSession() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value
+  const sessionSecret = process.env.AUTH_SESSION_SECRET
+  if (!sessionSecret) return null
+
+  const session = await getSessionPayload(token, sessionSecret)
+  if (!session || session.sub !== "admin") return null
+  return session
 }
