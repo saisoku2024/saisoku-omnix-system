@@ -9,6 +9,7 @@ import type {
 } from "@/features/dashboard/types/dashboard"
 
 const DASHBOARD_API = apiUrl("/api/dashboard")
+const CSAT_API = apiUrl("/api/csat")
 const EMPTY_STATS: StatsData = {
   total_ticket: "-",
   aht: "-",
@@ -85,6 +86,29 @@ function normalizeDashboardResponse(response: DashboardAllResponse): DashboardPa
   }
 }
 
+async function fetchDashboardCsatScore(
+  mode: ModeType,
+  period: string,
+  year: number
+) {
+  try {
+    const normalizedPeriod = mode === "yearly" ? "all" : period
+    const response = await fetch(
+      `${CSAT_API}/summary?mode=${mode}&period=${normalizedPeriod}&year=${year}`,
+      { cache: "no-store" }
+    )
+
+    if (!response.ok) return null
+
+    const summary = (await response.json()) as { avg_csat?: unknown }
+    const avgCsat = Number(summary.avg_csat ?? 0)
+
+    return Number.isFinite(avgCsat) ? String(avgCsat) : null
+  } catch {
+    return null
+  }
+}
+
 export async function fetchDashboardAll(mode: ModeType, period: string, year: number) {
   const normalizedPeriod = mode === "yearly" ? "all" : period
   const response = await fetch(
@@ -99,9 +123,19 @@ export async function fetchDashboardAll(mode: ModeType, period: string, year: nu
   const payload = normalizeDashboardResponse(
     (await response.json()) as DashboardAllResponse
   )
+  const csatScore = await fetchDashboardCsatScore(mode, period, year)
+  const payloadWithCsat = csatScore
+    ? {
+        ...payload,
+        stats: {
+          ...payload.stats,
+          csat: csatScore,
+        },
+      }
+    : payload
 
   if (mode !== "quarterly") {
-    return payload
+    return payloadWithCsat
   }
 
   const trendResponse = await fetch(
@@ -110,11 +144,11 @@ export async function fetchDashboardAll(mode: ModeType, period: string, year: nu
   )
 
   if (!trendResponse.ok) {
-    return payload
+    return payloadWithCsat
   }
 
   return {
-    ...payload,
+    ...payloadWithCsat,
     trend: resolveDashboardTrend((await trendResponse.json()) as DashboardAllResponse),
   }
 }

@@ -17,6 +17,72 @@ def _fmt_duration(sec):
     return f"{minutes}m {seconds}s"
 
 
+def _is_unknown_only(rows):
+    return len(rows) == 1 and str(rows[0].get("name") or "").lower() == "unknown"
+
+
+def _infer_brand(row):
+    known_brands = ["Tineco", "Ecovacs", "Yoniev", "Laifen", "Usmile"]
+    haystack = " ".join(
+        str(row.get(key) or "")
+        for key in ["brand", "category", "subcategory", "detail_subcategory", "subject"]
+    ).lower()
+
+    for brand in known_brands:
+        if brand.lower() in haystack:
+            return brand
+
+    for key in ["brand", "category"]:
+        value = str(row.get(key) or "").strip()
+        if value:
+            return value
+
+    return "Unknown"
+
+
+def _get_brand_fallback(start, end):
+    counts = {}
+    total = 0
+    page_size = 1000
+    offset = 0
+
+    while True:
+        res = (
+            supabase
+            .table("omnix_cases")
+            .select("brand,category,subcategory,detail_subcategory,subject")
+            .gte("interaction_at", start)
+            .lt("interaction_at", end)
+            .is_("deleted_at", "null")
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            break
+
+        for row in rows:
+            name = _infer_brand(row)
+            counts[name] = counts.get(name, 0) + 1
+            total += 1
+
+        if len(rows) < page_size:
+            break
+        offset += page_size
+
+    if not total:
+        return []
+
+    return [
+        {
+            "name": name,
+            "count": count,
+            "pct": round((count / total) * 100, 2),
+        }
+        for name, count in sorted(counts.items(), key=lambda item: item[1], reverse=True)[:10]
+    ]
+
+
 # =========================
 # SUMMARY KPI (RPC)
 # =========================
@@ -237,6 +303,16 @@ def get_dashboard_all(mode, period, year):
 
         data = _rpc_json(res.data)
         summary = data.get("summary") or {}
+        brand = [
+            {
+                "name": row.get("name"),
+                "count": int(row.get("total") or 0),
+                "pct": float(row.get("pct") or 0),
+            }
+            for row in (data.get("brand") or [])
+        ]
+        if not brand or _is_unknown_only(brand):
+            brand = _get_brand_fallback(start, end)
 
         return {
             "summary": {
@@ -267,14 +343,7 @@ def get_dashboard_all(mode, period, year):
                 }
                 for row in (data.get("category") or [])
             ],
-            "brand": [
-                {
-                    "name": row.get("name"),
-                    "count": int(row.get("total") or 0),
-                    "pct": float(row.get("pct") or 0),
-                }
-                for row in (data.get("brand") or [])
-            ],
+            "brand": brand,
             "customer": data.get("customer") or {"total": 0},
             "new_customer": data.get("new_customer") or {"total": 0},
         }
