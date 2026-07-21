@@ -36,11 +36,7 @@ const MONTH_LABELS = [
 function formatBarLabel(val: unknown) {
   const num = Number(val)
   if (!num || num <= 0) return ""
-  if (num >= 1000) {
-    const k = (num / 1000).toFixed(1).replace(/\.0$/, "")
-    return `${k}k`
-  }
-  return String(num)
+  return String(Math.round(num))
 }
 
 function formatTick(value: string, mode: ModeType): string {
@@ -73,10 +69,15 @@ const TrendChart = memo(function TrendChart({
 
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
-  const maxCount = useMemo(
-    () => Math.max(...data.map((d) => d.count), 0),
-    [data]
-  )
+  const isHighlightAll = !highlightedMonths || highlightedMonths.length === 0
+
+  const maxCount = useMemo(() => {
+    const activeData = isHighlightAll
+      ? data
+      : data.filter((item) => highlightedMonths?.includes(String(item.day).trim()))
+
+    return Math.max(...activeData.map((d) => d.count), 0)
+  }, [data, highlightedMonths, isHighlightAll])
 
   return (
     <div
@@ -86,7 +87,7 @@ const TrendChart = memo(function TrendChart({
       <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
-          barCategoryGap={mode === "yearly" ? 28 : 14}
+          barCategoryGap={mode === "monthly" ? 14 : "30%"}
           margin={{
             top: 24,
             right: 10,
@@ -96,7 +97,7 @@ const TrendChart = memo(function TrendChart({
         >
           <CartesianGrid
             vertical={false}
-            strokeDasharray="2 6"
+            strokeDasharray={mode === "monthly" ? "2 6" : "3 3"}
             stroke={
               isDark
                 ? "rgba(255,255,255,0.045)"
@@ -107,14 +108,28 @@ const TrendChart = memo(function TrendChart({
           <XAxis
             dataKey="day"
             tickFormatter={(v) => formatTick(v, mode)}
-            interval={mode === "monthly" ? 0 : "preserveEnd"}
-            minTickGap={mode === "monthly" ? 0 : 5}
+            interval={0}
+            minTickGap={mode === "monthly" ? 0 : 4}
             axisLine={false}
             tickLine={false}
             tickMargin={10}
-            tick={{
-              fontSize: 10,
-              fill: "var(--c-muted)",
+            tick={({ x, y, payload }) => {
+              const value = String(payload?.value ?? "")
+              const isHL =
+                !isHighlightAll && highlightedMonths?.includes(value)
+
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  fontSize={isHL ? 11 : 10}
+                  fontWeight={isHL ? 800 : 500}
+                  fill={isHL ? (isDark ? "#ffffff" : "#111827") : "var(--c-muted)"}
+                >
+                  {formatTick(value, mode)}
+                </text>
+              )
             }}
           />
 
@@ -142,16 +157,14 @@ const TrendChart = memo(function TrendChart({
           <Bar
             dataKey="count"
             radius={[8, 8, 2, 2]}
-            maxBarSize={18}
+            maxBarSize={mode === "monthly" ? 18 : 38}
             animationDuration={700}
             animationEasing="ease-out"
             onMouseEnter={(_, index) => setActiveIndex(index)}
           >
             {data.map((entry, index) => {
               const isHL =
-                !highlightedMonths ||
-                highlightedMonths.length === 0 ||
-                highlightedMonths.includes(entry.day)
+                isHighlightAll || highlightedMonths?.includes(String(entry.day).trim())
 
               const isMax =
                 entry.count === maxCount && maxCount > 0
@@ -161,27 +174,29 @@ const TrendChart = memo(function TrendChart({
               const isOtherHovered =
                 activeIndex !== null && !isHovered
 
-              let fill = isMax
-                ? "#22c55e"
-                : "#0ea5e9"
+              let fill = isMax ? "#22c55e" : "#16a34a"
 
               if (isHovered) {
-                fill = isMax
-                  ? "#4ade80"
-                  : "#38bdf8"
+                fill = isMax ? "#4ade80" : "#22c55e"
               }
 
               const opacity = isOtherHovered
-                ? 0.2
-                : isHL
-                  ? 1
-                  : 0.3
+                ? 0.28
+                : entry.count === 0
+                  ? 0.14
+                  : isHL
+                    ? 0.95
+                    : isHighlightAll
+                      ? 0.9
+                      : 0.45
 
               return (
                 <Cell
                   key={index}
                   fill={fill}
                   opacity={opacity}
+                  stroke={isMax ? "#86efac" : "none"}
+                  strokeWidth={isMax ? 1.5 : 0}
                   style={{
                     transition:
                       "all 220ms cubic-bezier(0.4,0,0.2,1)",

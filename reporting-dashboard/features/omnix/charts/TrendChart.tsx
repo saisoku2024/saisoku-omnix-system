@@ -15,7 +15,12 @@ import {
 
 import CustomTooltip from "@/features/omnix/charts/CustomTooltip"
 import type { TrendData } from "@/features/omnix/types/omnix"
-import { fmtCompact } from "@/features/omnix/utils/format"
+
+function formatFullNumber(value: unknown) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return ""
+  return String(Math.round(numericValue))
+}
 
 type Props = {
   data: TrendData[]
@@ -42,9 +47,8 @@ const TrendChart = memo(function TrendChart({
     return Math.max(...activeData.map((item) => item.count), 0)
   }, [data, highlightedMonths, isHighlightAll])
 
-  const peakColor = "#6366f1"
-  const normalColor = isDark ? "rgba(99,102,241,0.72)" : "rgba(99,102,241,0.78)"
-  const dimColor = isDark ? "rgba(99,102,241,0.16)" : "rgba(99,102,241,0.20)"
+  const peakColor = "#22c55e"
+  const normalColor = "#16a34a"
 
   return (
     <div className="h-full w-full min-w-0">
@@ -65,7 +69,23 @@ const TrendChart = memo(function TrendChart({
             tickLine={false}
             axisLine={false}
             dy={8}
-            tick={{ fill: tickColor, fontSize: 10 }}
+            tick={({ x, y, payload }) => {
+              const value = String(payload?.value ?? "")
+              const isHL = !isHighlightAll && highlightedMonths.includes(value)
+
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  fontSize={isHL ? 11 : 10}
+                  fontWeight={isHL ? 800 : 500}
+                  fill={isHL ? (isDark ? "#ffffff" : "#111827") : tickColor}
+                >
+                  {value}
+                </text>
+              )
+            }}
             padding={{ left: 4, right: 4 }}
           />
           <YAxis
@@ -74,7 +94,7 @@ const TrendChart = memo(function TrendChart({
             axisLine={false}
             width={36}
             tick={{ fill: tickColor, fontSize: 10 }}
-            tickFormatter={fmtCompact}
+            tickFormatter={(value) => String(Math.round(Number(value) || 0))}
             allowDecimals={false}
           />
           <Tooltip
@@ -94,10 +114,7 @@ const TrendChart = memo(function TrendChart({
             <LabelList
               dataKey="count"
               position="top"
-              formatter={(value: unknown) => {
-                const numericValue = Number(value)
-                return numericValue > 0 ? fmtCompact(numericValue) : ""
-              }}
+              formatter={formatFullNumber}
               style={{ fontSize: 9, fontWeight: 800, fill: "var(--c-text)" }}
             />
             {data.map((entry) => {
@@ -108,8 +125,9 @@ const TrendChart = memo(function TrendChart({
               return (
                 <Cell
                   key={entry.label}
-                  fill={isPeak ? peakColor : isHighlighted ? normalColor : dimColor}
-                  stroke={isPeak ? "#a5b4fc" : "none"}
+                  fill={isPeak ? peakColor : normalColor}
+                  fillOpacity={entry.count === 0 ? 0.14 : isHighlighted ? 0.95 : 0.45}
+                  stroke={isPeak ? "#86efac" : "none"}
                   strokeWidth={isPeak ? 1.5 : 0}
                 />
               )

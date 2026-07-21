@@ -826,7 +826,7 @@ category_data as (
 ),
 brand_data as (
   select
-    coalesce(nullif(brand, ''), 'Unknown') as name,
+    coalesce(nullif(category, ''), 'Unknown') as name,
     count(*)::int as total,
     round((count(*)::numeric / nullif((select count(*) from omnix_filtered), 0)) * 100, 2) as pct
   from omnix_filtered

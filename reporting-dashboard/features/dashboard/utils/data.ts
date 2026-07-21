@@ -60,6 +60,12 @@ function getMonthlyDayLabel(item: TrendItem) {
   return null
 }
 
+function getQuarterCutoffIndex(period: string) {
+  const quarterOrder = ["Q1", "Q2", "Q3", "Q4"]
+  const quarterIndex = quarterOrder.indexOf(period)
+  return quarterIndex === -1 ? MONTHS.length - 1 : (quarterIndex + 1) * 3 - 1
+}
+
 export function isValidDashboardPeriod(mode: ModeType, period: string) {
   if (mode === "quarterly" && !period.startsWith("Q")) return false
   if (mode === "monthly" && (period.startsWith("Q") || period === "all")) return false
@@ -89,7 +95,8 @@ export function buildDashboardTrendData(
     })
   }
 
-  // Quarterly, Yearly, or default mode: Return ALL 12 MONTHS sorted chronologically (Jan -> Dec)
+  // Quarterly/yearly mengikuti pola Omnix: Jan-Dec tetap terlihat,
+  // tetapi bulan setelah kuartal aktif dibuat 0.
   const countByMonthIndex = new Map<number, number>()
 
   trend.forEach((item) => {
@@ -100,9 +107,12 @@ export function buildDashboardTrendData(
     countByMonthIndex.set(idx, (countByMonthIndex.get(idx) ?? 0) + count)
   })
 
+  const cutoffIndex =
+    mode === "quarterly" ? getQuarterCutoffIndex(period) : MONTHS.length - 1
+
   return MONTHS.map((month, index) => ({
     day: month,
-    count: countByMonthIndex.get(index) ?? 0,
+    count: index <= cutoffIndex ? countByMonthIndex.get(index) ?? 0 : 0,
   }))
 }
 

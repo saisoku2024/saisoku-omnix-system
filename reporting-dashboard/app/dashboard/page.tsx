@@ -93,7 +93,7 @@ export default function DashboardPage() {
         <Card className="shrink-0 w-full">
           <CardHeader title="Ticket Volume Trend" badge="DAILY" />
           <div className="h-[240px] p-4">
-            {loading ? (<Spinner height={240} />) : trendData.length === 0 ? (<EmptyState message="Tidak ada data" height={240} />) : (<TrendChart data={trendData} mode={mode} highlightedMonths={highlightedMonths} isDark={isDark} />)}
+            {loading ? (<Spinner height={240} />) : trendData.length === 0 ? (<EmptyState message="Tidak ada data" height={240} />) : (<TrendChart data={trendData} mode={mode} highlightedMonths={mode === "monthly" ? [] : highlightedMonths} isDark={isDark} />)}
           </div>
         </Card>
         
