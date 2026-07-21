@@ -4,6 +4,7 @@ export interface TrendItem {
   date?: string
   day?: string
   month?: string
+  label?: string
   count?: number
   total?: number
 }
