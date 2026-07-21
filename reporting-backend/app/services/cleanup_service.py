@@ -16,6 +16,7 @@ TEXT_COLUMNS = [
     "subcategory",
     "detail_subcategory",
     "detail_subcategory2",
+    "subject",
     "feedback",
 ]
 
@@ -151,6 +152,7 @@ def _candidate_from_omnix(row) -> dict:
         "interaction_at": row.get("interaction_at"),
         "customer_name": row.get("customer_name"),
         "channel": row.get("channel"),
+        "subject": row.get("subject"),
         "main_category": row.get("main_category"),
         "category": row.get("category"),
         "subcategory": row.get("subcategory"),
@@ -213,6 +215,7 @@ class CleanupService:
                     "subcategory",
                     "detail_subcategory",
                     "detail_subcategory2",
+                    "subject",
                     "feedback",
                     "agent_name",
                 ]
@@ -276,8 +279,19 @@ class CleanupService:
                 }
 
         if "test_omnix" in rules:
+            test_keywords = [
+                "test omnix",
+                "testing",
+                "testcase",
+                "test case",
+                "testcsae",
+                "test_omnix",
+                "spam interaction",
+                "other-testing omnix",
+                "spam",
+            ]
             for row in omnix_rows:
-                if not _contains_text(row, "test omnix"):
+                if not any(_contains_text(row, kw) for kw in test_keywords):
                     continue
 
                 candidate = candidates.setdefault(row["id"], _candidate_from_omnix(row))

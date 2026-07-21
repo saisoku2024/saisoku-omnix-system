@@ -24,6 +24,7 @@ export interface CleanupCandidate {
   interaction_at: string | null
   customer_name: string | null
   channel: string | null
+  subject?: string | null
   main_category: string | null
   category: string | null
   subcategory: string | null
