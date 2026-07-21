@@ -142,29 +142,46 @@ def _contains_text(row, needle: str) -> bool:
 
 
 def _fetch_period_rows(table: str, columns: str, start_iso: str, end_iso: str) -> list[dict]:
-    rows = []
-    offset = 0
+    col_list = [c.strip() for c in columns.split(",") if c.strip()]
 
     while True:
-        response = (
-            supabase.table(table)
-            .select(columns)
-            .gte("interaction_at", start_iso)
-            .lt("interaction_at", end_iso)
-            .is_("deleted_at", "null")
-            .order("interaction_at")
-            .range(offset, offset + SCAN_PAGE_SIZE - 1)
-            .execute()
-        )
-        batch = response.data or []
-        rows.extend(batch)
+        try:
+            curr_columns = ",".join(col_list)
+            rows = []
+            offset = 0
 
-        if len(batch) < SCAN_PAGE_SIZE:
-            break
+            while True:
+                response = (
+                    supabase.table(table)
+                    .select(curr_columns)
+                    .gte("interaction_at", start_iso)
+                    .lt("interaction_at", end_iso)
+                    .is_("deleted_at", "null")
+                    .order("interaction_at")
+                    .range(offset, offset + SCAN_PAGE_SIZE - 1)
+                    .execute()
+                )
+                batch = response.data or []
+                rows.extend(batch)
 
-        offset += SCAN_PAGE_SIZE
+                if len(batch) < SCAN_PAGE_SIZE:
+                    break
 
-    return rows
+                offset += SCAN_PAGE_SIZE
+
+            return rows
+        except Exception as err:
+            err_str = str(err).lower()
+            if ("column" in err_str and "does not exist" in err_str) or "42703" in err_str:
+                removed_any = False
+                for optional_col in ["subject", "subject_normalized", "detail_subcategory2", "feedback"]:
+                    if optional_col in col_list:
+                        col_list.remove(optional_col)
+                        removed_any = True
+                        break
+                if removed_any:
+                    continue
+            raise err
 
 
 def _candidate_from_omnix(row) -> dict:
