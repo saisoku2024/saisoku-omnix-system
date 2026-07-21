@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   Cell,
+  LabelList,
 } from "recharts"
 
 import BarTooltip from "@/features/dashboard/charts/BarTooltip"
@@ -31,6 +32,16 @@ const MONTH_LABELS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ]
+
+function formatBarLabel(val: unknown) {
+  const num = Number(val)
+  if (!num || num <= 0) return ""
+  if (num >= 1000) {
+    const k = (num / 1000).toFixed(1).replace(/\.0$/, "")
+    return `${k}k`
+  }
+  return String(num)
+}
 
 function formatTick(value: string, mode: ModeType): string {
   if (mode === "monthly") {
@@ -77,7 +88,7 @@ const TrendChart = memo(function TrendChart({
           data={data}
           barCategoryGap={mode === "yearly" ? 28 : 14}
           margin={{
-            top: 12,
+            top: 24,
             right: 10,
             bottom: 4,
             left: -12,
@@ -182,6 +193,16 @@ const TrendChart = memo(function TrendChart({
                 />
               )
             })}
+            <LabelList
+              dataKey="count"
+              position="top"
+              formatter={formatBarLabel}
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                fill: isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.75)",
+              }}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
