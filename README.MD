@@ -49,7 +49,7 @@ Environment frontend:
 
 ```txt
 NEXT_PUBLIC_API_URL=http://localhost:8001
-NEXT_PUBLIC_ADMIN_API_TOKEN=
+ADMIN_API_TOKEN=
 ADMIN_UI_PASSWORD=
 AUTH_SESSION_SECRET=
 ```
@@ -67,7 +67,7 @@ AUTH_SESSION_SECRET=
 - Frontend Vercel memakai `NEXT_PUBLIC_API_URL` yang mengarah ke backend Render
 - Endpoint write/export dilindungi token minimal:
   - Render: `ADMIN_API_TOKEN`
-  - Vercel: `NEXT_PUBLIC_ADMIN_API_TOKEN` dengan nilai yang sama
+  - Vercel: `ADMIN_API_TOKEN` dengan nilai yang sama, hanya dipakai server route Next.js
 - Halaman dashboard dilindungi auth UI berbasis cookie:
   - Vercel: `ADMIN_UI_PASSWORD`
   - Vercel: `AUTH_SESSION_SECRET`

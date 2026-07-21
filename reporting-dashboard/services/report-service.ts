@@ -1,5 +1,4 @@
 import { apiUrl } from "@/lib/api"
-import { adminHeaders } from "@/lib/admin-api"
 import type {
   ExportRequest,
   PreviewRequest,
@@ -7,6 +6,7 @@ import type {
 } from "@/features/report/types/report"
 
 const REPORT_API = apiUrl("/api/reports")
+const BFF_REPORT_EXPORT_API = "/api/backend/reports/export"
 
 export interface ExportFileResponse {
   blob: Blob
@@ -79,11 +79,10 @@ export async function previewReport(payload: PreviewRequest) {
 export async function exportDigital(
   payload: ExportRequest
 ): Promise<ExportFileResponse> {
-  const response = await fetch(`${REPORT_API}/export/digital`, {
+  const response = await fetch(`${BFF_REPORT_EXPORT_API}/digital`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...adminHeaders(),
     },
     body: JSON.stringify(payload),
   })
@@ -98,11 +97,10 @@ export async function exportDigital(
 export async function exportInbound(
   payload: ExportRequest
 ): Promise<ExportFileResponse> {
-  const response = await fetch(`${REPORT_API}/export/inbound`, {
+  const response = await fetch(`${BFF_REPORT_EXPORT_API}/inbound`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...adminHeaders(),
     },
     body: JSON.stringify(payload),
   })

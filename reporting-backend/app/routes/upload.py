@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.core.security import require_admin_token
 from app.core.supabase import supabase
 from app.services.upload_service import UploadService
@@ -35,7 +35,7 @@ async def upload_file(
         
         total_rows = len(df)
         if total_rows == 0:
-            raise Exception("Uploaded file is empty")
+            raise ValueError("Uploaded file is empty")
 
         # 3. INITIAL LOG TO SUPABASE
         supabase.table("uploads").insert({
@@ -107,6 +107,16 @@ async def upload_file(
 
     except HTTPException as he:
         raise he
+    except ValueError as e:
+        print(f"UPLOAD VALIDATION ERROR: {str(e)}")
+        try:
+            UploadService.update_upload_failed(
+                upload_id,
+                e,
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         print(f"UPLOAD ERROR: {str(e)}")
         try:
@@ -114,6 +124,6 @@ async def upload_file(
                 upload_id,
                 e,
             )
-        except:
+        except Exception:
             pass
-        return {"success": False, "error": str(e)}
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e}") from e

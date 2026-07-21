@@ -1,7 +1,8 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import os
 
 # Import routers
 from app.routes import (
@@ -29,13 +30,18 @@ app = FastAPI(
 # ============================================================
 # CORS
 # ============================================================
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True if allowed_origins != ["*"] else False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE", "PUT", "OPTIONS", "PATCH"],
+    allow_headers=["Content-Type", "X-Admin-Token", "Authorization"],
 )
 
 # ============================================================

@@ -1,7 +1,7 @@
 export const AUTH_COOKIE_NAME = "saisoku_session"
 export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 12
 
-type SessionPayload = {
+export type SessionPayload = {
   exp: number
   sub: "admin" | "guest"
 }
@@ -73,22 +73,30 @@ export async function createSessionToken(
   return `${encodedPayload}.${signature}`
 }
 
-export async function verifySessionToken(token: string | undefined, secret: string) {
-  if (!token) return false
+export async function getSessionPayload(
+  token: string | undefined,
+  secret: string
+): Promise<SessionPayload | null> {
+  if (!token) return null
 
   const [encodedPayload, signature] = token.split(".")
-  if (!encodedPayload || !signature) return false
+  if (!encodedPayload || !signature) return null
 
   const expectedSignature = await sign(encodedPayload, secret)
-  if (!timingSafeEqual(signature, expectedSignature)) return false
+  if (!timingSafeEqual(signature, expectedSignature)) return null
 
   try {
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionPayload
-    return (
+    const isValid =
       (payload.sub === "admin" || payload.sub === "guest") &&
       payload.exp > Math.floor(Date.now() / 1000)
-    )
+
+    return isValid ? payload : null
   } catch {
-    return false
+    return null
   }
+}
+
+export async function verifySessionToken(token: string | undefined, secret: string) {
+  return Boolean(await getSessionPayload(token, secret))
 }
