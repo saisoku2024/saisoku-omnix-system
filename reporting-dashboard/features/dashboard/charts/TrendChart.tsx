@@ -73,10 +73,15 @@ const TrendChart = memo(function TrendChart({
 
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
-  const maxCount = useMemo(
-    () => Math.max(...data.map((d) => d.count), 0),
-    [data]
-  )
+  const isHighlightAll = !highlightedMonths || highlightedMonths.length === 0
+
+  const maxCount = useMemo(() => {
+    const activeData = isHighlightAll
+      ? data
+      : data.filter((item) => highlightedMonths?.includes(String(item.day).trim()))
+
+    return Math.max(...activeData.map((d) => d.count), 0)
+  }, [data, highlightedMonths, isHighlightAll])
 
   return (
     <div
@@ -86,7 +91,7 @@ const TrendChart = memo(function TrendChart({
       <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
-          barCategoryGap={mode === "yearly" ? 28 : 14}
+          barCategoryGap={mode === "monthly" ? 14 : "30%"}
           margin={{
             top: 24,
             right: 10,
@@ -96,7 +101,7 @@ const TrendChart = memo(function TrendChart({
         >
           <CartesianGrid
             vertical={false}
-            strokeDasharray="2 6"
+            strokeDasharray={mode === "monthly" ? "2 6" : "3 3"}
             stroke={
               isDark
                 ? "rgba(255,255,255,0.045)"
@@ -107,8 +112,8 @@ const TrendChart = memo(function TrendChart({
           <XAxis
             dataKey="day"
             tickFormatter={(v) => formatTick(v, mode)}
-            interval={mode === "monthly" ? 0 : "preserveEnd"}
-            minTickGap={mode === "monthly" ? 0 : 5}
+            interval={0}
+            minTickGap={mode === "monthly" ? 0 : 4}
             axisLine={false}
             tickLine={false}
             tickMargin={10}
@@ -142,16 +147,14 @@ const TrendChart = memo(function TrendChart({
           <Bar
             dataKey="count"
             radius={[8, 8, 2, 2]}
-            maxBarSize={18}
+            maxBarSize={mode === "monthly" ? 18 : 38}
             animationDuration={700}
             animationEasing="ease-out"
             onMouseEnter={(_, index) => setActiveIndex(index)}
           >
             {data.map((entry, index) => {
               const isHL =
-                !highlightedMonths ||
-                highlightedMonths.length === 0 ||
-                highlightedMonths.includes(entry.day)
+                isHighlightAll || highlightedMonths?.includes(String(entry.day).trim())
 
               const isMax =
                 entry.count === maxCount && maxCount > 0
@@ -162,26 +165,28 @@ const TrendChart = memo(function TrendChart({
                 activeIndex !== null && !isHovered
 
               let fill = isMax
-                ? "#22c55e"
-                : "#0ea5e9"
+                ? isDark ? "#6366f1" : "#6366f1"
+                : isHL
+                  ? isDark ? "rgba(99,102,241,0.72)" : "rgba(99,102,241,0.78)"
+                  : isDark ? "rgba(99,102,241,0.16)" : "rgba(99,102,241,0.20)"
 
               if (isHovered) {
                 fill = isMax
-                  ? "#4ade80"
-                  : "#38bdf8"
+                  ? "#818cf8"
+                  : "#8b5cf6"
               }
 
               const opacity = isOtherHovered
-                ? 0.2
-                : isHL
-                  ? 1
-                  : 0.3
+                ? 0.28
+                : 1
 
               return (
                 <Cell
                   key={index}
                   fill={fill}
                   opacity={opacity}
+                  stroke={isMax ? "#a5b4fc" : "none"}
+                  strokeWidth={isMax ? 1.5 : 0}
                   style={{
                     transition:
                       "all 220ms cubic-bezier(0.4,0,0.2,1)",
