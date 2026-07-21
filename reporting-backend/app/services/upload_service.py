@@ -101,6 +101,7 @@ class UploadService:
 
         # Filter out internal audit fields if table schema does not include them
         EXTRA_METADATA_KEYS = {
+            "subject",
             "subject_original",
             "subject_normalized",
             "mapping_status",
