@@ -90,6 +90,33 @@ export function buildDashboardTrendData(
   }
 
   if (mode === "quarterly") {
+    if (period === "all") {
+      const countByQuarter = new Map<string, number>()
+      trend.forEach((item) => {
+        const rawLabel = String(item.label ?? item.date ?? item.day ?? item.month ?? "").trim()
+        const qMatch = rawLabel.match(/Q[1-4]/i)
+        let qKey = qMatch ? qMatch[0].toUpperCase() : undefined
+
+        if (!qKey) {
+          const idx = parseMonthIndex(rawLabel)
+          if (idx !== undefined) {
+            const qNum = Math.floor(idx / 3) + 1
+            qKey = `Q${qNum}`
+          }
+        }
+
+        if (qKey) {
+          const count = Number(item.count ?? item.total ?? 0)
+          countByQuarter.set(qKey, (countByQuarter.get(qKey) ?? 0) + count)
+        }
+      })
+
+      return ["Q1", "Q2", "Q3", "Q4"].map((q) => ({
+        day: q,
+        count: countByQuarter.get(q) ?? 0,
+      }))
+    }
+
     const targetMonths = QUARTER_MONTHS[period] ?? ["Jan", "Feb", "Mar"]
     const countByMonthIndex = new Map<number, number>()
 
