@@ -6,7 +6,7 @@ import { BarChart3, Sun, Moon } from "lucide-react"
 import Card from "@/components/ui/card"
 import { useDashboardData } from "@/features/dashboard/hooks/useDashboardData"
 import type { ModeType, StatsData } from "@/features/dashboard/types/dashboard"
-import { MONTHS, QUARTERS, KPI_CONFIG } from "@/features/dashboard/constants"
+import { MONTHS, QUARTERS, KPI_CONFIG, getHighlightedMonths } from "@/features/dashboard/constants"
 import CustomerSummaryBar from "@/features/dashboard/components/CustomerSummaryBar"
 import CardHeader from "@/features/dashboard/components/CardHeader"
 import KpiCard from "@/features/dashboard/components/KpiCard"
@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const { loading, stats, trendData, channelPie, category, brand, customer, newCustomer } = useDashboardData(mode, period, year)
   const cssVars = isDark ? DARK_VARS : LIGHT_VARS
   const periodOptions = useMemo(() => (mode === "monthly" ? MONTHS : QUARTERS), [mode])
+  const highlightedMonths = useMemo(() => getHighlightedMonths(mode, period), [mode, period])
   const handleModeChange = (v: string) => {
     const m = v.toLowerCase() as ModeType
     setMode(m)
@@ -92,7 +93,7 @@ export default function DashboardPage() {
         <Card className="shrink-0 w-full">
           <CardHeader title="Ticket Volume Trend" badge="DAILY" />
           <div className="h-[240px] p-4">
-            {loading ? (<Spinner height={240} />) : trendData.length === 0 ? (<EmptyState message="Tidak ada data" height={240} />) : (<TrendChart data={trendData} mode={mode} isDark={isDark} />)}
+            {loading ? (<Spinner height={240} />) : trendData.length === 0 ? (<EmptyState message="Tidak ada data" height={240} />) : (<TrendChart data={trendData} mode={mode} highlightedMonths={highlightedMonths} isDark={isDark} />)}
           </div>
         </Card>
         

@@ -23,6 +23,7 @@ type TrendPoint = {
 type Props = {
   data: TrendPoint[]
   mode: ModeType
+  highlightedMonths?: string[]
   isDark: boolean
 }
 
@@ -55,6 +56,7 @@ function formatTick(value: string, mode: ModeType): string {
 const TrendChart = memo(function TrendChart({
   data,
   mode,
+  highlightedMonths,
   isDark,
 }: Props) {
 
@@ -135,6 +137,11 @@ const TrendChart = memo(function TrendChart({
             onMouseEnter={(_, index) => setActiveIndex(index)}
           >
             {data.map((entry, index) => {
+              const isHL =
+                !highlightedMonths ||
+                highlightedMonths.length === 0 ||
+                highlightedMonths.includes(entry.day)
+
               const isMax =
                 entry.count === maxCount && maxCount > 0
 
@@ -153,11 +160,17 @@ const TrendChart = memo(function TrendChart({
                   : "#38bdf8"
               }
 
+              const opacity = isOtherHovered
+                ? 0.2
+                : isHL
+                  ? 1
+                  : 0.3
+
               return (
                 <Cell
                   key={index}
                   fill={fill}
-                  opacity={isOtherHovered ? 0.28 : 1}
+                  opacity={opacity}
                   style={{
                     transition:
                       "all 220ms cubic-bezier(0.4,0,0.2,1)",

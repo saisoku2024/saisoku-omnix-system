@@ -23,6 +23,12 @@ export const QUARTER_MONTHS: Record<string, string[]> = {
   Q4: ["Oct", "Nov", "Dec"],
 }
 
+export function getHighlightedMonths(mode: string, period: string): string[] {
+  if (mode === "yearly" || period === "all") return MONTHS
+  if (mode === "quarterly") return QUARTER_MONTHS[period] ?? []
+  return [period]
+}
+
 export const PALETTE = [
   "#0ea5e9",
   "#6366f1",
