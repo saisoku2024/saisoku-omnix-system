@@ -60,7 +60,7 @@ class UploadService:
         rows,
         unique_key,
         duplicate_rows,
-        batch_size=500
+        batch_size=100
     ):
         if not rows:
             return [], duplicate_rows
@@ -93,7 +93,7 @@ class UploadService:
         return inserted_candidates, duplicate_rows
 
     @staticmethod
-    def bulk_insert(table, rows, batch_size=500):
+    def bulk_insert(table, rows, batch_size=100):
         inserted_rows = 0
 
         if not rows:
