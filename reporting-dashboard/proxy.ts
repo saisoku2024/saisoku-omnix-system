@@ -4,7 +4,6 @@ import { AUTH_COOKIE_NAME, getSessionPayload } from "@/lib/auth-token"
 
 const PUBLIC_FILE = /\.(.*)$/
 const ADMIN_ONLY_PATHS = [
-  "/upload",
   "/data-management/data-cleanup",
   "/reports/principal",
 ]

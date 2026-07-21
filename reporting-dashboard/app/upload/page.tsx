@@ -31,6 +31,7 @@ import { API_ORIGIN } from "@/lib/api"
    ============================================================ */
 
 type DatasetType = "omnix" | "voice" | "csat"
+type SessionRole = "admin" | "guest" | null
 
 type UploadStatus =
   | "idle"
@@ -1208,6 +1209,7 @@ export default function UploadPage() {
   const { isDark } = useTheme()
   const cssVars = isDark ? DARK_VARS : LIGHT_VARS
 
+  const [sessionRole, setSessionRole] = useState<SessionRole>(null)
   const [selected, setSelected] = useState<SelectedFile | null>(null)
   const [type, setType] = useState<DatasetType>("omnix")
   const [dragActive, setDragActive] = useState(false)
@@ -1247,41 +1249,62 @@ export default function UploadPage() {
   const isUploading = status === "uploading"
   const isSuccess = status === "success"
   const isError = status === "error" || status === "aborted"
+  const isAdmin = sessionRole === "admin"
+  const uploadDisabled = !isAdmin || isUploading
+
+  useEffect(() => {
+    let active = true
+
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data: { role?: SessionRole }) => {
+        if (active) setSessionRole(data.role ?? null)
+      })
+      .catch(() => {
+        if (active) setSessionRole(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const handleSelect = useCallback(
     (file: File) => {
+      if (!isAdmin) return
       setUploadResult(null)
       setSelected(validateFile(file))
       reset()
     },
-    [reset]
+    [isAdmin, reset]
   )
 
   const handleClear = useCallback(() => {
+    if (!isAdmin) return
     setSelected(null)
     setUploadResult(null)
     reset()
-  }, [reset])
+  }, [isAdmin, reset])
 
   const handleUpload = useCallback(async () => {
-    if (!selected?.valid || isUploading || isSuccess) return
+    if (!isAdmin || !selected?.valid || isUploading || isSuccess) return
 
     const result = await upload(selected.file, type)
 
     if (result.ok && result.data) {
       setUploadResult(result.data as UploadResult)
     }
-  }, [selected, type, isUploading, isSuccess, upload])
+  }, [isAdmin, selected, type, isUploading, isSuccess, upload])
 
   const handleRetry = useCallback(async () => {
-    if (!selected?.valid) return
+    if (!isAdmin || !selected?.valid) return
 
     const result = await retry(selected.file, type)
 
     if (result.ok && result.data) {
       setUploadResult(result.data as UploadResult)
     }
-  }, [selected, type, retry])
+  }, [isAdmin, selected, type, retry])
 
   const activeStep: 0 | 1 | 2 = useMemo(() => {
     if (isSuccess) return 2
@@ -1298,6 +1321,7 @@ export default function UploadPage() {
         if (isUploading) abort()
         else if (selected) handleClear()
       } else if (e.key === "Enter") {
+        if (!isAdmin) return
         if (!selected) inputRef.current?.click()
         else if (selected.valid && !isUploading && !isSuccess) handleUpload()
       }
@@ -1305,7 +1329,7 @@ export default function UploadPage() {
 
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [isUploading, selected, isSuccess, abort, handleClear, handleUpload])
+  }, [isAdmin, isUploading, selected, isSuccess, abort, handleClear, handleUpload])
 
   return (
     <div
@@ -1349,7 +1373,7 @@ export default function UploadPage() {
 
               <div className="flex items-center gap-2 self-start rounded-full border border-(--c-border) bg-(--c-overlay) px-2.5 py-1 text-[11px] font-medium text-(--c-text-soft)">
                 <span className="h-2 w-2 rounded-full bg-(--c-accent)" />
-                Workspace aktif
+                {isAdmin ? "Workspace aktif" : "Guest read-only"}
               </div>
             </div>
           </motion.div>
@@ -1388,7 +1412,7 @@ export default function UploadPage() {
                         <TypeSelector
                           value={type}
                           onChange={setType}
-                          disabled={isUploading}
+                          disabled={uploadDisabled}
                         />
                       </section>
 
@@ -1408,7 +1432,7 @@ export default function UploadPage() {
                           dragActive={dragActive}
                           setDragActive={setDragActive}
                           inputRef={inputRef}
-                          disabled={isUploading}
+                          disabled={uploadDisabled}
                         />
                       </section>
                     </>
@@ -1499,6 +1523,7 @@ export default function UploadPage() {
                           : handleUpload
                       }
                       disabled={
+                        !isAdmin ||
                         isUploading ||
                         isSuccess ||
                         (selected ? !selected.valid : false)
@@ -1507,6 +1532,7 @@ export default function UploadPage() {
                         inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition
                         ${
                           isUploading ||
+                          !isAdmin ||
                           isSuccess ||
                           (selected ? !selected.valid : false)
                             ? "cursor-not-allowed bg-(--c-overlay-2) text-(--c-muted)"
@@ -1527,7 +1553,7 @@ export default function UploadPage() {
                       ) : !selected ? (
                         <>
                           <UploadCloud size={16} />
-                          Pilih File
+                          {isAdmin ? "Pilih File" : "Guest read-only"}
                         </>
                       ) : (
                         <>
@@ -1541,6 +1567,7 @@ export default function UploadPage() {
                       <button
                         type="button"
                         onClick={handleRetry}
+                        disabled={!isAdmin}
                         className="
                           inline-flex min-h-11 items-center justify-center gap-2 rounded-xl
                           border border-(--c-border-strong)
@@ -1558,6 +1585,7 @@ export default function UploadPage() {
                       <button
                         type="button"
                         onClick={handleClear}
+                        disabled={!isAdmin}
                         className="
                           inline-flex min-h-11 items-center justify-center gap-2 rounded-xl
                           border border-(--c-border-strong)
