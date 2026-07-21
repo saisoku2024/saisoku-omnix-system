@@ -1,7 +1,8 @@
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
+from app.core.security import require_admin_token
 from app.services.report_service import ReportService
 from app.export.digital_export import DigitalExport
 from app.export.inbound_export import InboundExport
@@ -49,7 +50,10 @@ def report_preview(req: PreviewRequest):
     "/export/digital",
     response_class=StreamingResponse,
 )
-def export_digital(req: ExportRequest):
+def export_digital(
+    req: ExportRequest,
+    _: None = Depends(require_admin_token),
+):
     try:
         data = ReportService.export_digital(req.model_dump())
         if not data:
@@ -73,7 +77,10 @@ def export_digital(req: ExportRequest):
     "/export/inbound",
     response_class=StreamingResponse,
 )
-def export_inbound(req: ExportRequest):
+def export_inbound(
+    req: ExportRequest,
+    _: None = Depends(require_admin_token),
+):
     try:
         data = ReportService.export_inbound(req.model_dump())
         if not data:

@@ -1,27 +1,31 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useMemo } from "react"
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
   ResponsiveContainer,
-  LineChart,
-  Line,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  CartesianGrid,
 } from "recharts"
+
 import type { TrendRow } from "@/features/csat/types/csat"
 
-// ============================================================
-// TOOLTIP COMPONENT
-// ============================================================
-
-interface TooltipPayload {
-  dataKey?: string
-  name?: string
+type TooltipPayload = {
   value: number
   color?: string
   fill?: string
+}
+
+function formatPercent(value: unknown) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return ""
+
+  return `${Number(numericValue.toFixed(2))}%`
 }
 
 function TrendTooltip({
@@ -43,7 +47,7 @@ function TrendTooltip({
         borderRadius: 10,
         padding: "10px 14px",
         boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-        minWidth: 160,
+        minWidth: 150,
       }}
     >
       <p
@@ -58,52 +62,25 @@ function TrendTooltip({
       >
         {label}
       </p>
-
-      {payload.map((p) => (
-        <div
-          key={p.dataKey}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "2px 0",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: payload[0]?.color ?? payload[0]?.fill ?? "#22c55e",
           }}
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: p.color ?? p.fill,
-            }}
-          />
-
-          <span style={{ color: "var(--c-muted)", fontSize: 11 }}>
-            {p.dataKey === "pct_5" ? "Score 5 ⭐" : "Score 4 ⭐"}
-          </span>
-
-          <span
-            style={{
-              fontWeight: 700,
-              color: "var(--c-text)",
-              marginLeft: "auto",
-              paddingLeft: 12,
-              fontSize: 11,
-            }}
-          >
-            {p.value}%
-          </span>
-        </div>
-      ))}
+        />
+        <span style={{ color: "var(--c-muted)", fontSize: 11 }}>Score 4+5</span>
+        <span style={{ marginLeft: "auto", color: "var(--c-text)", fontSize: 12, fontWeight: 800 }}>
+          {formatPercent(payload[0]?.value) || "0%"}
+        </span>
+      </div>
     </div>
   )
 }
 
-// ============================================================
-// MAIN CHART COMPONENT
-// ============================================================
-
-interface TrendChartProps {
+type TrendChartProps = {
   data: TrendRow[]
   highlightedMonths: string[]
   isDark: boolean
@@ -118,81 +95,44 @@ const TrendChart = memo(function TrendChart({
   tickColor,
   gridColor,
 }: TrendChartProps) {
-  // Dot renderer
-  const makeDot = (solidColor: string, ringColor: string, prefix: string) => (props: any) => {
-    const { cx, cy, index, payload } = props
-    const isHL = highlightedMonths.includes(payload?.month ?? "")
-    return (
-      <circle
-        key={`${prefix}-dot-${index}`}
-        cx={cx}
-        cy={cy}
-        r={isHL ? 5 : 2.5}
-        fill={isHL ? solidColor : `${solidColor}33`}
-        stroke={isHL ? ringColor : "none"}
-        strokeWidth={isHL ? 1.5 : 0}
-      />
-    )
-  }
-
-  // Label renderer
-  const makeLabel = (color: string, dy: number, prefix: string) => (props: any) => {
-    const { x, y, value, index } = props
-    const isHL = highlightedMonths.includes(data[index]?.month ?? "")
-    if (!isHL || !value) return null
-    return (
-      <text
-        key={`${prefix}-lbl-${index}`}
-        x={x}
-        y={y}
-        dy={dy}
-        textAnchor="middle"
-        fontSize={10}
-        fontWeight={700}
-        fill={color}
-      >
-        {value}%
-      </text>
-    )
-  }
+  const maxValue = useMemo(
+    () => Math.max(...data.map((item) => item.positive_pct), 0),
+    [data]
+  )
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 28, right: 18, bottom: 12, left: 12 }}>
-        <CartesianGrid 
-          strokeDasharray="3 3" 
-          stroke={gridColor} 
-          vertical={false} 
+    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
+      <BarChart data={data} margin={{ top: 30, right: 12, bottom: 12, left: 0 }} barCategoryGap="28%">
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke={gridColor}
+          vertical={false}
         />
-        
         <XAxis
           dataKey="month"
           stroke="transparent"
           tickLine={false}
           axisLine={false}
           dy={8}
-          // Tambahkan padding agar titik Januari/Desember tidak terpotong
-          padding={{ left: 16, right: 16 }}
-          // Keamanan overflow kliping
-          allowDataOverflow={false}
-          tick={(props: any) => {
-            const isHL = highlightedMonths.includes(props.payload.value)
+          padding={{ left: 10, right: 10 }}
+          tick={({ x, y, payload }) => {
+            const value = String(payload?.value ?? "")
+            const isHL = highlightedMonths.includes(value)
+
             return (
               <text
-                key={props.payload.value}
-                x={props.x}
-                y={props.y}
+                x={x}
+                y={y}
                 textAnchor="middle"
                 fontSize={isHL ? 11 : 10}
-                fontWeight={isHL ? 800 : 400}
-                fill={isHL ? (isDark ? "#ffffff" : "#111827") : (isDark ? "#2d3748" : "#d1d5db")}
+                fontWeight={isHL ? 800 : 500}
+                fill={isHL ? (isDark ? "#ffffff" : "#111827") : tickColor}
               >
-                {props.payload.value}
+                {value}
               </text>
             )
           }}
         />
-
         <YAxis
           stroke="transparent"
           tickLine={false}
@@ -200,33 +140,45 @@ const TrendChart = memo(function TrendChart({
           domain={[0, 100]}
           tickFormatter={(v) => `${v}%`}
           tick={{ fill: tickColor, fontSize: 10 }}
-          width={34}
-          // Keamanan overflow kliping
-          allowDataOverflow={false}
+          width={36}
         />
-
-        <Tooltip content={<TrendTooltip />} />
-
-        <Line
-          type="monotone"
-          dataKey="pct_5"
-          stroke="#22c55e"
-          strokeWidth={2.5}
+        <Tooltip
+          content={<TrendTooltip />}
+          cursor={{
+            fill: isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.04)",
+            radius: 6,
+          }}
+        />
+        <Bar
+          dataKey="positive_pct"
+          name="Score 4+5"
+          radius={[7, 7, 3, 3]}
+          maxBarSize={42}
           isAnimationActive={false}
-          dot={makeDot("#22c55e", "#15803d", "pct5")}
-          label={makeLabel("#22c55e", -12, "pct5")}
-        />
+        >
+          <LabelList
+            dataKey="positive_pct"
+            position="top"
+            formatter={formatPercent}
+            style={{ fontSize: 10, fontWeight: 800, fill: "var(--c-text)" }}
+          />
+          {data.map((entry, index) => {
+            const isHL = highlightedMonths.includes(entry.month)
+            const isPeak = entry.positive_pct === maxValue && maxValue > 0
 
-        <Line
-          type="monotone"
-          dataKey="pct_4"
-          stroke="#f59e0b"
-          strokeWidth={2.5}
-          isAnimationActive={false}
-          dot={makeDot("#f59e0b", "#b45309", "pct4")}
-          label={makeLabel("#f59e0b", 22, "pct4")}
-        />
-      </LineChart>
+            return (
+              <Cell
+                key={entry.month}
+                fill={isPeak ? "#22c55e" : "#16a34a"}
+                fillOpacity={entry.positive_pct === 0 ? 0.14 : isHL ? 0.95 : 0.45}
+                stroke={isPeak ? "#86efac" : "none"}
+                strokeWidth={isPeak ? 1.5 : 0}
+                style={{ transition: "opacity 180ms ease" }}
+              />
+            )
+          })}
+        </Bar>
+      </BarChart>
     </ResponsiveContainer>
   )
 })

@@ -20,11 +20,16 @@ build/
 dist/
 out/
 .next/
+.next-build-check/
+.next-structure-check/
+.next-types-check/
+.next-hooks-check/
 
 # Generated local dumps
 backend.txt
 folder.txt
 *.tsbuildinfo
+reporting-backend/supabase/.temp/
 
 # Debug logs
 npm-debug.log*

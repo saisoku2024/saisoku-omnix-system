@@ -13,7 +13,7 @@ def csat_summary(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return CsatService.get_summary(mode, period, year)
+    return CsatService.get_all(mode, period, year).get("summary", {})
 
 
 # =========================
@@ -25,7 +25,7 @@ def csat_top_agent_total(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return CsatService.get_top_agent_total(mode, period, year)
+    return CsatService.get_all(mode, period, year).get("top_agent_total", [])
 
 
 # =========================
@@ -37,7 +37,7 @@ def csat_top_agent_avg(
     period: str = Query("Jan"),
     year: int = Query(2026),
 ):
-    return CsatService.get_top_agent_avg(mode, period, year)
+    return CsatService.get_all(mode, period, year).get("top_agent_avg", [])
 
 
 # =========================

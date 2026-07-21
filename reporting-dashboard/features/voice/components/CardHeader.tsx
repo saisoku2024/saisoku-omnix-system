@@ -8,8 +8,8 @@ type Props = {
 
 export default function CardHeader({ title, badge, extra }: Props) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--c-border)] px-4 py-3 min-h-[44px]">
-      <span className="text-xs font-bold tracking-wide text-[var(--c-text)]">
+    <div className="flex items-center justify-between border-b border-(--c-border) px-4 py-3 min-h-[44px]">
+      <span className="text-xs font-bold tracking-wide text-(--c-text)">
         {title}
       </span>
 

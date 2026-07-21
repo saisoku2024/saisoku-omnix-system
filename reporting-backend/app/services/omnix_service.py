@@ -2,6 +2,25 @@ from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
 
 
+def _rpc_json(data):
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list) and data:
+        first = data[0]
+        return first if isinstance(first, dict) else {}
+    return {}
+
+
+def _fmt_duration(sec):
+    sec = int(float(sec or 0))
+    minutes, seconds = divmod(sec, 60)
+    return f"{minutes}m {seconds}s"
+
+
+def _is_unknown_only(rows):
+    return len(rows) == 1 and str(rows[0].get("name") or "").lower() == "unknown"
+
+
 class OmnixService:
 
     # =========================
@@ -165,6 +184,29 @@ class OmnixService:
     # BY PRODUCT
     # =========================
     @staticmethod
+    def _get_product_from_category(start, end):
+        res = (
+            supabase.table("omnix_cases")
+            .select("category")
+            .gte("interaction_at", start)
+            .lt("interaction_at", end)
+            .is_("deleted_at", "null")
+            .execute()
+        )
+
+        counts = {}
+        for row in res.data or []:
+            name = str(row.get("category") or "").strip() or "Unknown"
+            counts[name] = counts.get(name, 0) + 1
+
+        return [
+            {"name": name, "count": total}
+            for name, total in sorted(
+                counts.items(), key=lambda item: item[1], reverse=True
+            )[:10]
+        ]
+
+    @staticmethod
     def get_by_product(mode, period, year):
         start, end = get_date_range(mode, period, year)
 
@@ -174,14 +216,24 @@ class OmnixService:
                 {"start_date": start, "end_date": end}
             ).execute()
 
-            return [
+            product = [
                 {"name": r["name"], "count": r["total"]}
                 for r in (res.data or [])
             ]
 
+            return (
+                OmnixService._get_product_from_category(start, end)
+                if not product or _is_unknown_only(product)
+                else product
+            )
+
         except Exception as e:
             print(f"ERROR OMNIX PRODUCT: {e}")
-            return []
+            try:
+                return OmnixService._get_product_from_category(start, end)
+            except Exception as fallback_error:
+                print(f"ERROR OMNIX PRODUCT FALLBACK: {fallback_error}")
+                return []
 
 
     # =========================
@@ -213,13 +265,93 @@ class OmnixService:
     # =========================
     @staticmethod
     def get_all(mode, period, year):
-        return {
-            "summary": OmnixService.get_summary(mode, period, year),
-            "daily": OmnixService.get_daily(mode, period, year),
-            "hourly": OmnixService.get_hourly(mode, period, year),
-            "by_day": OmnixService.get_by_day(mode, period, year),
-            "channel": OmnixService.get_by_channel(mode, period, year),
-            "category": OmnixService.get_by_category(mode, period, year),
-            "product": OmnixService.get_by_product(mode, period, year),
-            "customer": OmnixService.get_customer(mode, period, year), # SIVA Fix: Integrasi RPC baru
-        }
+        start, end = get_date_range(mode, period, year)
+
+        try:
+            res = supabase.rpc(
+                "get_omnix_dashboard",
+                {
+                    "p_start": start,
+                    "p_end": end,
+                    "p_mode": mode,
+                    "p_year": year,
+                }
+            ).execute()
+
+            data = _rpc_json(res.data)
+            summary = data.get("summary") or {}
+
+            product = [
+                {
+                    "name": row.get("name"),
+                    "count": int(row.get("total") or 0),
+                }
+                for row in (data.get("product") or [])
+            ]
+
+            if not product or _is_unknown_only(product):
+                product = OmnixService._get_product_from_category(start, end)
+
+            return {
+                "summary": {
+                    "total_ticket": int(summary.get("total_ticket") or 0),
+                    "aht": _fmt_duration(summary.get("avg_aht")),
+                    "art": _fmt_duration(summary.get("avg_art")),
+                    "awt": _fmt_duration(summary.get("avg_awt")),
+                },
+                "daily": [
+                    {
+                        "label": str(row.get("label") or ""),
+                        "count": int(row.get("total") or 0),
+                    }
+                    for row in (data.get("daily") or [])
+                ],
+                "hourly": [
+                    {
+                        "hour": row.get("hour"),
+                        "count": int(row.get("total") or 0),
+                    }
+                    for row in (data.get("hourly") or [])
+                ],
+                "by_day": [
+                    {
+                        "day": row.get("day"),
+                        "count": int(row.get("total") or 0),
+                    }
+                    for row in (data.get("by_day") or [])
+                ],
+                "channel": [
+                    {
+                        "name": row.get("name"),
+                        "count": int(row.get("total") or 0),
+                    }
+                    for row in (data.get("channel") or [])
+                ],
+                "category": [
+                    {
+                        "name": row.get("name"),
+                        "count": int(row.get("total") or 0),
+                    }
+                    for row in (data.get("category") or [])
+                ],
+                "product": product,
+                "customer": data.get("customer") or [],
+            }
+
+        except Exception as e:
+            print(f"ERROR OMNIX MASTER ALL: {e}")
+            return {
+                "summary": {
+                    "total_ticket": 0,
+                    "aht": "0m 0s",
+                    "art": "0m 0s",
+                    "awt": "0m 0s",
+                },
+                "daily": [],
+                "hourly": [],
+                "by_day": [],
+                "channel": [],
+                "category": [],
+                "product": [],
+                "customer": [],
+            }

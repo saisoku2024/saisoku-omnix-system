@@ -10,6 +10,7 @@ from app.routes import (
     voice,
     csat,
     omnix,
+    cleanup,
     report,          # ✅ Router report ditambahkan
     auth,            # ✅ Router auth ditambahkan
 )
@@ -46,6 +47,7 @@ app.include_router(upload.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(csat.router, prefix="/api")
 app.include_router(omnix.router, prefix="/api")
+app.include_router(cleanup.router, prefix="/api")
 app.include_router(report.router, prefix="/api")      # ✅ Router report diinclude
 app.include_router(principal_router, prefix="/api")
 app.include_router(auth.router, prefix="/api")         # ✅ Router auth diinclude

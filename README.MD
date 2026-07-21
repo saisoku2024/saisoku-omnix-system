@@ -1,56 +1,104 @@
-# Omnix Reporting System 🚀
-*Autonomous Fullstack Reporting Dashboard*
+# SAISOKU OMNIX System
 
-Sistem pelaporan otomatis yang mengintegrasikan data dari Omnix, Voice, dan CSAT ke dalam dashboard analitik menggunakan **Next.js** (Frontend) dan **FastAPI/Python** (Backend).
+SAISOKU OMNIX adalah dashboard reporting yang menggabungkan data Omnix, Voice, CSAT, upload processing, dan report export dalam satu stack.
 
----
+## Stack
 
-## 🛠️ Panduan Menjalankan Aplikasi (Startup Guide)
+- Frontend: `Next.js 16` di `reporting-dashboard`
+- Backend: `FastAPI` di `reporting-backend`
+- Database dan storage: `Supabase`
+- Deploy: `Vercel` untuk frontend dan `Render` untuk backend
 
-### 1. Persiapan Environment
-Pastikan file `.env` sudah terisi di folder masing-masing:
-- **Backend:** Membutuhkan `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY`.
-- **Frontend:** Membutuhkan `NEXT_PUBLIC_API_URL` (arahkan ke `http://localhost:8001`).
+## Struktur Repo
 
-====================
-MENJALANKAN BACKEND
-====================
-### 2. Menjalankan Backend (Port 8001)
+```txt
+saisoku-omnix-system/
+|-- reporting-dashboard/
+|-- reporting-backend/
+|-- render.yaml
+`-- README.MD
+```
 
-Buka terminal baru:
+## Menjalankan Lokal
+
+### Backend
+
+```bash
 cd reporting-backend
-# Install dependency (jika baru pertama kali)
 pip install -r requirements.txt
-
-# Jalankan server FastAPI
 python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
 
-=====================
-MENJALANKAN FRONT END
-=====================
-### 3. Menjalankan Frontend (Port 3002)
+Environment backend:
 
-Buka terminal baru:
-cd reporting-dashboard-omnix
-# Install dependency (jika baru pertama kali)
+```txt
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+ADMIN_API_TOKEN=
+```
+
+### Frontend
+
+```bash
+cd reporting-dashboard
 npm install
+npm run dev -- --port 3000
+```
 
-# Jalankan server Next.js
-npm run dev -- -p 3002
+Environment frontend:
 
----
+```txt
+NEXT_PUBLIC_API_URL=http://localhost:8001
+NEXT_PUBLIC_ADMIN_API_TOKEN=
+ADMIN_UI_PASSWORD=
+AUTH_SESSION_SECRET=
+```
 
-## 📈 Log Update & Maintenance
+## URL Lokal
 
-### [2024-05-22] - Refactor Arsitektur & Standarisasi
-- **Refactor:** Migrasi ke Clean Architecture (app/models, app/schemas, app/services).
-- **Setup Dasar:** Penambahan requirements.txt & .gitignore untuk keamanan data.
-- **Konfigurasi:** Port tetap untuk Frontend (3002) dan Backend (8001).
-- **Dokumentasi:** Pembuatan panduan startup satu pintu (README.md) dengan instruksi manual.
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8001`
+- Swagger: `http://localhost:8001/docs`
 
----
+## Deploy
 
-## ⚠️ Catatan Penting
-- Akses Dokumentasi API (Swagger): http://localhost:8001/docs
-- Akses Web Dashboard: http://localhost:3002
-- Jangan upload file .env ke Git/Repository.
+- Backend Render config ada di `render.yaml`
+- Panduan backend ada di `reporting-backend/DEPLOY_RENDER.md`
+- Frontend Vercel memakai `NEXT_PUBLIC_API_URL` yang mengarah ke backend Render
+- Endpoint write/export dilindungi token minimal:
+  - Render: `ADMIN_API_TOKEN`
+  - Vercel: `NEXT_PUBLIC_ADMIN_API_TOKEN` dengan nilai yang sama
+- Halaman dashboard dilindungi auth UI berbasis cookie:
+  - Vercel: `ADMIN_UI_PASSWORD`
+  - Vercel: `AUTH_SESSION_SECRET`
+
+## Changelog
+
+### 2026-07-16
+
+- Merapikan struktur frontend dengan menambahkan `config/`, `providers/`, `services/`, dan `types/`
+- Menambahkan guard token minimal untuk endpoint upload, cleanup soft-delete, dan report export
+- Menambahkan login admin dan middleware session untuk melindungi halaman dashboard/report/upload
+- Menyatukan theme system ke provider global
+- Menyatukan rumah UI ke `components/ui`
+- Memindahkan sidebar menu dan config ke `reporting-dashboard/config/`
+- Memisahkan layer fetch dan normalisasi data ke `reporting-dashboard/services/`
+- Membersihkan komponen demo dan legacy yang tidak dipakai
+
+### 2026-07-13
+
+- Menyatukan base URL frontend ke `NEXT_PUBLIC_API_URL`
+- Mengubah backend agar memakai `SUPABASE_SERVICE_ROLE_KEY`
+- Menambahkan dan menjalankan master RPC Supabase untuk dashboard utama
+- Merapikan route backend lama agar tetap kompatibel
+
+### 2026-07-10
+
+- Membersihkan artifact lokal yang sempat ikut tracked ke Git
+- Menyiapkan dasar deploy backend Render dan frontend Vercel
+- Memulai audit build, runtime, dan konsistensi feature dashboard
+
+## Catatan Repo
+
+- Jangan commit file `.env`
+- File hasil build, cache, dan dump listing folder tidak perlu disimpan di repo

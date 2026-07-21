@@ -1,20 +1,20 @@
 "use client"
 
-import React, { memo } from "react"
+import { memo, useMemo } from "react"
 import {
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
+  BarChart,
   CartesianGrid,
   Cell,
   LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
 
-import type { HourlyData } from "@/features/voice/types/voice"
 import CustomTooltip from "@/features/voice/charts/CustomTooltip"
+import type { HourlyData } from "@/features/voice/types/voice"
 
 type Props = {
   data: HourlyData[]
@@ -29,12 +29,21 @@ const HourlyChart = memo(function HourlyChart({
   tickColor,
   isDark,
 }: Props) {
+  const maxCount = useMemo(
+    () => Math.max(...data.map((item) => item.count), 0),
+    [data]
+  )
+
+  const peakColor = "#0ea5e9"
+  const normalColor = isDark ? "rgba(14,165,233,0.72)" : "rgba(14,165,233,0.78)"
+
   return (
     <div className="h-full w-full min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
-          margin={{ top: 22, right: 12, left: 0, bottom: 0 }}
+          margin={{ top: 30, right: 12, left: 0, bottom: 0 }}
+          barCategoryGap="18%"
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -44,7 +53,8 @@ const HourlyChart = memo(function HourlyChart({
           <XAxis
             dataKey="label"
             tick={{ fill: tickColor, fontSize: 9 }}
-            tickFormatter={(v: string, i: number) => (i % 3 === 0 ? v : "")}
+            interval={0}
+            minTickGap={0}
             tickLine={false}
             axisLine={false}
             padding={{ left: 4, right: 4 }}
@@ -57,27 +67,40 @@ const HourlyChart = memo(function HourlyChart({
             allowDecimals={false}
           />
           <Tooltip
-            cursor={{ fill: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" }}
+            cursor={{
+              fill: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+              radius: 6,
+            }}
             content={<CustomTooltip suffix=" calls" />}
           />
           <Bar
             dataKey="count"
-            radius={[4, 4, 0, 0]}
+            radius={[5, 5, 2, 2]}
             isAnimationActive={false}
             maxBarSize={26}
           >
-            {data.map((item, index) => (
-              <Cell
-                key={index}
-                fill="#0ea5e9"
-                fillOpacity={item.count > 80 ? 1 : 0.5}
-              />
-            ))}
             <LabelList
               dataKey="count"
               position="top"
-              style={{ fontSize: 9, fontWeight: 600, fill: tickColor }}
+              formatter={(value: unknown) => {
+                const numericValue = Number(value)
+                return numericValue > 0 ? String(numericValue) : ""
+              }}
+              style={{ fontSize: 9, fontWeight: 800, fill: "var(--c-text)" }}
             />
+            {data.map((entry) => {
+              const isPeak = entry.count === maxCount && maxCount > 0
+
+              return (
+                <Cell
+                  key={entry.label}
+                  fill={isPeak ? peakColor : normalColor}
+                  fillOpacity={entry.count === 0 ? 0.14 : 1}
+                  stroke={isPeak ? "#7dd3fc" : "none"}
+                  strokeWidth={isPeak ? 1.5 : 0}
+                />
+              )
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

@@ -2,6 +2,21 @@ from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
 
 
+def _rpc_json(data):
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list) and data:
+        first = data[0]
+        return first if isinstance(first, dict) else {}
+    return {}
+
+
+def _fmt_duration(sec):
+    sec = int(float(sec or 0))
+    minutes, seconds = divmod(sec, 60)
+    return f"{minutes}m {seconds}s"
+
+
 # =========================
 # SUMMARY KPI (RPC)
 # =========================
@@ -195,32 +210,92 @@ def get_dashboard_customer_summary(mode, period, year):
         }
 
 
+def get_dashboard_customer(mode, period, year):
+    return get_dashboard_all(mode, period, year).get("customer", {"total": 0})
+
+
+def get_dashboard_new_customer(mode, period, year):
+    return get_dashboard_all(mode, period, year).get("new_customer", {"total": 0})
+
+
 # =========================
 # MASTER ENDPOINT
 # =========================
 def get_dashboard_all(mode, period, year):
+    start, end = get_date_range(mode, period, year)
+
     try:
-        customer_summary = get_dashboard_customer_summary(
-            mode,
-            period,
-            year
-        )
+        res = supabase.rpc(
+            "get_dashboard_home",
+            {
+                "p_start": start,
+                "p_end": end,
+                "p_mode": mode,
+                "p_year": year,
+            }
+        ).execute()
+
+        data = _rpc_json(res.data)
+        summary = data.get("summary") or {}
 
         return {
-            "summary": get_dashboard_summary(mode, period, year),
-            "trend": get_dashboard_trend(mode, period, year),
-            "channel": get_dashboard_by_channel(mode, period, year),
-            "category": get_dashboard_by_category(mode, period, year),
-            "brand": get_dashboard_by_brand(mode, period, year),
-
-            # AMBIL DARI SOURCE YANG SAMA DENGAN OMNIX
-            "customer": customer_summary["customer"],
-            "new_customer": customer_summary["new_customer"],
+            "summary": {
+                "total_ticket": f"{int(summary.get('total_ticket') or 0):,}",
+                "aht": _fmt_duration(summary.get("avg_aht")),
+                "art": _fmt_duration(summary.get("avg_art")),
+                "awt": _fmt_duration(summary.get("avg_awt")),
+                "csat": str(summary.get("csat") or 0),
+            },
+            "trend": [
+                {
+                    "day": str(row.get("label") or ""),
+                    "count": int(row.get("total") or 0),
+                }
+                for row in (data.get("trend") or [])
+            ],
+            "channel": [
+                {
+                    "name": row.get("name"),
+                    "count": int(row.get("total") or 0),
+                }
+                for row in (data.get("channel") or [])
+            ],
+            "category": [
+                {
+                    "name": row.get("name"),
+                    "count": int(row.get("total") or 0),
+                }
+                for row in (data.get("category") or [])
+            ],
+            "brand": [
+                {
+                    "name": row.get("name"),
+                    "count": int(row.get("total") or 0),
+                    "pct": float(row.get("pct") or 0),
+                }
+                for row in (data.get("brand") or [])
+            ],
+            "customer": data.get("customer") or {"total": 0},
+            "new_customer": data.get("new_customer") or {"total": 0},
         }
 
     except Exception as e:
         print(f"ERROR DASHBOARD ALL: {e}")
-        return {}
+        return {
+            "summary": {
+                "total_ticket": "0",
+                "aht": "0m 0s",
+                "art": "0m 0s",
+                "awt": "0m 0s",
+                "csat": "0",
+            },
+            "trend": [],
+            "channel": [],
+            "category": [],
+            "brand": [],
+            "customer": {"total": 0},
+            "new_customer": {"total": 0},
+        }
 
 
 # =========================

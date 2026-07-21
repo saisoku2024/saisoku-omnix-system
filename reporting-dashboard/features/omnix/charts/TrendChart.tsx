@@ -1,28 +1,28 @@
 "use client"
 
-import React, { memo, useMemo } from "react"
+import { memo, useMemo } from "react"
 import {
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
+  BarChart,
   CartesianGrid,
   Cell,
   LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
 
-import { fmtCompact } from "@/features/omnix/utils/format"
-import type { TrendData } from "@/features/omnix/types/omnix"
 import CustomTooltip from "@/features/omnix/charts/CustomTooltip"
+import type { TrendData } from "@/features/omnix/types/omnix"
+import { fmtCompact } from "@/features/omnix/utils/format"
 
 type Props = {
   data: TrendData[]
   gridColor: string
   tickColor: string
   isDark: boolean
-  highlightedMonths?: string[] // SIVA FIX: Tambahan prop untuk menerima instruksi highlight
+  highlightedMonths?: string[]
 }
 
 const TrendChart = memo(function TrendChart({
@@ -32,28 +32,26 @@ const TrendChart = memo(function TrendChart({
   isDark,
   highlightedMonths = [],
 }: Props) {
-  
   const isHighlightAll = highlightedMonths.length === 0
 
-  // SIVA FIX: Cari nilai tertinggi HANYA pada area yang sedang di-highlight
   const maxCount = useMemo(() => {
-    const activeData = isHighlightAll 
-      ? data 
-      : data.filter(d => highlightedMonths.includes(String(d.label).trim()))
-    return Math.max(...activeData.map((d) => d.count), 0)
+    const activeData = isHighlightAll
+      ? data
+      : data.filter((item) => highlightedMonths.includes(String(item.label).trim()))
+
+    return Math.max(...activeData.map((item) => item.count), 0)
   }, [data, highlightedMonths, isHighlightAll])
 
-  // Palet Warna
-  const peakColor = "#6366f1" // Ungu terang (Tertinggi)
-  const normalColor = isDark ? "rgba(99,102,241,0.5)" : "rgba(99,102,241,0.6)" // Ungu normal (Di-highlight)
-  const dimColor = isDark ? "rgba(99,102,241,0.1)" : "rgba(99,102,241,0.15)" // Pudar (Tidak di-highlight)
+  const peakColor = "#6366f1"
+  const normalColor = isDark ? "rgba(99,102,241,0.72)" : "rgba(99,102,241,0.78)"
+  const dimColor = isDark ? "rgba(99,102,241,0.16)" : "rgba(99,102,241,0.20)"
 
   return (
     <div className="h-full w-full min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
-          margin={{ top: 22, right: 8, bottom: 0, left: 0 }}
+          margin={{ top: 30, right: 8, bottom: 0, left: 0 }}
           barCategoryGap="30%"
         >
           <CartesianGrid
@@ -77,52 +75,45 @@ const TrendChart = memo(function TrendChart({
             width={36}
             tick={{ fill: tickColor, fontSize: 10 }}
             tickFormatter={fmtCompact}
+            allowDecimals={false}
           />
           <Tooltip
             content={<CustomTooltip />}
             cursor={{
               fill: isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.04)",
+              radius: 6,
             }}
           />
           <Bar
             dataKey="count"
             name="Tickets"
-            radius={[5, 5, 0, 0]}
-            maxBarSize={36}
+            radius={[6, 6, 2, 2]}
+            maxBarSize={38}
             isAnimationActive={false}
           >
-            {data.map((entry, i) => {
-              const labelStr = String(entry.label).trim()
-              const isHighlighted = isHighlightAll || highlightedMonths.includes(labelStr)
-              const isPeak = entry.count === maxCount && maxCount > 0
-              
-              // SIVA FIX: Logika penggabungan warna (Dim vs Normal vs Peak)
-              let fill = dimColor
-              if (isHighlighted) {
-                fill = isPeak ? peakColor : normalColor
-              }
-
-              return (
-                <Cell
-                  key={i}
-                  fill={fill}
-                  stroke={isPeak ? peakColor : "none"}
-                  strokeWidth={isPeak ? 1 : 0}
-                />
-              )
-            })}
             <LabelList
               dataKey="count"
               position="top"
-              style={{ fontSize: 9, fontWeight: 600, fill: tickColor }}
-              formatter={(val: any) =>
-  typeof val === "number"
-    ? val >= 1000
-      ? `${(val / 1000).toFixed(1)}k`
-      : val
-    : val
-}
+              formatter={(value: unknown) => {
+                const numericValue = Number(value)
+                return numericValue > 0 ? fmtCompact(numericValue) : ""
+              }}
+              style={{ fontSize: 9, fontWeight: 800, fill: "var(--c-text)" }}
             />
+            {data.map((entry) => {
+              const label = String(entry.label).trim()
+              const isHighlighted = isHighlightAll || highlightedMonths.includes(label)
+              const isPeak = entry.count === maxCount && maxCount > 0
+
+              return (
+                <Cell
+                  key={entry.label}
+                  fill={isPeak ? peakColor : isHighlighted ? normalColor : dimColor}
+                  stroke={isPeak ? "#a5b4fc" : "none"}
+                  strokeWidth={isPeak ? 1.5 : 0}
+                />
+              )
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

@@ -21,9 +21,10 @@ import {
   History,
 } from "lucide-react"
 
-import { useTheme } from "@/contexts/theme-context"
+import { useTheme } from "@/providers/theme-provider"
 import UploadResultSummaryCard from "@/features/upload/components/UploadResultSummaryCard"
 import type { UploadResult } from "@/features/upload/types/Upload"
+import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN, apiUrl } from "@/lib/api"
 
 /* ============================================================
@@ -434,11 +435,10 @@ function useFileUpload(
           resolve({ ok: false, error: "aborted" })
         })
         
-        console.log("UPLOAD URL =", UPLOAD_API)
-        console.log("FILE =", file.name)
-        console.log("TYPE =", type)
-
         xhr.open("POST", UPLOAD_API)
+        Object.entries(adminHeaders()).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, String(value))
+        })
         xhr.send(formData)
       }),
     [onSuccess]

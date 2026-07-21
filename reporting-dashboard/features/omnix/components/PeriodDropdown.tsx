@@ -30,7 +30,7 @@ export default function PeriodDropdown({
         backgroundPosition: "right 10px center",
         width,
       }}
-      className="h-8 cursor-pointer appearance-none rounded-lg border border-[var(--c-border)] bg-[var(--c-control)] py-0 pl-3 pr-7 text-[11px] font-semibold text-[var(--c-text)] outline-none transition-colors focus:border-[var(--c-accent)]"
+      className="h-8 cursor-pointer appearance-none rounded-lg border border-(--c-border) bg-(--c-control) py-0 pl-3 pr-7 text-[11px] font-semibold text-(--c-text) outline-none transition-colors focus:border-(--c-accent)"
     >
       {options.map((option) => (
         <option key={option} value={option}>

@@ -5,7 +5,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Sector,
   ResponsiveContainer,
 } from "recharts"
 
@@ -19,32 +18,6 @@ type Props = {
   onActiveChange: (idx: number | null) => void
 }
 
-type ActiveShapeProps = {
-  cx: number
-  cy: number
-  innerRadius: number
-  outerRadius: number
-  startAngle: number
-  endAngle: number
-  fill: string
-}
-
-const renderActiveShape = (props: ActiveShapeProps) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props
-  return (
-    <Sector
-      cx={cx}
-      cy={cy}
-      innerRadius={innerRadius - 2}
-      outerRadius={outerRadius + 6}
-      startAngle={startAngle}
-      endAngle={endAngle}
-      fill={fill}
-      style={{ filter: `drop-shadow(0 0 5px ${fill}80)` }}
-    />
-  )
-}
-
 const ChannelDonut = memo(function ChannelDonut({
   data,
   total,
@@ -52,32 +25,43 @@ const ChannelDonut = memo(function ChannelDonut({
   onActiveChange,
 }: Props) {
   const totalDisplay = total >= 1000 ? `${(total / 1000).toFixed(1)}k` : String(total)
+  const activeItem = activeIndex !== null ? data[activeIndex] : null
+  const centerValue = activeItem
+    ? `${activeItem.pct}%`
+    : totalDisplay
+  const centerLabel = activeItem
+    ? activeItem.name
+    : "TOTAL"
 
   return (
-    <div className="h-37.5 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-40 w-full">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <PieChart>
           <Pie
             data={data}
             dataKey="count"
             cx="50%"
             cy="50%"
-            outerRadius={62}
-            innerRadius={44}
-            paddingAngle={3}
-            cornerRadius={3}
+            outerRadius={66}
+            innerRadius={40}
+            paddingAngle={4}
+            cornerRadius={5}
             stroke="none"
             onMouseEnter={(_, i) => onActiveChange(i)}
             onMouseLeave={() => onActiveChange(null)}
-              {...(activeIndex !== null ? { activeIndex } : {})}
-            activeShape={renderActiveShape as any}
           >
             {data.map((_, i) => (
               <Cell
                 key={i}
                 fill={PALETTE[i % PALETTE.length]}
                 opacity={activeIndex !== null && i !== activeIndex ? 0.35 : 1}
-                style={{ transition: "opacity 0.2s", cursor: "pointer" }}
+                stroke={activeIndex === i ? "var(--c-surface)" : "none"}
+                strokeWidth={activeIndex === i ? 3 : 0}
+                style={{
+                  cursor: "pointer",
+                  filter: activeIndex === i ? `drop-shadow(0 0 8px ${PALETTE[i % PALETTE.length]}66)` : "none",
+                  transition: "opacity 0.2s, filter 0.2s",
+                }}
               />
             ))}
           </Pie>
@@ -95,7 +79,7 @@ const ChannelDonut = memo(function ChannelDonut({
               fontWeight="800"
               fill="var(--c-text)"
             >
-              {totalDisplay}
+              {centerValue}
             </tspan>
             <tspan
               x="50%"
@@ -105,7 +89,7 @@ const ChannelDonut = memo(function ChannelDonut({
               fill="var(--c-muted)"
               letterSpacing="0.06em"
             >
-              TOTAL
+              {centerLabel.length > 12 ? `${centerLabel.slice(0, 12)}...` : centerLabel}
             </tspan>
           </text>
         </PieChart>

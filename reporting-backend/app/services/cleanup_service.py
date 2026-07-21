@@ -1,0 +1,506 @@
+import re
+from uuid import uuid4
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+from app.core.supabase import supabase
+
+
+JAKARTA_TZ = ZoneInfo("Asia/Jakarta")
+UTC_TZ = ZoneInfo("UTC")
+SCAN_PAGE_SIZE = 1000
+TEXT_COLUMNS = [
+    "customer_name",
+    "main_category",
+    "category",
+    "subcategory",
+    "detail_subcategory",
+    "detail_subcategory2",
+    "feedback",
+]
+
+
+def _parse_date(value: str) -> date:
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def _date_to_utc_iso(value: date) -> str:
+    return datetime(value.year, value.month, value.day, tzinfo=JAKARTA_TZ).astimezone(
+        UTC_TZ
+    ).isoformat()
+
+
+def _parse_timestamp(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    text = str(value).replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _jakarta_date(value):
+    parsed = _parse_timestamp(value)
+    if not parsed:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC_TZ)
+
+    return parsed.astimezone(JAKARTA_TZ).date().isoformat()
+
+
+def _stored_date(value):
+    parsed = _parse_timestamp(value)
+    if parsed:
+        return parsed.date().isoformat()
+
+    text = str(value or "").strip()
+    return text[:10] if len(text) >= 10 else None
+
+
+def _as_lower(value) -> str:
+    return str(value or "").strip().lower()
+
+
+def _normalize_compare_phone(value) -> str:
+    phone = re.sub(r"[^\d+]", "", str(value or "").strip())
+    if phone.startswith("+62"):
+        return phone[1:]
+    if phone.startswith("08"):
+        return "62" + phone[1:]
+    if phone.startswith("8"):
+        return "62" + phone
+    if phone.startswith("62"):
+        return phone
+    return phone
+
+
+def _phone_profile(value) -> dict:
+    phone = _normalize_compare_phone(value)
+    return {
+        "prefix": phone[:3] if phone else "empty",
+        "length": len(phone),
+        "empty": phone == "",
+    }
+
+
+def _phone_bucket(value) -> str:
+    profile = _phone_profile(value)
+    return "empty" if profile["empty"] else f"{profile['prefix']} / {profile['length']} digit"
+
+
+def _mask_phone(value) -> str:
+    phone = _normalize_compare_phone(value)
+    if not phone:
+        return ""
+    if len(phone) <= 6:
+        return f"{phone[:2]}***"
+    return f"{phone[:4]}***{phone[-3:]}"
+
+
+def _is_abandon(row) -> bool:
+    return "abandon" in _as_lower(row.get("call_event")) or "abandon" in _as_lower(
+        row.get("call_status")
+    )
+
+
+def _contains_text(row, needle: str) -> bool:
+    normalized_needle = needle.lower()
+    return any(normalized_needle in _as_lower(row.get(column)) for column in TEXT_COLUMNS)
+
+
+def _fetch_period_rows(table: str, columns: str, start_iso: str, end_iso: str) -> list[dict]:
+    rows = []
+    offset = 0
+
+    while True:
+        response = (
+            supabase.table(table)
+            .select(columns)
+            .gte("interaction_at", start_iso)
+            .lt("interaction_at", end_iso)
+            .is_("deleted_at", "null")
+            .order("interaction_at")
+            .range(offset, offset + SCAN_PAGE_SIZE - 1)
+            .execute()
+        )
+        batch = response.data or []
+        rows.extend(batch)
+
+        if len(batch) < SCAN_PAGE_SIZE:
+            break
+
+        offset += SCAN_PAGE_SIZE
+
+    return rows
+
+
+def _candidate_from_omnix(row) -> dict:
+    return {
+        "target_table": "omnix_cases",
+        "id": row.get("id"),
+        "ticket_id": row.get("ticket_id"),
+        "customer_hp": row.get("customer_hp"),
+        "interaction_date": _stored_date(row.get("interaction_at")),
+        "interaction_at": row.get("interaction_at"),
+        "customer_name": row.get("customer_name"),
+        "channel": row.get("channel"),
+        "main_category": row.get("main_category"),
+        "category": row.get("category"),
+        "subcategory": row.get("subcategory"),
+        "agent_name": row.get("agent_name"),
+        "reasons": [],
+        "matched_voice": None,
+        "matched_omnix": None,
+    }
+
+
+def _candidate_from_voice(row) -> dict:
+    return {
+        "target_table": "voice_interactions",
+        "id": row.get("id"),
+        "ticket_id": row.get("unique_id"),
+        "customer_hp": row.get("clid_normalized") or row.get("clid_raw"),
+        "interaction_date": _stored_date(row.get("interaction_at")),
+        "interaction_at": row.get("interaction_at"),
+        "customer_name": None,
+        "channel": row.get("channel") or "voice",
+        "main_category": row.get("call_status"),
+        "category": row.get("call_event"),
+        "subcategory": row.get("queue_name"),
+        "agent_name": row.get("agent_name"),
+        "reasons": [],
+        "matched_voice": {
+            "id": row.get("id"),
+            "interaction_at": row.get("interaction_at"),
+            "call_event": row.get("call_event"),
+            "call_status": row.get("call_status"),
+            "clid_normalized": row.get("clid_normalized"),
+        },
+        "matched_omnix": None,
+    }
+
+
+class CleanupService:
+    @staticmethod
+    def preview(date_from: str, date_to: str, rules: list[str]) -> dict:
+        start_date = _parse_date(date_from)
+        end_date = _parse_date(date_to)
+        if end_date < start_date:
+            raise ValueError("date_to must be greater than or equal to date_from")
+
+        start_iso = _date_to_utc_iso(start_date)
+        end_iso = _date_to_utc_iso(end_date + timedelta(days=1))
+
+        omnix_rows = _fetch_period_rows(
+            "omnix_cases",
+            ",".join(
+                [
+                    "id",
+                    "ticket_id",
+                    "interaction_at",
+                    "customer_name",
+                    "customer_hp",
+                    "channel",
+                    "main_category",
+                    "category",
+                    "subcategory",
+                    "detail_subcategory",
+                    "detail_subcategory2",
+                    "feedback",
+                    "agent_name",
+                ]
+            ),
+            start_iso,
+            end_iso,
+        )
+
+        candidates: dict[str, dict] = {}
+        rule_counts = {
+            "abandon_match": 0,
+            "test_omnix": 0,
+            "internal_email": 0,
+        }
+
+        total_scanned_voice = 0
+
+        if "abandon_match" in rules:
+            voice_rows = _fetch_period_rows(
+                "voice_interactions",
+                "id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status,queue_name,agent_name,channel",
+                start_iso,
+                end_iso,
+            )
+            total_scanned_voice = len(voice_rows)
+
+            omnix_lookup = {}
+            for row in omnix_rows:
+                phone = _normalize_compare_phone(row.get("customer_hp"))
+                interaction_date = _stored_date(row.get("interaction_at"))
+                if not phone or not interaction_date:
+                    continue
+
+                omnix_lookup.setdefault((phone, interaction_date), row)
+
+            for row in voice_rows:
+                if not _is_abandon(row):
+                    continue
+
+                phone = _normalize_compare_phone(
+                    row.get("clid_normalized") or row.get("clid_raw")
+                )
+                interaction_date = _stored_date(row.get("interaction_at"))
+                if not phone or not interaction_date:
+                    continue
+
+                matched_omnix = omnix_lookup.get((phone, interaction_date))
+                if not matched_omnix:
+                    continue
+
+                candidate = candidates.setdefault(row["id"], _candidate_from_voice(row))
+                if "abandon_match" not in candidate["reasons"]:
+                    candidate["reasons"].append("abandon_match")
+                    rule_counts["abandon_match"] += 1
+
+                candidate["matched_omnix"] = {
+                    "id": matched_omnix.get("id"),
+                    "ticket_id": matched_omnix.get("ticket_id"),
+                    "interaction_at": matched_omnix.get("interaction_at"),
+                    "customer_hp": matched_omnix.get("customer_hp"),
+                }
+
+        if "test_omnix" in rules:
+            for row in omnix_rows:
+                if not _contains_text(row, "test omnix"):
+                    continue
+
+                candidate = candidates.setdefault(row["id"], _candidate_from_omnix(row))
+                if "test_omnix" not in candidate["reasons"]:
+                    candidate["reasons"].append("test_omnix")
+                    rule_counts["test_omnix"] += 1
+
+        if "internal_email" in rules:
+            for row in omnix_rows:
+                if "internal email" not in _as_lower(row.get("subcategory")):
+                    continue
+
+                candidate = candidates.setdefault(row["id"], _candidate_from_omnix(row))
+                if "internal_email" not in candidate["reasons"]:
+                    candidate["reasons"].append("internal_email")
+                    rule_counts["internal_email"] += 1
+
+        items = sorted(
+            candidates.values(),
+            key=lambda item: (item.get("interaction_at") or "", item.get("ticket_id") or ""),
+        )
+
+        return {
+            "date_from": date_from,
+            "date_to": date_to,
+            "rules": rules,
+            "total_scanned_omnix": len(omnix_rows),
+            "total_scanned_voice": total_scanned_voice,
+            "total_candidates": len(items),
+            "rule_counts": rule_counts,
+            "items": items[:500],
+            "truncated": len(items) > 500,
+        }
+
+    @staticmethod
+    def phone_diagnostics(date_from: str, date_to: str) -> dict:
+        start_date = _parse_date(date_from)
+        end_date = _parse_date(date_to)
+        if end_date < start_date:
+            raise ValueError("date_to must be greater than or equal to date_from")
+
+        start_iso = _date_to_utc_iso(start_date)
+        end_iso = _date_to_utc_iso(end_date + timedelta(days=1))
+
+        voice_data = _fetch_period_rows(
+            "voice_interactions",
+            "id,unique_id,interaction_at,clid_normalized,clid_raw,call_event,call_status",
+            start_iso,
+            end_iso,
+        )
+        omnix_rows = _fetch_period_rows(
+            "omnix_cases",
+            "id,ticket_id,interaction_at,created_at,customer_hp",
+            start_iso,
+            end_iso,
+        )
+
+        voice_rows = [row for row in voice_data if _is_abandon(row)]
+        omnix_by_phone = {}
+        omnix_by_phone_interaction_date = {}
+        omnix_by_phone_created_date = {}
+
+        for row in omnix_rows:
+            phone = _normalize_compare_phone(row.get("customer_hp"))
+            if not phone:
+                continue
+
+            omnix_by_phone.setdefault(phone, []).append(row)
+            interaction_date = _stored_date(row.get("interaction_at"))
+            created_date = _stored_date(row.get("created_at"))
+            if interaction_date:
+                omnix_by_phone_interaction_date.setdefault((phone, interaction_date), []).append(row)
+            if created_date:
+                omnix_by_phone_created_date.setdefault((phone, created_date), []).append(row)
+
+        voice_format_counts = {}
+        omnix_format_counts = {}
+        phone_only_matches = 0
+        interaction_date_matches = 0
+        created_date_matches = 0
+        sample_voice = []
+        sample_matches = []
+
+        for row in voice_rows:
+            phone = _normalize_compare_phone(row.get("clid_normalized") or row.get("clid_raw"))
+            bucket = _phone_bucket(phone)
+            voice_format_counts[bucket] = voice_format_counts.get(bucket, 0) + 1
+
+            if len(sample_voice) < 12:
+                sample_voice.append(
+                    {
+                        "unique_id": row.get("unique_id"),
+                        "phone": _mask_phone(phone),
+                        "raw_phone": _mask_phone(row.get("clid_raw")),
+                        "bucket": bucket,
+                        "date": _stored_date(row.get("interaction_at")),
+                        "event": row.get("call_event") or row.get("call_status"),
+                    }
+                )
+
+            if phone in omnix_by_phone:
+                phone_only_matches += 1
+
+            interaction_key = (phone, _stored_date(row.get("interaction_at")))
+            if interaction_key in omnix_by_phone_interaction_date:
+                interaction_date_matches += 1
+                if len(sample_matches) < 12:
+                    matched = omnix_by_phone_interaction_date[interaction_key][0]
+                    sample_matches.append(
+                        {
+                            "voice_unique_id": row.get("unique_id"),
+                            "voice_phone": _mask_phone(phone),
+                            "voice_date": interaction_key[1],
+                            "omnix_ticket_id": matched.get("ticket_id"),
+                            "omnix_phone": _mask_phone(matched.get("customer_hp")),
+                            "omnix_interaction_date": _stored_date(matched.get("interaction_at")),
+                            "match_type": "interaction_at",
+                        }
+                    )
+
+            created_key = (phone, _stored_date(row.get("interaction_at")))
+            if created_key in omnix_by_phone_created_date:
+                created_date_matches += 1
+
+        for row in omnix_rows:
+            bucket = _phone_bucket(row.get("customer_hp"))
+            omnix_format_counts[bucket] = omnix_format_counts.get(bucket, 0) + 1
+
+        return {
+            "date_from": date_from,
+            "date_to": date_to,
+            "voice_abandon_total": len(voice_rows),
+            "omnix_total": len(omnix_rows),
+            "voice_phone_formats": voice_format_counts,
+            "omnix_phone_formats": omnix_format_counts,
+            "phone_only_matches": phone_only_matches,
+            "interaction_date_matches": interaction_date_matches,
+            "created_date_matches": created_date_matches,
+            "sample_voice_abandon": sample_voice,
+            "sample_interaction_date_matches": sample_matches,
+        }
+
+    @staticmethod
+    def soft_delete(items: list[dict], deleted_by: str = "admin") -> dict:
+        if not items:
+            raise ValueError("Select at least one cleanup candidate")
+
+        cleanup_batch_id = str(uuid4())
+        deleted_at = datetime.now(UTC_TZ).isoformat()
+        deleted = {
+            "voice_interactions": 0,
+            "omnix_cases": 0,
+        }
+        skipped = 0
+
+        table_config = {
+            "voice_interactions": {
+                "log_table": "cleanup_deleted_voice_interactions",
+                "log_id_field": "voice_interaction_id",
+                "label_field": "unique_id",
+            },
+            "omnix_cases": {
+                "log_table": "cleanup_deleted_omnix_cases",
+                "log_id_field": "omnix_case_id",
+                "label_field": "ticket_id",
+            },
+        }
+
+        for item in items:
+            target_table = item.get("target_table")
+            row_id = item.get("id")
+            reasons = item.get("reasons") or []
+
+            if target_table not in table_config or row_id in [None, ""]:
+                skipped += 1
+                continue
+
+            config = table_config[target_table]
+            snapshot_res = (
+                supabase.table(target_table)
+                .select("*")
+                .eq("id", row_id)
+                .limit(1)
+                .execute()
+            )
+            snapshot = (snapshot_res.data or [None])[0]
+            if not snapshot:
+                skipped += 1
+                continue
+
+            if snapshot.get("deleted_at"):
+                skipped += 1
+                continue
+
+            reason = ", ".join(reasons) if reasons else "manual_cleanup"
+            supabase.table(config["log_table"]).insert(
+                {
+                    config["log_id_field"]: str(row_id),
+                    config["label_field"]: snapshot.get(config["label_field"]),
+                    "cleanup_batch_id": cleanup_batch_id,
+                    "reason": reason,
+                    "deleted_by": deleted_by,
+                    "deleted_at": deleted_at,
+                    "snapshot": snapshot,
+                }
+            ).execute()
+
+            supabase.table(target_table).update(
+                {
+                    "deleted_at": deleted_at,
+                    "deleted_reason": reason,
+                    "deleted_by": deleted_by,
+                    "cleanup_batch_id": cleanup_batch_id,
+                }
+            ).eq("id", row_id).execute()
+
+            deleted[target_table] += 1
+
+        return {
+            "cleanup_batch_id": cleanup_batch_id,
+            "deleted_at": deleted_at,
+            "deleted_by": deleted_by,
+            "deleted": deleted,
+            "total_deleted": sum(deleted.values()),
+            "skipped": skipped,
+        }

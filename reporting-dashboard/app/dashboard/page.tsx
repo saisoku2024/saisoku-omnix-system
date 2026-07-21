@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState } from "react"
-import { useTheme } from "@/contexts/theme-context"
+import { useTheme } from "@/providers/theme-provider"
 import { BarChart3, Sun, Moon } from "lucide-react"
 import Card from "@/components/ui/card"
 import { useDashboardData } from "@/features/dashboard/hooks/useDashboardData"
@@ -19,6 +19,7 @@ import ChannelBreakdown from "@/features/dashboard/components/ChannelBreakdown"
 import FooterBrand from "@/features/dashboard/components/FooterBrand"
 import RealtimeClock from "@/features/dashboard/components/RealtimeClock"
 import TrendChart from "@/features/dashboard/charts/TrendChart"
+import { getDefaultMonth, getDefaultYear, REPORT_YEARS } from "@/lib/period-defaults"
 
 const DARK_VARS: React.CSSProperties = { "--c-bg": "#0d1117", "--c-surface": "#161b22", "--c-offset": "#1f2430", "--c-border": "rgba(255,255,255,0.07)", "--c-text": "#e2e4ea", "--c-muted": "#6b7485", "--c-skeleton": "#252a35", "--c-accent": "#0ea5e9" } as React.CSSProperties
 const LIGHT_VARS: React.CSSProperties = { "--c-bg": "#f0f2f5", "--c-surface": "#ffffff", "--c-offset": "#f6f8fa", "--c-border": "rgba(0,0,0,0.07)", "--c-text": "#1a1d27", "--c-muted": "#6b7280", "--c-skeleton": "#e5e7eb", "--c-accent": "#0ea5e9" } as React.CSSProperties
@@ -26,15 +27,15 @@ const LIGHT_VARS: React.CSSProperties = { "--c-bg": "#f0f2f5", "--c-surface": "#
 export default function DashboardPage() {
   const { isDark, toggleTheme } = useTheme()
   const [mode, setMode] = useState<ModeType>("monthly")
-  const [period, setPeriod] = useState("Jan")
-  const [year, setYear] = useState(2026)
+  const [period, setPeriod] = useState(() => getDefaultMonth(MONTHS))
+  const [year, setYear] = useState(() => getDefaultYear(REPORT_YEARS))
   const { loading, stats, trendData, channelPie, category, brand, customer, newCustomer } = useDashboardData(mode, period, year)
   const cssVars = isDark ? DARK_VARS : LIGHT_VARS
   const periodOptions = useMemo(() => (mode === "monthly" ? MONTHS : QUARTERS), [mode])
   const handleModeChange = (v: string) => {
     const m = v.toLowerCase() as ModeType
     setMode(m)
-    setPeriod(m === "yearly" ? "all" : m === "quarterly" ? "Q1" : "Jan")
+    setPeriod(m === "yearly" ? "all" : m === "quarterly" ? "Q1" : getDefaultMonth(MONTHS))
   }
   const periodLabel = mode !== "yearly" ? `${period} ${year}` : String(year)
 
@@ -72,7 +73,7 @@ export default function DashboardPage() {
                   </select>
                 )}
                 <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="bg-transparent px-2.5 py-1.5 text-[11px] font-medium text-(--c-text) outline-none">
-                  {[2024, 2025, 2026].map((y) => (<option key={y} value={y}>{y}</option>))}
+                  {REPORT_YEARS.map((y) => (<option key={y} value={y}>{y}</option>))}
                 </select>
               </div>
               <button onClick={toggleTheme} aria-label="Toggle theme" className="flex h-7 w-7 items-center justify-center rounded-md border border-(--c-border) bg-(--c-surface) text-(--c-muted)">

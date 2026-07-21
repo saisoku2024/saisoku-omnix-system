@@ -17,9 +17,9 @@ export default function CustomTooltip({
   if (!active || !payload || !payload.length) return null
 
   return (
-    <div className="rounded-lg border border-[var(--c-border)] bg-[var(--c-surface)] px-3 py-2 text-[11px] shadow-lg">
-      <div className="mb-0.5 text-[var(--c-muted)]">{label}</div>
-      <div className="font-bold text-[var(--c-text)]">
+    <div className="rounded-lg border border-(--c-border) bg-(--c-surface) px-3 py-2 text-[11px] shadow-lg">
+      <div className="mb-0.5 text-(--c-muted)">{label}</div>
+      <div className="font-bold text-(--c-text)">
         {fmt(payload[0].value)}
         {suffix}
       </div>

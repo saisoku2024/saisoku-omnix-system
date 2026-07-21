@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from app.core.security import require_admin_token
 from app.services.principal_service import get_principal_report, get_principal_summary
 import pandas as pd
 import io
@@ -20,7 +21,11 @@ def _make_end_date_inclusive(end_date: str) -> str:
 
 
 @router.get("/export")
-def export_principal_report(start_date: str, end_date: str):
+def export_principal_report(
+    start_date: str,
+    end_date: str,
+    _: None = Depends(require_admin_token),
+):
     end_date_inclusive = _make_end_date_inclusive(end_date)
 
     # 1. Ambil data dengan fallback jika None

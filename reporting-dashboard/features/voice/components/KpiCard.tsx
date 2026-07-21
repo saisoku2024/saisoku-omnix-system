@@ -38,7 +38,7 @@ export default function KpiCard({
     <Card>
       <div className="flex flex-col gap-2.5 px-4 py-3.5">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--c-muted)]">
+          <span className="text-[10px] font-bold uppercase tracking-wide text-(--c-muted)">
             {label}
           </span>
           <Icon

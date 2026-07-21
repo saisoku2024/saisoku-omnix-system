@@ -59,7 +59,7 @@ export default function BarTooltip({
           font-semibold
           uppercase
           tracking-[0.12em]
-          text-(--c-muted)]
+          text-(--c-muted)
         "
       >
         {label}
@@ -86,7 +86,7 @@ export default function BarTooltip({
             pb-[0,5]
             text-[11px]
             font-semibold
-            text-(--c-muted)]
+            text-(--c-muted)
           "
         >
           tickets

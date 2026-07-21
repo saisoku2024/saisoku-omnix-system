@@ -1,23 +1,24 @@
 "use client"
 
-import React, { memo, useMemo } from "react"
+import { memo, useMemo } from "react"
 import {
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
+  BarChart,
   CartesianGrid,
   Cell,
   LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
 
-import type { DailyData } from "@/features/voice/types/voice"
 import CustomTooltip from "@/features/voice/charts/CustomTooltip"
+import type { DailyData } from "@/features/voice/types/voice"
 
 type Props = {
   data: DailyData[]
+  highlightedLabels?: string[]
   gridColor: string
   tickColor: string
   isDark: boolean
@@ -25,28 +26,28 @@ type Props = {
 
 const DailyChart = memo(function DailyChart({
   data,
+  highlightedLabels = [],
   gridColor,
   tickColor,
   isDark,
 }: Props) {
   const maxCount = useMemo(
-    () => Math.max(...data.map((d) => d.count), 0),
+    () => Math.max(...data.map((item) => item.count), 0),
     [data]
   )
 
+  const tickInterval = 0
   const peakColor = "#22c55e"
-  const dimColor = isDark ? "rgba(34,197,94,0.55)" : "rgba(34,197,94,0.65)"
-
-  // Untuk dataset banyak (mis. 31 hari), tampilkan label X tiap 2 hari
-  const tickInterval = data.length > 20 ? 1 : 0
+  const normalColor = isDark ? "rgba(34,197,94,0.72)" : "rgba(34,197,94,0.78)"
+  const hasHighlights = highlightedLabels.length > 0
 
   return (
     <div className="h-full w-full min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
         <BarChart
           data={data}
           barCategoryGap="20%"
-          margin={{ top: 24, right: 12, left: 0, bottom: 0 }}
+          margin={{ top: 30, right: 12, left: 0, bottom: 0 }}
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -55,7 +56,24 @@ const DailyChart = memo(function DailyChart({
           />
           <XAxis
             dataKey="label"
-            tick={{ fill: tickColor, fontSize: 10 }}
+            tick={({ x, y, payload }) => {
+              const value = String(payload?.value ?? "")
+              const isHighlighted = highlightedLabels.includes(value)
+
+              return (
+                <text
+                  x={x}
+                  y={y}
+                  dy={12}
+                  textAnchor="middle"
+                  fontSize={isHighlighted ? 11 : 10}
+                  fontWeight={isHighlighted ? 800 : 500}
+                  fill={isHighlighted ? (isDark ? "#ffffff" : "#111827") : tickColor}
+                >
+                  {value}
+                </text>
+              )
+            }}
             tickLine={false}
             axisLine={false}
             interval={tickInterval}
@@ -69,38 +87,42 @@ const DailyChart = memo(function DailyChart({
             allowDecimals={false}
           />
           <Tooltip
-            cursor={{ fill: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" }}
+            cursor={{
+              fill: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+              radius: 6,
+            }}
             content={<CustomTooltip suffix=" calls" />}
           />
           <Bar
             dataKey="count"
-            radius={[4, 4, 0, 0]}
+            radius={[5, 5, 2, 2]}
             isAnimationActive={false}
             maxBarSize={28}
           >
-            {data.map((entry, idx) => {
-              const isPeak = entry.count === maxCount && maxCount > 0
-              return (
-                <Cell
-                  key={idx}
-                  fill={isPeak ? peakColor : dimColor}
-                  stroke={isPeak ? peakColor : "none"}
-                  strokeWidth={isPeak ? 1 : 0}
-                />
-              )
-            })}
             <LabelList
               dataKey="count"
               position="top"
-              style={{ fontSize: 9, fontWeight: 600, fill: tickColor }}
-              formatter={(val: any) =>
-  typeof val === "number"
-    ? val >= 1000
-      ? `${(val / 1000).toFixed(1)}k`
-      : val
-    : val
-}
+              formatter={(value: unknown) => {
+                const numericValue = Number(value)
+                return numericValue > 0 ? String(numericValue) : ""
+              }}
+              style={{ fontSize: 9, fontWeight: 800, fill: "var(--c-text)" }}
             />
+            {data.map((entry) => {
+              const isPeak = entry.count === maxCount && maxCount > 0
+              const isHighlighted = highlightedLabels.includes(entry.label)
+              const shouldHighlight = hasHighlights ? isHighlighted : isPeak
+
+              return (
+                <Cell
+                  key={entry.label}
+                  fill={shouldHighlight ? peakColor : normalColor}
+                  fillOpacity={entry.count === 0 ? 0.14 : shouldHighlight ? 1 : 0.5}
+                  stroke={shouldHighlight ? "#86efac" : "none"}
+                  strokeWidth={shouldHighlight ? 1.5 : 0}
+                />
+              )
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

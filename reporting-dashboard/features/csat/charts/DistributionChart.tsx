@@ -11,6 +11,7 @@ import {
   LabelList,
   Cell,
 } from "recharts"
+import type { LabelProps } from "recharts"
 
 import type { DistRow } from "@/features/csat/types/csat"
 
@@ -74,6 +75,28 @@ interface DistributionChartProps {
   isDark: boolean
 }
 
+function DistributionValueLabel(props: LabelProps) {
+  const x = Number(props.x ?? 0)
+  const y = Number(props.y ?? 0)
+  const width = Number(props.width ?? 0)
+  const value = Number(props.value ?? 0)
+
+  if (!value) return null
+
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 6}
+      textAnchor="middle"
+      fontSize={10}
+      fontWeight={700}
+      fill="var(--c-text)"
+    >
+      {value}
+    </text>
+  )
+}
+
 const DistributionChart = memo(function DistributionChart({
   data,
   gridColor,
@@ -81,7 +104,7 @@ const DistributionChart = memo(function DistributionChart({
   isDark,
 }: DistributionChartProps) {
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
       <BarChart
         data={data}
         margin={{ top: 26, right: 5, bottom: 0, left: 0 }}
@@ -133,29 +156,7 @@ const DistributionChart = memo(function DistributionChart({
           <LabelList
             dataKey="value"
             position="top"
-            content={(props: any) => {
-              const {
-                x = 0,
-                y = 0,
-                width = 0,
-                value = 0,
-              } = props
-
-              if (!value) return null
-
-              return (
-                <text
-                  x={x + width / 2}
-                  y={y - 6}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fontWeight={700}
-                  fill="var(--c-text)"
-                >
-                  {value}
-                </text>
-              )
-            }}
+            content={DistributionValueLabel}
           />
 
           {data.map((entry, index) => (

@@ -27,6 +27,9 @@ type Props = {
   options: ReportOptions;
 };
 
+const selectClassName =
+  "w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm text-(--c-text) [color-scheme:dark]";
+
 export default function DigitalFilter({
   form,
   setForm,
@@ -49,12 +52,12 @@ export default function DigitalFilter({
               channel: e.target.value,
             }))
           }
-          className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm"
+          className={selectClassName}
         >
-          <option value="">All Channel</option>
+          <option value="" className="bg-(--c-control) text-(--c-text)">All Channel</option>
 
           {options.channels.map((item) => (
-            <option key={item} value={item}>
+            <option key={item} value={item} className="bg-(--c-control) text-(--c-text)">
               {item}
             </option>
           ))}
@@ -75,12 +78,12 @@ export default function DigitalFilter({
               main_category: e.target.value,
             }))
           }
-          className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm"
+          className={selectClassName}
         >
-          <option value="">All Category</option>
+          <option value="" className="bg-(--c-control) text-(--c-text)">All Category</option>
 
           {options.main_categories.map((item) => (
-            <option key={item} value={item}>
+            <option key={item} value={item} className="bg-(--c-control) text-(--c-text)">
               {item}
             </option>
           ))}
@@ -101,12 +104,12 @@ export default function DigitalFilter({
               brand: e.target.value,
             }))
           }
-          className="w-full h-10 rounded-lg border border-(--c-border) bg-(--c-control) px-3 text-sm"
+          className={selectClassName}
         >
-          <option value="">All Brand</option>
+          <option value="" className="bg-(--c-control) text-(--c-text)">All Brand</option>
 
           {options.brands.map((item) => (
-            <option key={item} value={item}>
+            <option key={item} value={item} className="bg-(--c-control) text-(--c-text)">
               {item}
             </option>
           ))}

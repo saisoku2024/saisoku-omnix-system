@@ -2,6 +2,15 @@ from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
 
 
+def _rpc_json(data):
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, list) and data:
+        first = data[0]
+        return first if isinstance(first, dict) else {}
+    return {}
+
+
 class VoiceService:
     # =========================================================
     # HELPERS
@@ -238,17 +247,116 @@ class VoiceService:
             return []
 
     # =========================================================
+    # STATUS
+    # =========================================================
+
+    @staticmethod
+    def get_by_status(mode, period, year):
+        try:
+            params = VoiceService._date_params(mode, period, year)
+            rows = VoiceService._rpc("kpi_voice_status", params)
+
+            return [
+                {
+                    "name": r.get("name") or r.get("status"),
+                    "count": VoiceService._safe_int(r.get("total") or r.get("count")),
+                }
+                for r in rows
+            ]
+
+        except Exception as e:
+            print(f"ERROR VOICE STATUS: {e}")
+            return []
+
+    # =========================================================
     # MASTER ENDPOINT
     # =========================================================
 
     @staticmethod
     def get_all(mode, period, year):
-        return {
-            "summary": VoiceService.get_summary(mode, period, year),
-            "daily": VoiceService.get_daily(mode, period, year),
-            "hourly": VoiceService.get_hourly(mode, period, year),
-            "byDay": VoiceService.get_by_day(mode, period, year),
-            "agentHandling": VoiceService.get_agent_handling(mode, period, year),
-            "agentAht": VoiceService.get_agent_aht(mode, period, year),
-            "agentAwt": VoiceService.get_agent_awt(mode, period, year),
-        }
+        start, end = get_date_range(mode, period, year)
+
+        try:
+            res = supabase.rpc(
+                "get_voice_dashboard",
+                {
+                    "p_start": start,
+                    "p_end": end,
+                    "p_mode": mode,
+                }
+            ).execute()
+
+            data = _rpc_json(res.data)
+            summary = data.get("summary") or {}
+
+            return {
+                "summary": {
+                    "total_calls": VoiceService._safe_int(summary.get("total_calls")),
+                    "answered": VoiceService._safe_int(summary.get("answered")),
+                    "abandon": VoiceService._safe_int(summary.get("abandon")),
+                    "aht": VoiceService._fmt_duration(summary.get("avg_aht")),
+                    "awt": VoiceService._fmt_duration(summary.get("avg_awt")),
+                    "scr": round(VoiceService._safe_float(summary.get("scr")), 1),
+                },
+                "daily": [
+                    {
+                        "label": row.get("label"),
+                        "count": VoiceService._safe_int(row.get("count")),
+                    }
+                    for row in (data.get("daily") or [])
+                ],
+                "hourly": [
+                    {
+                        "label": f"{str(row.get('hour')).zfill(2)}:00",
+                        "count": VoiceService._safe_int(row.get("total")),
+                    }
+                    for row in (data.get("hourly") or [])
+                ],
+                "byDay": [
+                    {
+                        "label": VoiceService.DAY_MAP.get(row.get("day"), row.get("day")),
+                        "count": VoiceService._safe_int(row.get("total")),
+                    }
+                    for row in (data.get("byDay") or [])
+                ],
+                "agentHandling": [
+                    {
+                        "agent": row.get("agent"),
+                        "total": VoiceService._safe_int(row.get("total")),
+                    }
+                    for row in (data.get("agentHandling") or [])
+                ],
+                "agentAht": [
+                    {
+                        "agent": row.get("agent"),
+                        "value": VoiceService._fmt_duration(row.get("avg_talk_sec")),
+                    }
+                    for row in (data.get("agentAht") or [])
+                ],
+                "agentAwt": [
+                    {
+                        "agent": row.get("agent"),
+                        "value": VoiceService._fmt_duration(row.get("avg_wait_sec")),
+                    }
+                    for row in (data.get("agentAwt") or [])
+                ],
+            }
+
+        except Exception as e:
+            print(f"ERROR VOICE MASTER ALL: {e}")
+            return {
+                "summary": {
+                    "total_calls": 0,
+                    "answered": 0,
+                    "abandon": 0,
+                    "aht": "0m 0s",
+                    "awt": "0m 0s",
+                    "scr": 0,
+                },
+                "daily": [],
+                "hourly": [],
+                "byDay": [],
+                "agentHandling": [],
+                "agentAht": [],
+                "agentAwt": [],
+            }

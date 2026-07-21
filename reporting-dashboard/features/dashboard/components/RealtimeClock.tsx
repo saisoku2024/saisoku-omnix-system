@@ -14,8 +14,8 @@ export default function RealtimeClock() {
 
   return (
     <div className="flex flex-col leading-none">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-(--c-muted)]">Local Time</span>
-      <span className="mt-1 text-[15px] font-[extrabold] tracking-[-0.03em] text-(--c-text)] tabular-nums">{time} WIB</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-(--c-muted)">Local Time</span>
+      <span className="mt-1 text-[15px] font-extrabold tracking-[-0.03em] text-(--c-text) tabular-nums">{time} WIB</span>
     </div>
   )
 }

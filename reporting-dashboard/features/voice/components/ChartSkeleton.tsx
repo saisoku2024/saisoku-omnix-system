@@ -33,7 +33,7 @@ export default function ChartSkeleton({ bars = 12, showYAxis = true }: Props) {
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-1.5 w-[18px] rounded-[3px] bg-[var(--c-skeleton)] opacity-50"
+                className="h-1.5 w-[18px] rounded-[3px] bg-(--c-skeleton) opacity-50"
               />
             ))}
           </div>
@@ -56,7 +56,7 @@ export default function ChartSkeleton({ bars = 12, showYAxis = true }: Props) {
         {heights.map((_, i) => (
           <div
             key={i}
-            className="h-1.5 flex-1 rounded-[3px] bg-[var(--c-skeleton)] opacity-40"
+            className="h-1.5 flex-1 rounded-[3px] bg-(--c-skeleton) opacity-40"
           />
         ))}
       </div>

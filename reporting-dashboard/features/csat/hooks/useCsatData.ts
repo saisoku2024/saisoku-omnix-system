@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { API_BASE } from "@/features/csat/constants"
-
+import { fetchCsatData } from "@/services/csat-service"
+import { captureClientError } from "@/lib/client-error"
 import type {
+  AgentAvg,
+  AgentTotal,
   ModeType,
   SummaryData,
   TrendRaw,
-  AgentTotal,
-  AgentAvg,
-  CsatResponse,
 } from "@/features/csat/types/csat"
+
+const EMPTY_SUMMARY: SummaryData = {
+  total_response: 0,
+  high_score: 0,
+  low_score: 0,
+  avg_csat: 0,
+}
 
 export function useCsatData(
   mode: ModeType,
@@ -19,21 +25,12 @@ export function useCsatData(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [summary, setSummary] = useState<SummaryData>({
-    total_response: 0,
-    high_score: 0,
-    low_score: 0,
-    avg_csat: 0,
-  })
-
+  const [summary, setSummary] = useState<SummaryData>(EMPTY_SUMMARY)
   const [rawTrend, setRawTrend] = useState<TrendRaw[]>([])
-
   const [rawDistribution, setRawDistribution] = useState<
     Array<{ rating: number | string; count?: number; avg?: number }>
   >([])
-
   const [topAgentTotal, setTopAgentTotal] = useState<AgentTotal[]>([])
-
   const [topAgentAvg, setTopAgentAvg] = useState<AgentAvg[]>([])
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
@@ -43,67 +40,15 @@ export function useCsatData(
     setError(null)
 
     try {
-      const safePeriod =
-        mode === "yearly"
-          ? "all"
-          : mode === "quarterly"
-            ? period.startsWith("Q")
-              ? period
-              : "Q1"
-            : period
-
-      const qs = new URLSearchParams({
-        mode,
-        period: safePeriod,
-        year: String(year),
-      })
-
-      const res = await fetch(`${API_BASE}/all?${qs.toString()}`, {
-        cache: "no-store",
-      })
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`)
-      }
-
-      const json: CsatResponse = await res.json()
-
-      setSummary(
-        json.summary ?? {
-          total_response: 0,
-          high_score: 0,
-          low_score: 0,
-          avg_csat: 0,
-        }
-      )
-
-      setRawTrend(Array.isArray(json.trend) ? json.trend : [])
-
-      setRawDistribution(
-        Array.isArray(json.distribution)
-          ? json.distribution
-          : []
-      )
-
-      setTopAgentTotal(
-        Array.isArray(json.top_agent_total)
-          ? json.top_agent_total
-          : []
-      )
-
-      setTopAgentAvg(
-        Array.isArray(json.top_agent_avg)
-          ? json.top_agent_avg
-          : []
-      )
+      const data = await fetchCsatData(mode, period, year)
+      setSummary(data.summary)
+      setRawTrend(data.rawTrend)
+      setRawDistribution(data.rawDistribution)
+      setTopAgentTotal(data.topAgentTotal)
+      setTopAgentAvg(data.topAgentAvg)
     } catch (err) {
-      console.error("CSAT fetch error:", err)
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to fetch data"
-      )
+      captureClientError("csat.fetch", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch data")
     } finally {
       setLoading(false)
     }

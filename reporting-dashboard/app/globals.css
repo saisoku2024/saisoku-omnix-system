@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+  --font-heading: var(--app-font-heading);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -28,11 +28,11 @@
   --color-border: var(--border);
 }
 
-/* ========================= */
-/* 🔥 DARK FIRST DESIGN */
-/* ========================= */
-
 :root {
+  --app-font-sans: "Inter", "Segoe UI", Arial, sans-serif;
+  --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --app-font-heading: "Inter", "Segoe UI", Arial, sans-serif;
+
   --background: #0b1220;
   --foreground: #e5e7eb;
 
@@ -42,21 +42,16 @@
   --muted: #1f2937;
   --muted-foreground: #9ca3af;
 
-  --border: rgba(255,255,255,0.05);
+  --border: rgba(255, 255, 255, 0.05);
 
-  /* 🔥 SIDEBAR FINAL */
   --sidebar: #020617;
   --sidebar-foreground: #e5e7eb;
   --sidebar-primary: #111827;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255,255,255,0.05);
+  --sidebar-accent: rgba(255, 255, 255, 0.05);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255,255,255,0.05);
+  --sidebar-border: rgba(255, 255, 255, 0.05);
 }
-
-/* ========================= */
-/* DARK MODE (tetap support) */
-/* ========================= */
 
 .dark {
   --background: #0b1220;
@@ -68,20 +63,16 @@
   --muted: #1f2937;
   --muted-foreground: #9ca3af;
 
-  --border: rgba(255,255,255,0.05);
+  --border: rgba(255, 255, 255, 0.05);
 
   --sidebar: #020617;
   --sidebar-foreground: #e5e7eb;
   --sidebar-primary: #111827;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255,255,255,0.05);
+  --sidebar-accent: rgba(255, 255, 255, 0.05);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255,255,255,0.05);
+  --sidebar-border: rgba(255, 255, 255, 0.05);
 }
-
-/* ========================= */
-/* BASE */
-/* ========================= */
 
 @layer base {
   * {
@@ -92,10 +83,6 @@
     @apply bg-background text-foreground;
   }
 }
-
-/* ========================= */
-/* 🔥 CARD SYSTEM */
-/* ========================= */
 
 .card {
   background: #111827;
@@ -112,10 +99,6 @@
   border-color: #374151;
 }
 
-/* ========================= */
-/* 🔥 INPUT */
-/* ========================= */
-
 .input-dark {
   background: #020617;
   border: 1px solid #374151;
@@ -126,13 +109,9 @@
   color: #6b7280;
 }
 
-/* ========================= */
-/* 🔥 SIDEBAR FIX FINAL */
-/* ========================= */
-
 [data-slot="sidebar"] {
   background: #020617;
-  border-right: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 [data-slot="sidebar"] button {
@@ -141,35 +120,43 @@
 }
 
 [data-slot="sidebar"] button:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: #ffffff;
 }
 
 [data-active="true"] {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff !important;
 }
 
-/* ============================================================
- * Tambahkan ini ke globals.css (atau app/globals.css)
- * Animasi yang sebelumnya di tag <style> Voice/CSAT page.
- * ============================================================ */
-
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0% {
+    background-position: -400px 0;
+  }
+
+  100% {
+    background-position: 400px 0;
+  }
 }
 
 @keyframes barBreathe {
-  0%, 100% {
+  0%,
+  100% {
     transform: scaleY(0.85);
     opacity: 0.7;
   }
+
   50% {
     transform: scaleY(1);
     opacity: 1;
@@ -190,7 +177,7 @@
     barBreathe 1.6s ease-in-out infinite;
 }
 
-/* Responsive header: stack di mobile (≤ 768px) */
+/* Responsive header: stack di mobile (<= 768px) */
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;
@@ -201,13 +188,10 @@
   }
 }
 
-/* Native select option mengikuti theme */
 select option {
   background: var(--c-surface);
   color: var(--c-text);
 }
-
-/* CSS untuk Principal Report */
 
 .root {
   width: 100%;
@@ -219,15 +203,15 @@ select option {
   );
   color: #f1f5f9;
   padding: 16px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--app-font-sans);
 }
 
 .main-card {
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 24px;
   padding: 24px;
   backdrop-filter: blur(20px);

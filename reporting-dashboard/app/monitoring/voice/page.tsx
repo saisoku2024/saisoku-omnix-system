@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react"
 
-import { useTheme } from "@/contexts/theme-context"
+import { useTheme } from "@/providers/theme-provider"
 import {
   Phone,
   PhoneCall,
@@ -14,7 +14,7 @@ import {
 
 import Card from "@/components/ui/card"
 
-import { MONTHS, QUARTERS } from "@/features/voice/constants"
+import { MONTHS, QUARTERS, QUARTER_MONTHS } from "@/features/voice/constants"
 import { fmt } from "@/features/voice/utils/format"
 import { useVoiceData } from "@/features/voice/hooks/useVoiceData"
 import type { ModeType } from "@/features/voice/types/voice"
@@ -29,6 +29,7 @@ import AgentLeaderboard from "@/features/voice/components/AgentLeaderboard"
 import DailyChart from "@/features/voice/charts/DailyChart"
 import HourlyChart from "@/features/voice/charts/HourlyChart"
 import ByDayChart from "@/features/voice/charts/ByDayChart"
+import { getDefaultMonth, getDefaultYear, REPORT_YEARS } from "@/lib/period-defaults"
 
 // ============================================================
 // THEME VARS
@@ -64,8 +65,8 @@ export default function VoicePage() {
   const { isDark, toggleTheme } = useTheme()
 
   const [mode, setMode] = useState<ModeType>("monthly")
-  const [period, setPeriod] = useState("Jan")
-  const [year, setYear] = useState(2026)
+  const [period, setPeriod] = useState(() => getDefaultMonth(MONTHS))
+  const [year, setYear] = useState(() => getDefaultYear(REPORT_YEARS))
 
   // ✅ Hanya panggil satu kali saja
   const {
@@ -83,7 +84,7 @@ export default function VoicePage() {
   // ✅ Fungsi perbaikan pengganti useEffect
   const handleModeChange = (newMode: ModeType) => {
     setMode(newMode)
-    if (newMode === "monthly") setPeriod("Jan")
+    if (newMode === "monthly") setPeriod(getDefaultMonth(MONTHS))
     else if (newMode === "quarterly") setPeriod("Q1")
     else setPeriod("all")
   }
@@ -98,6 +99,12 @@ export default function VoicePage() {
     if (mode === "quarterly") return QUARTERS
     return []
   }, [mode])
+
+  const highlightedDailyLabels = useMemo(() => {
+    if (mode === "quarterly") return QUARTER_MONTHS[period] ?? []
+    if (mode === "yearly") return MONTHS
+    return []
+  }, [mode, period])
 
   const KPI_CARDS = useMemo(
     () => [
@@ -118,7 +125,7 @@ export default function VoicePage() {
   return (
     <div
       style={cssVars}
-      className="flex min-h-screen flex-col overflow-x-hidden bg-(--c-bg)] font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text)]"
+      className="flex min-h-screen flex-col overflow-x-hidden bg-(--c-bg) font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text)"
     >
       <VoiceHeader
         mode={mode}
@@ -161,7 +168,7 @@ export default function VoicePage() {
             badge={loading ? undefined : "LIVE"}
             extra={
               !loading && (
-                <span className="text-[10px] text-(--c-muted)]">
+                <span className="text-[10px] text-(--c-muted)">
                   Peak day highlighted
                 </span>
               )
@@ -175,6 +182,7 @@ export default function VoicePage() {
             ) : (
               <DailyChart
                 data={daily}
+                highlightedLabels={highlightedDailyLabels}
                 gridColor={gridColor}
                 tickColor={tickColor}
                 isDark={isDark}

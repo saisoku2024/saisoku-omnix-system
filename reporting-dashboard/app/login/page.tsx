@@ -1,203 +1,243 @@
 "use client"
 
-import React, { useState } from "react"
+import { FormEvent, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
-import { Lock, User, Eye, EyeOff, Loader2, ShieldAlert, BarChart3 } from "lucide-react"
-import { toast } from "sonner"
-import { apiUrl } from "@/lib/api"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import {
+  ArrowRight,
+  BarChart3,
+  Eye,
+  EyeOff,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react"
+
+const DEMO_EMAIL = "guest@ssidmail.my.id"
+const DEMO_PASSWORD = "guestonly123"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!username.trim() || !password.trim()) {
-      toast.error("Semua field wajib diisi")
+  const canSubmit = useMemo(() => Boolean(password.trim()), [password])
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!canSubmit) {
+      setError("Password admin wajib diisi.")
       return
     }
 
     setLoading(true)
-    setErrorMsg(null)
+    setError("")
 
     try {
-      const response = await fetch(apiUrl("/api/auth/login"), {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.detail || "Terjadi kesalahan saat login")
+        const body = (await response.json().catch(() => ({}))) as {
+          detail?: string
+        }
+        throw new Error(body.detail || `Login gagal (kode ${response.status})`)
       }
 
-      // Simpan cookie auth_token (berlaku 1 hari)
-      const maxAge = 60 * 60 * 24 // 24 jam
-      document.cookie = `auth_token=${data.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`
+      const nextPath =
+        new URLSearchParams(window.location.search).get("next") || "/dashboard"
 
-      toast.success("Login berhasil! Mengalihkan...")
-      
-      // Tunggu toast dan redirect
-      setTimeout(() => {
-        router.push("/dashboard")
-        router.refresh()
-      }, 800)
-
-    } catch (err: any) {
-      console.error("Login error:", err)
-      setErrorMsg(err.message || "Gagal terhubung ke server backend")
-      toast.error(err.message || "Gagal terhubung ke server backend")
+      router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard")
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login gagal. Silakan coba lagi.")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 font-[Plus_Jakarta_Sans,Inter,sans-serif]">
-      {/* Background Animated Gradient Blobs */}
-      <div className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-sky-500/10 blur-[120px] transition-all duration-1000" />
-      <div className="absolute -bottom-40 -right-40 h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-[120px] transition-all duration-1000" />
-      
-      {/* Mesh Background Grid */}
-      <div 
-        className="absolute inset-0 opacity-[0.02]" 
-        style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-          backgroundSize: '24px 24px'
-        }}
-      />
+    <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#06101b] px-5 py-10 text-white">
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(14,165,233,0.14),transparent_28%,rgba(2,6,23,0.72)_68%,rgba(34,197,94,0.08))]" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:48px_48px] opacity-25" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-md px-4"
-      >
-        {/* Brand Logo & Header */}
-        <div className="mb-8 flex flex-col items-center text-center">
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500 shadow-[0_0_20px_rgba(14,165,233,0.3)]"
-          >
-            <BarChart3 className="h-6 w-6 text-white" />
-          </motion.div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-white">SAISOKU OMNIX</h1>
-          <p className="text-sm text-slate-400">Integrated CRM & Analytics Dashboard</p>
+      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1626]/95 shadow-2xl shadow-black/45 backdrop-blur md:grid-cols-[1.05fr_0.95fr]">
+        <aside className="hidden min-h-[580px] border-r border-white/10 bg-[#081321] p-9 md:flex md:flex-col md:justify-between">
+          <div>
+            <div className="mb-12 flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-cyan-400/15 text-cyan-300 ring-1 ring-cyan-300/30">
+                <BarChart3 className="size-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">
+                  Saisoku Omnix
+                </p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Analytics platform
+                </p>
+              </div>
+            </div>
+
+            <p className="max-w-md text-4xl font-semibold leading-tight tracking-normal text-white">
+              Welcome back to{" "}
+              <span className="text-cyan-300">INSIGHT Workspace</span>{" "}
+              Dashboard
+            </p>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">
+              Internal Tool for Monitoring & Analytics.
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300">
+                  <ShieldCheck className="size-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Sesi admin terlindungi
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Admin dan demo guest masuk lewat session aman.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div className="p-7 sm:p-10">
+          <div className="mb-9 flex items-center gap-3 md:hidden">
+            <div className="flex size-11 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300 ring-1 ring-cyan-300/30">
+              <BarChart3 className="size-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+                Saisoku Omnix
+              </p>
+              <p className="mt-1 text-sm text-slate-400">Analytics platform</p>
+            </div>
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200">
+            <Sparkles className="size-3.5" />
+            Akses admin
+          </div>
+
+          <h1 className="mt-5 text-3xl font-semibold tracking-normal text-white sm:text-4xl">
+            Welcome back to INSIGHT Workspace Dashboard
+          </h1>
+          <p className="mt-3 max-w-md text-sm leading-6 text-slate-400">
+            Internal Tool for Monitoring & Analytics.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                Email
+              </span>
+              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 transition focus-within:border-cyan-300/70 focus-within:bg-slate-950/70 focus-within:ring-4 focus-within:ring-cyan-300/10">
+                <Mail className="size-4 text-slate-500" />
+                <input
+                  autoComplete="email"
+                  className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
+                  placeholder="guest@ssidmail.my.id"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                Password
+              </span>
+              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 transition focus-within:border-cyan-300/70 focus-within:bg-slate-950/70 focus-within:ring-4 focus-within:ring-cyan-300/10">
+                <LockKeyhole className="size-4 text-slate-500" />
+                <input
+                  autoFocus
+                  autoComplete="current-password"
+                  className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
+                  placeholder="Masukkan password admin"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="text-slate-500 transition hover:text-white"
+                  aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
+              </div>
+            </label>
+
+            {error ? (
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-100">
+                {error}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => {
+                setEmail(DEMO_EMAIL)
+                setPassword(DEMO_PASSWORD)
+                setError("")
+              }}
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.14em] text-cyan-100 transition hover:bg-cyan-300/15"
+            >
+              Use demo guest account
+            </button>
+
+            <button
+              className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 text-sm font-extrabold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={loading || !canSubmit}
+              type="submit"
+            >
+              {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+              {loading ? "Memproses masuk..." : "Masuk ke dashboard"}
+              {!loading ? <ArrowRight className="size-4" /> : null}
+            </button>
+          </form>
+
+          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 items-center justify-center rounded-2xl bg-white/10 text-cyan-200">
+                <ShieldCheck className="size-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Akses internal yang aman
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  Jika login gagal, periksa environment variable
+                  ADMIN_UI_PASSWORD, lalu redeploy ke Vercel setelah
+                  perubahan disimpan.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-
-        {/* Login Card */}
-        <Card className="border-slate-800/80 bg-slate-900/60 backdrop-blur-xl shadow-2xl">
-          <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-xl font-semibold text-white">Selamat Datang</CardTitle>
-            <CardDescription className="text-slate-400">
-              Masukkan kredensial Anda untuk masuk ke sistem pelaporan.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Alert Error */}
-              <AnimatePresence>
-                {errorMsg && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400"
-                  >
-                    <ShieldAlert className="h-4 w-4 shrink-0" />
-                    <span>{errorMsg}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Username Input */}
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-slate-300 text-xs font-medium">Username</Label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                    <User className="h-4 w-4" />
-                  </span>
-                  <Input
-                    id="username"
-                    type="text"
-                    placeholder="Masukkan username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    disabled={loading}
-                    className="border-slate-800 bg-slate-950/50 pl-10 text-white placeholder-slate-600 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-slate-300 text-xs font-medium">Password</Label>
-                </div>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
-                    <Lock className="h-4 w-4" />
-                  </span>
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Masukkan password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    className="border-slate-800 bg-slate-950/50 pl-10 pr-10 text-white placeholder-slate-600 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={loading}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-300 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-sky-500 text-white hover:bg-sky-400 font-medium py-2 rounded-lg transition-all shadow-[0_0_15px_rgba(14,165,233,0.15)] flex items-center justify-center gap-2"
-                style={{ height: "40px" }}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Memverifikasi...</span>
-                  </>
-                ) : (
-                  "Masuk ke Dashboard"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <p className="mt-8 text-center text-xs text-slate-600">
-          &copy; {new Date().getFullYear()} SAISOKU OMNIX System. All rights reserved.
-        </p>
-      </motion.div>
-    </div>
+      </section>
+    </main>
   )
 }

@@ -1,28 +1,28 @@
 import { useState, useCallback, useEffect, useMemo } from "react"
-import type { 
-  ModeType, 
-  StatsData, 
-  TrendItem, 
-  ChannelItem, 
-  CategoryItem, 
-  BrandItem, 
-  PieItemWithPct 
+
+import {
+  buildDashboardChannelPie,
+  buildDashboardTrendData,
+  isValidDashboardPeriod,
+} from "@/features/dashboard/utils/data"
+import { captureClientError } from "@/lib/client-error"
+import { fetchDashboardAll } from "@/services/dashboard-service"
+import type {
+  BrandItem,
+  CategoryItem,
+  ChannelItem,
+  ModeType,
+  PieItemWithPct,
+  StatsData,
+  TrendItem,
 } from "../types/dashboard"
-import { apiUrl } from "@/lib/api"
 
-const API_BASE = apiUrl("/api/dashboard")
-
-const EMPTY_STATS: StatsData = { total_ticket: "–", aht: "–", art: "–", awt: "–", csat: "–" }
-
-// Helpers internal
-function buildQS(mode: ModeType, period: string, year: number) {
-  return `mode=${mode}&period=${mode === "yearly" ? "all" : period}&year=${year}`
-}
-
-function periodMatchesMode(mode: ModeType, period: string) {
-  if (mode === "quarterly" && !period.startsWith("Q")) return false
-  if (mode === "monthly" && (period.startsWith("Q") || period === "all")) return false
-  return true
+const EMPTY_STATS: StatsData = {
+  total_ticket: "-",
+  aht: "-",
+  art: "-",
+  awt: "-",
+  csat: "-",
 }
 
 export function useDashboardData(mode: ModeType, period: string, year: number) {
@@ -37,36 +37,23 @@ export function useDashboardData(mode: ModeType, period: string, year: number) {
   const [newCustomer, setNewCustomer] = useState(0)
 
   const fetchAll = useCallback(() => {
-    if (!periodMatchesMode(mode, period)) return
-    
+    if (!isValidDashboardPeriod(mode, period)) return
+
     setLoading(true)
     setError(null)
-    const qs = buildQS(mode, period, year)
-    
-    fetch(`${API_BASE}/all?${qs}`)
-      .then(r => { 
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json() 
-      })
-      .then(d => {
-        console.log("FULL API =", d)
 
-        setStats(d.summary || EMPTY_STATS)
-        const rawTrend = Array.isArray(d) ? d
-          : Array.isArray(d.trend) ? d.trend
-          : Array.isArray(d.data) ? d.data
-          : Array.isArray(d.data?.trend) ? d.data?.trend
-          : Array.isArray(d.trend?.data) ? d.trend?.data
-          : []
-        setTrend(rawTrend)
-        setChannel(d.channel || [])
-        setCategory(d.category || [])
-        setBrand(d.brand || [])
-        setCustomer(d.customer?.total ?? 0)
-        setNewCustomer(d.new_customer?.total ?? 0)
+    fetchDashboardAll(mode, period, year)
+      .then((data) => {
+        setStats(data.stats)
+        setTrend(data.trend)
+        setChannel(data.channel)
+        setCategory(data.category)
+        setBrand(data.brand)
+        setCustomer(data.customer)
+        setNewCustomer(data.newCustomer)
       })
-      .catch(err => {
-        console.error("[useDashboardData] ERROR:", err)
+      .catch((err) => {
+        captureClientError("dashboard.fetch", err)
         setError(err.message)
       })
       .finally(() => setLoading(false))
@@ -77,26 +64,32 @@ export function useDashboardData(mode: ModeType, period: string, year: number) {
     return () => clearTimeout(timer)
   }, [fetchAll])
 
-  // Data olahan
-  const trendData = useMemo(() => {
-    if (!Array.isArray(trend) || trend.length === 0) return []
-    return trend
-      .filter(t => t && (t.date || t.day || t.month))
-      .map(t => ({ day: String(t.date ?? t.day ?? t.month), count: Number(t.count ?? t.total ?? 0) }))
-  }, [trend])
+  const trendData = useMemo(
+    () => buildDashboardTrendData(mode, period, year, trend),
+    [mode, period, trend, year]
+  )
 
-  const channelPie: PieItemWithPct[] = useMemo(() => {
-    const total = channel.reduce((s, c) => s + c.count, 0)
-    return channel.map(c => ({ ...c, pct: total ? Math.round((c.count / total) * 100) : 0 }))
-  }, [channel])
+  const channelPie: PieItemWithPct[] = useMemo(
+    () => buildDashboardChannelPie(channel),
+    [channel]
+  )
 
-  const trendMax = useMemo(() => trendData.reduce((m, d) => Math.max(m, d.count), 0), [trendData])
-  const channelMax = useMemo(() => channelPie.reduce((m, c) => Math.max(m, c.count), 0), [channelPie])
-  const categoryMax = useMemo(() => category.reduce((m, c) => Math.max(m, c.count), 0), [category])
+  const trendMax = useMemo(() => trendData.reduce((max, item) => Math.max(max, item.count), 0), [trendData])
+  const channelMax = useMemo(() => channelPie.reduce((max, item) => Math.max(max, item.count), 0), [channelPie])
+  const categoryMax = useMemo(() => category.reduce((max, item) => Math.max(max, item.count), 0), [category])
 
   return {
-    loading, error, stats, 
-    trendData, channelPie, category, brand, customer, newCustomer,
-    trendMax, channelMax, categoryMax
+    loading,
+    error,
+    stats,
+    trendData,
+    channelPie,
+    category,
+    brand,
+    customer,
+    newCustomer,
+    trendMax,
+    channelMax,
+    categoryMax,
   }
 }

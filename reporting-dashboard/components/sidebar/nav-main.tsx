@@ -18,7 +18,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { ChevronRightIcon } from "lucide-react"
-import type { SidebarMenuItem as SidebarMenuItemType } from "@/components/sidebar/types"
+import type { SidebarMenuItem as SidebarMenuItemType } from "@/types/sidebar"
 
 export function NavMain({
   items,
