@@ -11,14 +11,39 @@ UTC_TZ = ZoneInfo("UTC")
 SCAN_PAGE_SIZE = 1000
 TEXT_COLUMNS = [
     "customer_name",
+    "customer_hp",
+    "channel",
+    "source_name",
+    "ticket_status_name",
     "main_category",
     "category",
     "subcategory",
     "detail_subcategory",
     "detail_subcategory2",
+    "agent_name",
     "subject",
     "feedback",
 ]
+
+SPAM_TEST_PATTERNS = [
+    r"\btest\b",
+    r"\btesting\b",
+    r"\btest omnix\b",
+    r"\btest_omnix\b",
+    r"\btestcase\b",
+    r"\btest case\b",
+    r"\btestcsae\b",
+    r"\btesting it\b",
+    r"\btesting infomedia\b",
+    r"\btesting csa\b",
+    r"\bspam\b",
+    r"\bspam interaction\b",
+    r"\bspam dm\b",
+    r"\bspam comment\b",
+    r"\bspam chat\b",
+]
+
+COMPILED_SPAM_TEST_RE = [re.compile(p, re.IGNORECASE) for p in SPAM_TEST_PATTERNS]
 
 
 def _parse_date(value: str) -> date:
@@ -279,19 +304,15 @@ class CleanupService:
                 }
 
         if "test_omnix" in rules:
-            test_keywords = [
-                "test omnix",
-                "testing",
-                "testcase",
-                "test case",
-                "testcsae",
-                "test_omnix",
-                "spam interaction",
-                "other-testing omnix",
-                "spam",
-            ]
             for row in omnix_rows:
-                if not any(_contains_text(row, kw) for kw in test_keywords):
+                is_match = False
+                for col in TEXT_COLUMNS:
+                    val = row.get(col)
+                    if val is not None and any(pat.search(str(val)) for pat in COMPILED_SPAM_TEST_RE):
+                        is_match = True
+                        break
+
+                if not is_match:
                     continue
 
                 candidate = candidates.setdefault(row["id"], _candidate_from_omnix(row))

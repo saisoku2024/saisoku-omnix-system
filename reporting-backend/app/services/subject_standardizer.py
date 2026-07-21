@@ -73,12 +73,29 @@ class SubjectStandardizer:
         source = "none"
 
         # -------------------------------------------------------------
-        # 1. OTHER SPESIFIK
+        # 1. OTHER SPESIFIK (TESTING & SPAM)
         # -------------------------------------------------------------
-        if has_any(sub, detail, ["testing", "test omnix"]) or has_any(subj, "", ["testing", "test omnix", "testcsae"]):
+        spam_test_kws = [
+            "test",
+            "testing",
+            "test omnix",
+            "test_omnix",
+            "testcase",
+            "test case",
+            "testcsae",
+            "testing it",
+            "testing infomedia",
+            "testing csa",
+            "spam",
+            "spam interaction",
+            "spam dm",
+            "spam comment",
+            "spam chat",
+        ]
+        if has_any(sub, detail, spam_test_kws) or has_any(subj, main, spam_test_kws):
             mapped_subject = "Other-Testing OMNIX"
             source = "subCategory+detailSubCategory" if sub or detail else "subject"
-            status = "exact" if sub == "testing" else "rule_matched"
+            status = "exact" if sub in ["testing", "spam"] else "rule_matched"
 
         elif has_any(sub, detail, ["salah sambung", "salah nomor"]) or "salah sambung" in subj:
             mapped_subject = "Other-Salah Sambung"
