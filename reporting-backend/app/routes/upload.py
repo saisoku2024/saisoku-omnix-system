@@ -52,6 +52,9 @@ async def upload_file(
         target_table = config["table"]
         rows = parser(df, upload_id)
 
+        mapped_subjects_count = sum(1 for r in rows if r.get("mapping_status") in ["exact", "rule_matched"])
+        needs_review_count = sum(1 for r in rows if r.get("mapping_status") == "needs_review")
+
         # 5. VALIDATION
         unique_key = config["unique_key"]
 
@@ -97,6 +100,8 @@ async def upload_file(
             "inserted_rows": inserted_rows,
             "duplicate_rows": duplicate_rows,
             "invalid_rows": invalid_rows,
+            "mapped_subjects_count": mapped_subjects_count,
+            "needs_review_count": needs_review_count,
             "target_table": target_table
         }
 
