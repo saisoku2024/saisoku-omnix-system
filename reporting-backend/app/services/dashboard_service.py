@@ -21,25 +21,6 @@ def _is_unknown_only(rows):
     return len(rows) == 1 and str(rows[0].get("name") or "").lower() == "unknown"
 
 
-def _infer_brand(row):
-    known_brands = ["Tineco", "Ecovacs", "Yoniev", "Laifen", "Usmile"]
-    haystack = " ".join(
-        str(row.get(key) or "")
-        for key in ["brand", "category", "subcategory", "detail_subcategory", "subject"]
-    ).lower()
-
-    for brand in known_brands:
-        if brand.lower() in haystack:
-            return brand
-
-    for key in ["brand", "category"]:
-        value = str(row.get(key) or "").strip()
-        if value:
-            return value
-
-    return "Unknown"
-
-
 def _get_brand_fallback(start, end):
     counts = {}
     total = 0
@@ -50,7 +31,7 @@ def _get_brand_fallback(start, end):
         res = (
             supabase
             .table("omnix_cases")
-            .select("brand,category,subcategory,detail_subcategory,subject")
+            .select("category")
             .gte("interaction_at", start)
             .lt("interaction_at", end)
             .is_("deleted_at", "null")
@@ -62,7 +43,7 @@ def _get_brand_fallback(start, end):
             break
 
         for row in rows:
-            name = _infer_brand(row)
+            name = str(row.get("category") or "").strip() or "Unknown"
             counts[name] = counts.get(name, 0) + 1
             total += 1
 

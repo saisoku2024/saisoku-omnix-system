@@ -825,23 +825,11 @@ category_data as (
   limit 10
 ),
 brand_data as (
-  with resolved as (
-    select
-      case
-        when concat_ws(' ', brand, category, subcategory, detail_subcategory, subject) ilike '%tineco%' then 'Tineco'
-        when concat_ws(' ', brand, category, subcategory, detail_subcategory, subject) ilike '%ecovacs%' then 'Ecovacs'
-        when concat_ws(' ', brand, category, subcategory, detail_subcategory, subject) ilike '%yoniev%' then 'Yoniev'
-        when concat_ws(' ', brand, category, subcategory, detail_subcategory, subject) ilike '%laifen%' then 'Laifen'
-        when concat_ws(' ', brand, category, subcategory, detail_subcategory, subject) ilike '%usmile%' then 'Usmile'
-        else coalesce(nullif(brand, ''), nullif(category, ''), 'Unknown')
-      end as name
-    from omnix_filtered
-  )
   select
-    name,
+    coalesce(nullif(category, ''), 'Unknown') as name,
     count(*)::int as total,
     round((count(*)::numeric / nullif((select count(*) from omnix_filtered), 0)) * 100, 2) as pct
-  from resolved
+  from omnix_filtered
   group by 1
   order by total desc
   limit 10
