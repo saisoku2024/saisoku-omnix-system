@@ -83,7 +83,7 @@ const ALLOWED_TYPES = [
 
 const ALLOWED_EXTENSIONS = [".csv", ".xlsx", ".xls"] as const
 
-const MAX_SIZE_MB = 10
+const MAX_SIZE_MB = 50
 const MAX_RETRY = 3
 const MAX_HISTORY = 5
 
@@ -414,7 +414,17 @@ function useFileUpload(
               resolve({ ok: true })
             }
           } else {
-            const msg = `Server error · HTTP ${xhr.status}`
+            let msg = `Server error · HTTP ${xhr.status}`
+            if (xhr.status === 413) {
+              msg = "File terlalu besar (melebihi batas maksimum 50MB)"
+            } else if (xhr.status === 414) {
+              msg = "URI permintaan terlalu besar untuk diproses server"
+            } else if (xhr.responseText) {
+              try {
+                const parsed = JSON.parse(xhr.responseText)
+                if (parsed?.detail) msg = String(parsed.detail)
+              } catch {}
+            }
             setStatus("error")
             setErrorMsg(msg)
             resolve({ ok: false, error: msg })

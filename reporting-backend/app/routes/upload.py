@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from app.core.security import require_admin_token
 from app.core.supabase import supabase
 from app.services.upload_service import UploadService
@@ -8,6 +8,8 @@ import io
 
 router = APIRouter(tags=["Upload"])
 
+MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
@@ -16,8 +18,13 @@ async def upload_file(
 ):
     upload_id = str(uuid.uuid4())
     try:
-        # 1. READ CONTENT
+        # 1. READ CONTENT & FILE SIZE GUARD
         content = await file.read()
+        if len(content) > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="Ukuran berkas melebihi batas maksimum 50MB."
+            )
         file_bytes = io.BytesIO(content)
         
         # 2. DETECT FORMAT
@@ -93,6 +100,8 @@ async def upload_file(
             "target_table": target_table
         }
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"UPLOAD ERROR: {str(e)}")
         try:

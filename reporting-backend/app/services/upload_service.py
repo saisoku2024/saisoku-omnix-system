@@ -60,30 +60,31 @@ class UploadService:
         rows,
         unique_key,
         duplicate_rows,
+        batch_size=500
     ):
         if not rows:
             return [], duplicate_rows
 
-        existing = (
-            supabase
-            .table(table)
-            .select(unique_key)
-            .in_(
-                unique_key,
-                [r[unique_key] for r in rows]
-            )
-            .execute()
-        )
+        all_unique_keys = [r[unique_key] for r in rows]
+        existing_ids = set()
 
-        existing_ids = {
-            r[unique_key]
-            for r in existing.data
-        }
+        # Batch querying to prevent HTTP 414 Request-URI Too Large
+        for i in range(0, len(all_unique_keys), batch_size):
+            chunk_keys = all_unique_keys[i : i + batch_size]
+            res = (
+                supabase
+                .table(table)
+                .select(unique_key)
+                .in_(unique_key, chunk_keys)
+                .execute()
+            )
+            if res.data:
+                for item in res.data:
+                    existing_ids.add(item[unique_key])
 
         inserted_candidates = []
 
         for row in rows:
-
             if row[unique_key] in existing_ids:
                 duplicate_rows += 1
             else:
@@ -92,19 +93,26 @@ class UploadService:
         return inserted_candidates, duplicate_rows
 
     @staticmethod
-    def bulk_insert(table, rows):
+    def bulk_insert(table, rows, batch_size=500):
         inserted_rows = 0
 
-        if rows:
-            try:
-                supabase.table(table).insert(rows).execute()
-                inserted_rows = len(rows)
+        if not rows:
+            return inserted_rows
 
+        # Chunked bulk insertion to prevent HTTP 413 Payload Too Large & Request Timeouts
+        for i in range(0, len(rows), batch_size):
+            chunk = rows[i : i + batch_size]
+            try:
+                res = supabase.table(table).insert(chunk).execute()
+                if res.data:
+                    inserted_rows += len(res.data)
+                else:
+                    inserted_rows += len(chunk)
             except Exception as e:
                 if "duplicate key value" in str(e):
-                    inserted_rows = 0
+                    pass
                 else:
-                    raise
+                    raise e
 
         return inserted_rows
 
