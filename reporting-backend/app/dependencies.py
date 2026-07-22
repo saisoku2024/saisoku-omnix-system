@@ -73,7 +73,7 @@ def requires_permission(permission: str):
         if not has_permission(user.get("role"), permission):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
         return user
-    return Depends(dependency)
+    return dependency
 
 # Endpoint to expose current user's role & permission list (used by frontend)
 from fastapi import APIRouter
