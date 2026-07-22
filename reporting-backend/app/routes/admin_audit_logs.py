@@ -1,5 +1,6 @@
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
+from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Header, Query, status
 from app.services.audit_log_service import AuditLogService
 
@@ -9,6 +10,13 @@ router = APIRouter(
     prefix="/admin/audit-logs",
     tags=["Management System - Audit Logs"],
 )
+
+class AuditLogCreateRequest(BaseModel):
+    action: str
+    resource: str
+    user_email: Optional[str] = "system@omnix.com"
+    user_role: Optional[str] = "admin"
+    details: Optional[Dict[str, Any]] = {}
 
 def verify_admin_access(x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
     if ADMIN_API_TOKEN and x_admin_token != ADMIN_API_TOKEN:
@@ -27,5 +35,23 @@ def get_audit_logs(
     try:
         data = AuditLogService.list_logs(limit=limit, action=action)
         return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("")
+def create_audit_log(
+    payload: AuditLogCreateRequest,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    verify_admin_access(x_admin_token)
+    try:
+        success = AuditLogService.log(
+            action=payload.action,
+            resource=payload.resource,
+            details=payload.details,
+            user_email=payload.user_email or "system@omnix.com",
+            user_role=payload.user_role or "admin",
+        )
+        return {"success": success}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

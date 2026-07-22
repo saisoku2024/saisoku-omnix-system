@@ -9,6 +9,8 @@ import {
   FilterIcon,
   InfoIcon,
   Loader2Icon,
+  LogInIcon,
+  LogOutIcon,
   RefreshCcwIcon,
   ShieldCheckIcon,
   Trash2Icon,
@@ -28,6 +30,16 @@ interface AuditLog {
 }
 
 const ACTION_CONFIG: Record<string, { label: string; colorClass: string; icon: any }> = {
+  USER_LOGIN: {
+    label: "User Login",
+    colorClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    icon: LogInIcon,
+  },
+  USER_LOGOUT: {
+    label: "User Logout",
+    colorClass: "border-slate-500/30 bg-slate-500/10 text-slate-400",
+    icon: LogOutIcon,
+  },
   UPLOAD_DATA: {
     label: "Data Upload",
     colorClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
@@ -93,7 +105,7 @@ export default function AuditLogsPage() {
     fetchLogs(selectedAction)
   }, [selectedAction])
 
-  const uploadLogsCount = logs.filter((l) => l.action === "UPLOAD_DATA").length
+  const uploadLogsCount = logs.filter((l) => l.action === "UPLOAD_DATA" || l.action === "DATA_UPLOAD").length
   const deleteLogsCount = logs.filter((l) => l.action === "SOFT_DELETE").length
   const userAdminLogsCount = logs.filter((l) => l.action.startsWith("USER_")).length
 
@@ -110,7 +122,7 @@ export default function AuditLogsPage() {
               Audit Logs & Activity
             </h1>
             <p className="mt-1 text-sm text-(--c-muted)">
-              Pencatatan real-time seluruh aktivitas sensitif sistem (Data Upload, Soft Delete, User Management, & Report Export).
+              Pencatatan real-time seluruh aktivitas sistem (Login/Logout, User Control, Data Upload, & Soft Delete).
             </p>
           </div>
 
@@ -161,7 +173,7 @@ export default function AuditLogsPage() {
 
           <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">User Admin Actions</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-sky-400">User & Auth Actions</span>
               <ShieldCheckIcon size={18} className="text-sky-400" />
             </div>
             <p className="mt-3 text-3xl font-black text-sky-400">{userAdminLogsCount}</p>
@@ -185,6 +197,8 @@ export default function AuditLogsPage() {
                 className="h-9 rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent)"
               >
                 <option value="ALL">All Action Types</option>
+                <option value="USER_LOGIN">User Login</option>
+                <option value="USER_LOGOUT">User Logout</option>
                 <option value="UPLOAD_DATA">Data Upload</option>
                 <option value="SOFT_DELETE">Soft Delete</option>
                 <option value="USER_CREATED">Create User</option>
@@ -259,7 +273,7 @@ export default function AuditLogsPage() {
                     )
                   })}
                 </tbody>
-              </table>
+                </table>
             </div>
           )}
         </section>
