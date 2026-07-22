@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 
 const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000 // 8 Jam
@@ -14,7 +14,7 @@ export function useIdleLogout() {
   const pathname = usePathname()
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const performLogout = async () => {
+  const performLogout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout?reason=idle_timeout_8h", { method: "POST" })
     } catch {
@@ -22,13 +22,13 @@ export function useIdleLogout() {
     } finally {
       router.push("/login?reason=idle_timeout")
     }
-  }
+  }, [router])
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
     if (pathname === "/login") return
     timerRef.current = setTimeout(performLogout, EIGHT_HOURS_MS)
-  }
+  }, [pathname, performLogout])
 
   useEffect(() => {
     if (pathname === "/login") return
@@ -55,5 +55,5 @@ export function useIdleLogout() {
         window.removeEventListener(event, throttledReset)
       })
     }
-  }, [pathname])
+  }, [pathname, resetTimer])
 }

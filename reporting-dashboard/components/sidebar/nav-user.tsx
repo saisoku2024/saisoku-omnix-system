@@ -57,7 +57,7 @@ export function NavUser({
             email: "guest@omnix.com",
             avatar: initialUser.avatar || "/avatars/guest.png",
           })
-        } else if (data.role === "super_admin" || data.role === "admin") {
+        } else if (data.role === "admin") {
           setCurrentUser({
             name: "Super Admin",
             email: "admin@omnix.com",
@@ -74,7 +74,6 @@ export function NavUser({
   const handleLogout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout?reason=user_initiated", { method: "POST" })
-      document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;"
       window.localStorage.clear()
       window.sessionStorage.clear()
     } finally {

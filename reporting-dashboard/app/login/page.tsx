@@ -14,9 +14,6 @@ import {
   Sparkles,
 } from "lucide-react"
 
-const DEMO_EMAIL = "guest@ssidmail.my.id"
-const DEMO_PASSWORD = "guestonly123"
-
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
@@ -27,13 +24,7 @@ export default function LoginPage() {
 
   const canSubmit = useMemo(() => Boolean(password.trim()), [password])
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!canSubmit) {
-      setError("Password admin wajib diisi.")
-      return
-    }
-
+  const submitLogin = async (payload: { email?: string; password?: string; useDemoGuest?: boolean }) => {
     setLoading(true)
     setError("")
 
@@ -43,7 +34,7 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -63,6 +54,20 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!canSubmit) {
+      setError("Password admin wajib diisi.")
+      return
+    }
+
+    await submitLogin({ email, password })
+  }
+
+  const handleDemoLogin = async () => {
+    await submitLogin({ useDemoGuest: true })
   }
 
   return (
@@ -152,7 +157,7 @@ export default function LoginPage() {
                 <input
                   autoComplete="email"
                   className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
-                  placeholder="guest@ssidmail.my.id"
+                  placeholder="admin@omnix.com"
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -198,14 +203,11 @@ export default function LoginPage() {
 
             <button
               type="button"
-              onClick={() => {
-                setEmail(DEMO_EMAIL)
-                setPassword(DEMO_PASSWORD)
-                setError("")
-              }}
+              onClick={handleDemoLogin}
+              disabled={loading}
               className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.14em] text-cyan-100 transition hover:bg-cyan-300/15"
             >
-              Use demo guest account
+              {loading ? "Memproses demo guest..." : "Use demo guest account"}
             </button>
 
             <button

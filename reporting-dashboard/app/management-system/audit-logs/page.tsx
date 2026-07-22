@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import {
   ActivityIcon,
-  CheckCircle2Icon,
   ClockIcon,
   FileSpreadsheetIcon,
   FilterIcon,
@@ -17,7 +16,10 @@ import {
   UploadIcon,
   UserPlusIcon,
   UsersIcon,
+  type LucideIcon,
 } from "lucide-react"
+
+type AuditLogDetails = Record<string, unknown>
 
 interface AuditLog {
   id: string
@@ -25,11 +27,11 @@ interface AuditLog {
   user_role: string
   action: string
   resource: string
-  details: Record<string, any>
+  details: AuditLogDetails
   created_at: string
 }
 
-const ACTION_CONFIG: Record<string, { label: string; colorClass: string; icon: any }> = {
+const ACTION_CONFIG: Record<string, { label: string; colorClass: string; icon: LucideIcon }> = {
   USER_LOGIN: {
     label: "User Login",
     colorClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
@@ -107,6 +109,7 @@ export default function AuditLogsPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchLogs(selectedAction)
   }, [selectedAction])
 

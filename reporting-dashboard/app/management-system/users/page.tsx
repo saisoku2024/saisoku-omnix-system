@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 
 type RoleType = "super_admin" | "manager" | "spv" | "agent" | "guest"
+type SessionRole = RoleType | "admin"
 
 interface UserProfile {
   id: string
@@ -58,7 +59,7 @@ export default function UserManagementPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   // Session Role
-  const [sessionRole, setSessionRole] = useState<RoleType | null>(null)
+  const [sessionRole, setSessionRole] = useState<SessionRole | null>(null)
   const isAdmin = sessionRole !== "guest"
 
   // Modal State
@@ -80,7 +81,7 @@ export default function UserManagementPage() {
     let active = true
     fetch("/api/auth/session", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { role?: RoleType }) => {
+      .then((data: { role?: SessionRole }) => {
         if (active) setSessionRole(data.role ?? null)
       })
       .catch(() => {
@@ -110,6 +111,7 @@ export default function UserManagementPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers()
   }, [])
 
