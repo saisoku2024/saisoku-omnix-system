@@ -1,9 +1,13 @@
 import base64
+from html.parser import HTMLParser
+import ipaddress
 import io
 import logging
 import os
 import re
+import socket
 from typing import Any, Dict, List
+from urllib.parse import urljoin, urlparse
 
 import pandas as pd
 import requests
@@ -20,7 +24,9 @@ DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2"
 LEGACY_GEMINI_MODELS = {"gemini-2.5-flash"}
 EMBEDDING_DIMENSION = 768
 MAX_KB_FILE_SIZE_BYTES = 10 * 1024 * 1024
+MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
+IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
 
 
 def _gemini_api_key() -> str:
@@ -86,6 +92,110 @@ def _chunk_text(text: str, max_chars: int = 1800, overlap: int = 220) -> List[st
         merged = f"{prefix}\n\n{chunks[index]}".strip()
         with_overlap.append(merged[: max_chars + overlap])
     return with_overlap
+
+
+class ReadableTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: List[str] = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: List[tuple[str, str | None]]) -> None:
+        if tag in IGNORED_HTML_TAGS:
+            self.skip_depth += 1
+        if tag in {"p", "br", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6"}:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in IGNORED_HTML_TAGS and self.skip_depth > 0:
+            self.skip_depth -= 1
+        if tag in {"p", "li", "tr", "section", "article", "div"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if self.skip_depth > 0:
+            return
+        text = data.strip()
+        if text:
+            self.parts.append(text)
+
+    def get_text(self) -> str:
+        return _clean_text(" ".join(self.parts))
+
+
+def _is_public_hostname(hostname: str) -> bool:
+    try:
+        addresses = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as exc:
+        raise HTTPException(status_code=400, detail="URL web tidak bisa di-resolve.") from exc
+
+    for address in addresses:
+        ip = ipaddress.ip_address(address[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return False
+    return True
+
+
+def _validate_public_web_url(url: str) -> str:
+    parsed = urlparse(url.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="URL web harus memakai http/https publik.")
+    if not _is_public_hostname(parsed.hostname):
+        raise HTTPException(status_code=400, detail="URL private/internal tidak boleh dipakai sebagai knowledge source.")
+    return parsed.geturl()
+
+
+def _extract_web_page_text(url: str) -> str:
+    current_url = _validate_public_web_url(url)
+    headers = {
+        "User-Agent": "SAISOKU-OMNIX-KnowledgeBot/1.0",
+        "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1",
+    }
+
+    for _ in range(4):
+        response = requests.get(
+            current_url,
+            headers=headers,
+            timeout=(5, 20),
+            stream=True,
+            allow_redirects=False,
+        )
+        if response.is_redirect or response.is_permanent_redirect:
+            location = response.headers.get("location")
+            if not location:
+                raise HTTPException(status_code=400, detail="Redirect URL web tidak valid.")
+            current_url = _validate_public_web_url(urljoin(current_url, location))
+            continue
+
+        if not response.ok:
+            raise HTTPException(status_code=400, detail=f"Gagal membaca URL web: HTTP {response.status_code}.")
+
+        content = bytearray()
+        for chunk in response.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            content.extend(chunk)
+            if len(content) > MAX_WEB_PAGE_BYTES:
+                raise HTTPException(status_code=413, detail="Konten web terlalu besar untuk knowledge URL.")
+
+        content_type = response.headers.get("content-type", "")
+        encoding = response.encoding or "utf-8"
+        raw_text = bytes(content).decode(encoding, errors="ignore")
+        if "html" not in content_type.lower():
+            return _clean_text(raw_text)
+
+        parser = ReadableTextParser()
+        parser.feed(raw_text)
+        return parser.get_text()
+
+    raise HTTPException(status_code=400, detail="URL web terlalu banyak redirect.")
 
 
 def _extract_pdf(content: bytes) -> str:
@@ -416,6 +526,59 @@ class KnowledgeService:
         user_email: str = "admin@omnix.com",
     ) -> None:
         KnowledgeService._process_text_content(document_id, document_title, text, user_email)
+
+    @staticmethod
+    def prepare_web_url(url: str, title: str | None = None, user_email: str = "admin@omnix.com") -> Dict[str, Any]:
+        source_url = _validate_public_web_url(url)
+        parsed = urlparse(source_url)
+        document_title = (title or parsed.netloc).strip()
+        if len(document_title) < 3:
+            raise HTTPException(status_code=400, detail="Judul web knowledge minimal 3 karakter.")
+
+        doc_res = (
+            supabase.table("knowledge_documents")
+            .insert(
+                {
+                    "title": document_title,
+                    "source_file": source_url,
+                    "mime_type": "text/html",
+                    "status": "processing",
+                    "created_by": user_email,
+                }
+            )
+            .execute()
+        )
+        document = (doc_res.data or [None])[0]
+        if not document:
+            raise HTTPException(status_code=500, detail="Gagal membuat web knowledge document.")
+
+        return {
+            "success": True,
+            "document_id": document["id"],
+            "title": document_title,
+            "status": "processing",
+            "url": source_url,
+        }
+
+    @staticmethod
+    def process_web_url(
+        document_id: str,
+        document_title: str,
+        url: str,
+        user_email: str = "admin@omnix.com",
+    ) -> None:
+        try:
+            text = _extract_web_page_text(url)
+            KnowledgeService._process_text_content(document_id, document_title, text, user_email)
+        except Exception as exc:
+            logger.error("Knowledge web ingestion failed", exc_info=True)
+            error_summary = exc.detail if isinstance(exc, HTTPException) else str(exc)
+            (
+                supabase.table("knowledge_documents")
+                .update({"status": "failed", "error_summary": str(error_summary)[:500]})
+                .eq("id", document_id)
+                .execute()
+            )
 
     @staticmethod
     def query(question: str, match_count: int = 6) -> Dict[str, Any]:

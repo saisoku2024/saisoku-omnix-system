@@ -21,6 +21,11 @@ class KnowledgeTextRequest(BaseModel):
     text: str = Field(..., min_length=20, max_length=50000)
 
 
+class KnowledgeUrlRequest(BaseModel):
+    url: str = Field(..., min_length=10, max_length=2000)
+    title: str | None = Field(default=None, max_length=180)
+
+
 @router.get("/documents")
 def list_documents():
     return KnowledgeService.list_documents()
@@ -57,6 +62,21 @@ def add_manual_knowledge_text(
         upload["document_id"],
         upload["title"],
         text,
+    )
+    return upload
+
+
+@router.post("/url")
+def add_web_knowledge_url(
+    payload: KnowledgeUrlRequest,
+    background_tasks: BackgroundTasks,
+):
+    upload = KnowledgeService.prepare_web_url(payload.url, payload.title)
+    background_tasks.add_task(
+        KnowledgeService.process_web_url,
+        upload["document_id"],
+        upload["title"],
+        upload["url"],
     )
     return upload
 

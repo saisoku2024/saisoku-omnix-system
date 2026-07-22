@@ -5,6 +5,7 @@ import {
   BotIcon,
   BookOpenIcon,
   FileTextIcon,
+  LinkIcon,
   Loader2Icon,
   SearchIcon,
   SendIcon,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react"
 
 type SessionRole = "admin" | "guest" | null
+type KnowledgeInputMode = "file" | "text" | "url"
 
 interface KnowledgeDocument {
   id: string
@@ -42,6 +44,7 @@ interface KnowledgeAnswer {
 const DOCUMENT_API = "/api/backend/knowledge/documents"
 const UPLOAD_API = "/api/backend/knowledge/upload"
 const TEXT_API = "/api/backend/knowledge/text"
+const URL_API = "/api/backend/knowledge/url"
 const QUERY_API = "/api/backend/knowledge/query"
 const MAX_UPLOAD_FILE_SIZE_BYTES = 4 * 1024 * 1024
 
@@ -83,15 +86,19 @@ export default function KnowledgeBasePage() {
   const [loadingDocuments, setLoadingDocuments] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [addingText, setAddingText] = useState(false)
+  const [addingUrl, setAddingUrl] = useState(false)
   const [asking, setAsking] = useState(false)
   const [title, setTitle] = useState("")
   const [file, setFile] = useState<File | null>(null)
   const [manualTitle, setManualTitle] = useState("")
   const [manualText, setManualText] = useState("")
+  const [webTitle, setWebTitle] = useState("")
+  const [webUrl, setWebUrl] = useState("")
   const [question, setQuestion] = useState("")
   const [answer, setAnswer] = useState<KnowledgeAnswer | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [inputMode, setInputMode] = useState<KnowledgeInputMode>("file")
 
   const isAdmin = sessionRole === "admin"
   const readyDocuments = useMemo(
@@ -248,6 +255,42 @@ export default function KnowledgeBasePage() {
     }
   }
 
+  const handleAddUrl = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!isAdmin) return
+
+    const cleanTitle = webTitle.trim()
+    const cleanUrl = webUrl.trim()
+    if (!/^https?:\/\/.+/i.test(cleanUrl)) {
+      setError("URL web harus diawali http:// atau https://.")
+      setSuccess(null)
+      return
+    }
+
+    setAddingUrl(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const response = await fetch(URL_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: cleanTitle || undefined, url: cleanUrl }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(readError(data, "Gagal menambahkan web URL knowledge"))
+      }
+      setSuccess(`Web knowledge diproses: ${data.title || cleanUrl}`)
+      setWebTitle("")
+      setWebUrl("")
+      await loadDocuments()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menambahkan web URL knowledge")
+    } finally {
+      setAddingUrl(false)
+    }
+  }
+
   const handleAsk = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!question.trim()) return
@@ -318,99 +361,155 @@ export default function KnowledgeBasePage() {
 
         <div className="grid gap-5 lg:grid-cols-[420px_1fr]">
           <section className="space-y-5">
-            <form onSubmit={handleUpload} className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5">
+            <section className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5">
               <div className="mb-4 flex items-center gap-2">
-                <UploadIcon size={16} className="text-(--c-accent)" />
-                <h2 className="text-base font-bold">Upload Knowledge</h2>
+                <BookOpenIcon size={16} className="text-(--c-accent)" />
+                <h2 className="text-base font-bold">Add Knowledge</h2>
               </div>
 
-              <div className="space-y-3">
-                <label className="block text-xs font-semibold text-(--c-muted)">
-                  Judul dokumen
-                  <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    disabled={!isAdmin || uploading}
-                    placeholder="Contoh: SOP Refund Tineco"
-                    className="mt-1 h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
-                  />
-                </label>
-                <label className="block text-xs font-semibold text-(--c-muted)">
-                  File knowledge
-                  <input
-                    type="file"
-                    disabled={!isAdmin || uploading}
-                    onChange={(event) => {
-                      const selectedFile = event.target.files?.[0] || null
-                      setFile(selectedFile)
-                      setSuccess(null)
-                      if (selectedFile && selectedFile.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
-                        setError(
-                          `File ${formatFileSize(selectedFile.size)} terlalu besar untuk upload via dashboard. Batas aman sementara ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.`
-                        )
-                      } else {
-                        setError(null)
-                      }
-                    }}
-                    accept=".txt,.md,.csv,.xlsx,.xls,.pdf,.docx"
-                    className="mt-1 block w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs text-(--c-text) disabled:opacity-50"
-                  />
-                  <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
-                    Batas aman upload dashboard: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}. PDF scan didukung selama ukurannya masih aman.
-                  </span>
-                </label>
-                <button
-                  type="submit"
-                  disabled={!isAdmin || !file || uploading}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {uploading ? <Loader2Icon size={14} className="animate-spin" /> : <UploadIcon size={14} />}
-                  {isAdmin ? "Ingest Knowledge" : "Guest read-only"}
-                </button>
-              </div>
-            </form>
-
-            <form onSubmit={handleAddText} className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5">
-              <div className="mb-4 flex items-center gap-2">
-                <TypeIcon size={16} className="text-(--c-accent)" />
-                <h2 className="text-base font-bold">Add Text Manual</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { mode: "file" as const, label: "File", icon: UploadIcon },
+                  { mode: "text" as const, label: "Text", icon: TypeIcon },
+                  { mode: "url" as const, label: "URL", icon: LinkIcon },
+                ].map((item) => {
+                  const Icon = item.icon
+                  const active = inputMode === item.mode
+                  return (
+                    <button
+                      key={item.mode}
+                      type="button"
+                      onClick={() => setInputMode(item.mode)}
+                      className={`flex h-16 flex-col items-center justify-center gap-1 rounded-xl border px-2 text-[11px] font-bold transition ${
+                        active
+                          ? "border-(--c-accent) bg-(--c-accent)/15 text-(--c-accent)"
+                          : "border-(--c-border) bg-(--c-overlay) text-(--c-muted) hover:border-(--c-accent)"
+                      }`}
+                    >
+                      <Icon size={16} />
+                      {item.label}
+                    </button>
+                  )
+                })}
               </div>
 
-              <div className="space-y-3">
-                <label className="block text-xs font-semibold text-(--c-muted)">
-                  Judul knowledge
-                  <input
-                    value={manualTitle}
-                    onChange={(event) => setManualTitle(event.target.value)}
-                    disabled={!isAdmin || addingText}
-                    placeholder="Contoh: Product Knowledge YONIEV"
-                    className="mt-1 h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
-                  />
-                </label>
-                <label className="block text-xs font-semibold text-(--c-muted)">
-                  Isi knowledge
-                  <textarea
-                    value={manualText}
-                    onChange={(event) => setManualText(event.target.value)}
-                    disabled={!isAdmin || addingText}
-                    placeholder="Paste FAQ, spesifikasi produk, SOP, policy CS, atau catatan training di sini..."
-                    rows={8}
-                    className="mt-1 w-full resize-y rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs leading-5 text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
-                  />
-                  <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
-                    Cocok untuk product knowledge singkat, FAQ, dan catatan training tanpa file.
-                  </span>
-                </label>
-                <button
-                  type="submit"
-                  disabled={!isAdmin || addingText || manualTitle.trim().length < 3 || manualText.trim().length < 20}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {addingText ? <Loader2Icon size={14} className="animate-spin" /> : <TypeIcon size={14} />}
-                  {isAdmin ? "Add Manual Text" : "Guest read-only"}
-                </button>
-              </div>
-            </form>
+              {inputMode === "file" && (
+                <form onSubmit={handleUpload} className="mt-4 space-y-3">
+                  <label className="block text-xs font-semibold text-(--c-muted)">
+                    Judul dokumen
+                    <input
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      disabled={!isAdmin || uploading}
+                      placeholder="Contoh: SOP Refund Tineco"
+                      className="mt-1 h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-(--c-muted)">
+                    File knowledge
+                    <input
+                      type="file"
+                      disabled={!isAdmin || uploading}
+                      onChange={(event) => {
+                        const selectedFile = event.target.files?.[0] || null
+                        setFile(selectedFile)
+                        setSuccess(null)
+                        if (selectedFile && selectedFile.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+                          setError(
+                            `File ${formatFileSize(selectedFile.size)} terlalu besar untuk upload via dashboard. Batas aman sementara ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.`
+                          )
+                        } else {
+                          setError(null)
+                        }
+                      }}
+                      accept=".txt,.md,.csv,.xlsx,.xls,.pdf,.docx"
+                      className="mt-1 block w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs text-(--c-text) disabled:opacity-50"
+                    />
+                    <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
+                      Batas aman upload dashboard: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.
+                    </span>
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={!isAdmin || !file || uploading}
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {uploading ? <Loader2Icon size={14} className="animate-spin" /> : <UploadIcon size={14} />}
+                    {isAdmin ? "Ingest File" : "Guest read-only"}
+                  </button>
+                </form>
+              )}
+
+              {inputMode === "text" && (
+                <form onSubmit={handleAddText} className="mt-4 space-y-3">
+                  <label className="block text-xs font-semibold text-(--c-muted)">
+                    Judul knowledge
+                    <input
+                      value={manualTitle}
+                      onChange={(event) => setManualTitle(event.target.value)}
+                      disabled={!isAdmin || addingText}
+                      placeholder="Contoh: Product Knowledge YONIEV"
+                      className="mt-1 h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-(--c-muted)">
+                    Isi knowledge
+                    <textarea
+                      value={manualText}
+                      onChange={(event) => setManualText(event.target.value)}
+                      disabled={!isAdmin || addingText}
+                      placeholder="Paste FAQ, spesifikasi produk, SOP, policy CS, atau catatan training di sini..."
+                      rows={6}
+                      className="mt-1 w-full resize-y rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs leading-5 text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={!isAdmin || addingText || manualTitle.trim().length < 3 || manualText.trim().length < 20}
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {addingText ? <Loader2Icon size={14} className="animate-spin" /> : <TypeIcon size={14} />}
+                    {isAdmin ? "Add Manual Text" : "Guest read-only"}
+                  </button>
+                </form>
+              )}
+
+              {inputMode === "url" && (
+                <form onSubmit={handleAddUrl} className="mt-4 space-y-3">
+                  <label className="block text-xs font-semibold text-(--c-muted)">
+                    Judul knowledge
+                    <input
+                      value={webTitle}
+                      onChange={(event) => setWebTitle(event.target.value)}
+                      disabled={!isAdmin || addingUrl}
+                      placeholder="Opsional, contoh: FAQ Product YONIEV"
+                      className="mt-1 h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-(--c-muted)">
+                    Link URL
+                    <input
+                      value={webUrl}
+                      onChange={(event) => setWebUrl(event.target.value)}
+                      disabled={!isAdmin || addingUrl}
+                      placeholder="https://example.com/product/faq"
+                      className="mt-1 h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
+                    />
+                    <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
+                      Ambil teks utama dari product page, FAQ, SOP web, atau artikel.
+                    </span>
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={!isAdmin || addingUrl || !/^https?:\/\/.+/i.test(webUrl.trim())}
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {addingUrl ? <Loader2Icon size={14} className="animate-spin" /> : <LinkIcon size={14} />}
+                    {isAdmin ? "Add Web URL" : "Guest read-only"}
+                  </button>
+                </form>
+              )}
+            </section>
 
             <section className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5">
               <div className="mb-4 flex items-center justify-between gap-3">
