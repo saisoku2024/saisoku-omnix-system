@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   const password = typeof body.password === "string" ? body.password : ""
   const isGuest =
     ENABLE_DEMO_GUEST &&
-    email === DEMO_GUEST_EMAIL &&
+    (email === DEMO_GUEST_EMAIL || email === "guest@omnix.com" || email === "guest") &&
     password === DEMO_GUEST_PASSWORD
   const isAdmin = password === expectedPassword && email !== DEMO_GUEST_EMAIL
 
@@ -64,9 +64,10 @@ export async function POST(request: Request) {
   }
 
   const role = isGuest ? "guest" : "super_admin"
-  const userEmail = isGuest ? DEMO_GUEST_EMAIL : email || "admin@omnix.com"
+  const userEmail = isGuest ? (email || "guest@omnix.com") : (email || "admin@omnix.com")
 
-  recordAuditLog({
+  // Must await so serverless function doesn't terminate early before logging
+  await recordAuditLog({
     action: "USER_LOGIN",
     resource: "auth",
     user_email: userEmail,

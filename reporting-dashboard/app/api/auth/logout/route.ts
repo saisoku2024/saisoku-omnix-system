@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { AUTH_COOKIE_NAME } from "@/lib/auth-token"
+import { cookies } from "next/headers"
+import { AUTH_COOKIE_NAME, getSessionPayload } from "@/lib/auth-token"
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
 
@@ -26,13 +27,22 @@ async function recordAuditLog(payload: {
 }
 
 export async function POST(request: NextRequest) {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value
+  const sessionSecret = process.env.AUTH_SESSION_SECRET
+  const session = sessionSecret ? await getSessionPayload(token, sessionSecret) : null
+
+  const isGuest = session?.sub === "guest"
+  const userEmail = isGuest ? "guest@omnix.com" : "admin@omnix.com"
+  const userRole = isGuest ? "guest" : "super_admin"
+
   const reason = request.nextUrl.searchParams.get("reason") || "user_initiated"
 
-  recordAuditLog({
+  await recordAuditLog({
     action: "USER_LOGOUT",
     resource: "auth",
-    user_email: "user@omnix.com",
-    user_role: "authenticated",
+    user_email: userEmail,
+    user_role: userRole,
     details: { reason },
   })
 

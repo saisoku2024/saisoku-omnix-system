@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   BadgeCheck,
   Bell,
@@ -40,13 +40,40 @@ interface NavUserProps {
 }
 
 export function NavUser({
-  user,
+  user: initialUser,
 }: NavUserProps) {
   const { isMobile } = useSidebar()
+  const [currentUser, setCurrentUser] = useState<SidebarUser>(initialUser)
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { role?: string }) => {
+        if (!active) return
+        if (data.role === "guest") {
+          setCurrentUser({
+            name: "Guest User (Demo)",
+            email: "guest@omnix.com",
+            avatar: initialUser.avatar || "/avatars/guest.png",
+          })
+        } else if (data.role === "super_admin" || data.role === "admin") {
+          setCurrentUser({
+            name: "Super Admin",
+            email: "admin@omnix.com",
+            avatar: initialUser.avatar || "/avatars/admin.png",
+          })
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [initialUser.avatar])
 
   const handleLogout = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
+      await fetch("/api/auth/logout?reason=user_initiated", { method: "POST" })
       document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;"
       window.localStorage.clear()
       window.sessionStorage.clear()
@@ -66,20 +93,20 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage
-                  src={user.avatar}
-                  alt={user.name}
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
                 />
                 <AvatarFallback className="rounded-lg">
-                  {user.name.charAt(0).toUpperCase()}
+                  {currentUser.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {user.name}
+                  {currentUser.name}
                 </span>
-                <span className="truncate text-xs">
-                  {user.email}
+                <span className="truncate text-xs text-slate-400">
+                  {currentUser.email}
                 </span>
               </div>
 
@@ -97,20 +124,20 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage
-                    src={user.avatar}
-                    alt={user.name}
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
                   />
                   <AvatarFallback className="rounded-lg">
-                    {user.name.charAt(0).toUpperCase()}
+                    {currentUser.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">
-                    {user.name}
+                    {currentUser.name}
                   </span>
-                  <span className="truncate text-xs">
-                    {user.email}
+                  <span className="truncate text-xs text-slate-400">
+                    {currentUser.email}
                   </span>
                 </div>
               </div>
