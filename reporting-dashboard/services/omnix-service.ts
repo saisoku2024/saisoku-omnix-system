@@ -7,6 +7,7 @@ import type {
   TopCase,
   TrendData,
 } from "@/features/omnix/types/omnix"
+import { throwFetchError } from "@/services/http-error"
 import { buildPeriodQuery } from "@/services/period"
 import { MONTHS } from "@/features/omnix/constants"
 
@@ -171,7 +172,7 @@ export async function fetchOmnixData(mode: ModeType, period: string, year: numbe
   })
 
   if (!currentResponse.ok) {
-    throw new Error(`HTTP ${currentResponse.status}`)
+    await throwFetchError(currentResponse, `HTTP ${currentResponse.status}`)
   }
 
   const currentPayload = normalizeOmnixResponse(
@@ -191,7 +192,7 @@ export async function fetchOmnixData(mode: ModeType, period: string, year: numbe
   })
 
   if (!yearlyResponse.ok) {
-    throw new Error(`HTTP ${yearlyResponse.status}`)
+    await throwFetchError(yearlyResponse, `HTTP ${yearlyResponse.status}`)
   }
 
   const yearlyPayload = normalizeOmnixResponse(

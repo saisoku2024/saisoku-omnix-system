@@ -6,6 +6,7 @@ import type {
   SummaryData,
   TrendRaw,
 } from "@/features/csat/types/csat"
+import { throwFetchError } from "@/services/http-error"
 import { buildPeriodQuery } from "@/services/period"
 
 const CSAT_API = "/api/backend/csat"
@@ -48,11 +49,11 @@ export async function fetchCsatData(mode: ModeType, period: string, year: number
   ])
 
   if (!currentResponse.ok) {
-    throw new Error(`HTTP ${currentResponse.status}`)
+    await throwFetchError(currentResponse, `HTTP ${currentResponse.status}`)
   }
 
   if (!trendResponse.ok) {
-    throw new Error(`HTTP ${trendResponse.status}`)
+    await throwFetchError(trendResponse, `HTTP ${trendResponse.status}`)
   }
 
   const currentPayload = normalizeCsatResponse(

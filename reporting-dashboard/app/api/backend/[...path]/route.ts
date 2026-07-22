@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { adminHeaders } from "@/lib/admin-api"
+import { adminHeaders, getAdminApiToken } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
 import { getCurrentSession } from "@/lib/server-auth"
 
@@ -71,6 +71,13 @@ async function proxyBackendRequest(
     return NextResponse.json({ detail: "Forbidden" }, { status: 403 })
   }
 
+  if (!getAdminApiToken()) {
+    return NextResponse.json(
+      { detail: "ADMIN_API_TOKEN is not configured in Next.js server environment" },
+      { status: 503 }
+    )
+  }
+
   const search = request.nextUrl.search
   const targetUrl = `${API_ORIGIN}/api/${path}${search}`
   const headers = new Headers(adminHeaders())
@@ -87,6 +94,22 @@ async function proxyBackendRequest(
     body: hasRequestBody ? await request.arrayBuffer() : undefined,
     cache: "no-store",
   })
+
+  if (!response.ok) {
+    const contentType = response.headers.get("Content-Type") || ""
+    if (contentType.includes("application/json")) {
+      const errorPayload = await response.json().catch(() => null)
+      return NextResponse.json(
+        errorPayload || { detail: `Backend request failed with HTTP ${response.status}` },
+        { status: response.status }
+      )
+    }
+
+    return NextResponse.json(
+      { detail: `Backend request failed with HTTP ${response.status}` },
+      { status: response.status }
+    )
+  }
 
   return new Response(response.body, {
     status: response.status,

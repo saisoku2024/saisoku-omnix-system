@@ -8,6 +8,7 @@ import type {
   SummaryData,
   VoiceResponse,
 } from "@/features/voice/types/voice"
+import { throwFetchError } from "@/services/http-error"
 import { buildPeriodQuery } from "@/services/period"
 import { HOURS, MONTHS } from "@/features/voice/constants"
 
@@ -146,7 +147,7 @@ export async function fetchVoiceData(mode: ModeType, period: string, year: numbe
   })
 
   if (!currentResponse.ok) {
-    throw new Error(`HTTP ${currentResponse.status}`)
+    await throwFetchError(currentResponse, `HTTP ${currentResponse.status}`)
   }
 
   const currentPayload = normalizeVoiceResponse(
@@ -166,7 +167,7 @@ export async function fetchVoiceData(mode: ModeType, period: string, year: numbe
   })
 
   if (!yearlyResponse.ok) {
-    throw new Error(`HTTP ${yearlyResponse.status}`)
+    await throwFetchError(yearlyResponse, `HTTP ${yearlyResponse.status}`)
   }
 
   const yearlyPayload = normalizeVoiceResponse(

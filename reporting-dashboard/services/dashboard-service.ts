@@ -6,6 +6,7 @@ import type {
   StatsData,
   TrendItem,
 } from "@/features/dashboard/types/dashboard"
+import { throwFetchError } from "@/services/http-error"
 
 const DASHBOARD_API = "/api/backend/dashboard"
 const CSAT_API = "/api/backend/csat"
@@ -116,7 +117,7 @@ export async function fetchDashboardAll(mode: ModeType, period: string, year: nu
   )
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
+    await throwFetchError(response, `HTTP ${response.status}`)
   }
 
   const payload = normalizeDashboardResponse(
