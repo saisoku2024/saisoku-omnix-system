@@ -110,6 +110,11 @@ export default function AuditLogsPage() {
     fetchLogs(selectedAction)
   }, [selectedAction])
 
+  // Explicitly sort logs by timestamp: NEWEST FIRST (New to Old)
+  const sortedLogs = [...logs].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
+
   const uploadLogsCount = logs.filter((l) => l.action === "UPLOAD_DATA" || l.action === "DATA_UPLOAD").length
   const deleteLogsCount = logs.filter((l) => l.action === "SOFT_DELETE").length
   const userAdminLogsCount = logs.filter((l) => l.action.startsWith("USER_")).length
@@ -219,7 +224,7 @@ export default function AuditLogsPage() {
               <Loader2Icon className="animate-spin" size={18} />
               Memuat log aktivitas...
             </div>
-          ) : logs.length === 0 ? (
+          ) : sortedLogs.length === 0 ? (
             <div className="py-12 text-center text-sm text-(--c-muted)">
               Belum ada log aktivitas yang tercatat untuk filter ini.
             </div>
@@ -236,7 +241,7 @@ export default function AuditLogsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-(--c-border)">
-                  {logs.map((log) => {
+                  {sortedLogs.map((log) => {
                     const actionCfg = ACTION_CONFIG[log.action] || {
                       label: log.action,
                       colorClass: "border-slate-500/30 bg-slate-500/10 text-slate-400",

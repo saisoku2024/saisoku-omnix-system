@@ -3,37 +3,63 @@ import { NextRequest, NextResponse } from "next/server"
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
 
-const DEFAULT_LOGS = [
-  {
-    id: "log-001",
-    action: "SYSTEM_INITIALIZED",
-    resource: "system",
-    user_email: "system@omnix.com",
-    user_role: "super_admin",
-    details: { info: "SAISOKU OMNIX RBAC & Audit Trail System Activated" },
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-  },
-  {
-    id: "log-002",
-    action: "USER_CREATED",
-    resource: "profiles",
-    user_email: "admin@omnix.com",
-    user_role: "super_admin",
-    details: { created_user_email: "guest@omnix.com", role: "guest", full_name: "Guest User (Demo)" },
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "log-003",
-    action: "DATA_UPLOAD",
-    resource: "reporting_dataset",
-    user_email: "admin@omnix.com",
-    user_role: "super_admin",
-    details: { records_count: 1450, filename: "omnix_performance_q3.csv" },
-    created_at: new Date(Date.now() - 1800000).toISOString(),
-  },
-]
+function getFallbackLogs(actionFilter?: string | null) {
+  const allLogs = [
+    {
+      id: "log-005",
+      action: "USER_LOGIN",
+      resource: "auth",
+      user_email: "guest@omnix.com",
+      user_role: "guest",
+      details: { login_method: "password" },
+      created_at: new Date(Date.now() - 300000).toISOString(),
+    },
+    {
+      id: "log-004",
+      action: "USER_LOGIN",
+      resource: "auth",
+      user_email: "admin@omnix.com",
+      user_role: "super_admin",
+      details: { login_method: "password" },
+      created_at: new Date(Date.now() - 1800000).toISOString(),
+    },
+    {
+      id: "log-003",
+      action: "DATA_UPLOAD",
+      resource: "reporting_dataset",
+      user_email: "admin@omnix.com",
+      user_role: "super_admin",
+      details: { records_count: 1450, filename: "omnix_performance_q3.csv" },
+      created_at: new Date(Date.now() - 3600000).toISOString(),
+    },
+    {
+      id: "log-002",
+      action: "USER_CREATED",
+      resource: "profiles",
+      user_email: "admin@omnix.com",
+      user_role: "super_admin",
+      details: { created_user_email: "guest@omnix.com", role: "guest", full_name: "Guest User (Demo)" },
+      created_at: new Date(Date.now() - 7200000).toISOString(),
+    },
+    {
+      id: "log-001",
+      action: "SYSTEM_INITIALIZED",
+      resource: "system",
+      user_email: "system@omnix.com",
+      user_role: "super_admin",
+      details: { info: "SAISOKU OMNIX RBAC & Audit Trail System Activated" },
+      created_at: new Date(Date.now() - 14400000).toISOString(),
+    },
+  ]
+
+  if (actionFilter && actionFilter !== "ALL") {
+    return allLogs.filter((l) => l.action === actionFilter)
+  }
+  return allLogs
+}
 
 export async function GET(request: NextRequest) {
+  const actionFilter = request.nextUrl.searchParams.get("action")
   try {
     const searchParams = request.nextUrl.searchParams.toString()
     const backendUrl = `${API_ORIGIN}/api/admin/audit-logs${searchParams ? `?${searchParams}` : ""}`
@@ -44,23 +70,20 @@ export async function GET(request: NextRequest) {
     })
 
     if (!response.ok) {
-      return NextResponse.json({
-        total: DEFAULT_LOGS.length,
-        logs: DEFAULT_LOGS,
-      })
+      const fallback = getFallbackLogs(actionFilter)
+      return NextResponse.json({ total: fallback.length, logs: fallback })
     }
 
     const data = await response.json()
     if (data && (!data.logs || data.logs.length === 0)) {
-      data.logs = DEFAULT_LOGS
-      data.total = DEFAULT_LOGS.length
+      const fallback = getFallbackLogs(actionFilter)
+      data.logs = fallback
+      data.total = fallback.length
     }
     return NextResponse.json(data, { status: response.status })
   } catch {
-    return NextResponse.json({
-      total: DEFAULT_LOGS.length,
-      logs: DEFAULT_LOGS,
-    })
+    const fallback = getFallbackLogs(actionFilter)
+    return NextResponse.json({ total: fallback.length, logs: fallback })
   }
 }
 
