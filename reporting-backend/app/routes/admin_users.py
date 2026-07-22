@@ -9,6 +9,8 @@ from app.schemas.admin_user import (
 )
 from app.services.admin_user_service import AdminUserService
 
+from app.services.audit_log_service import AuditLogService
+
 ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN")
 
 router = APIRouter(
@@ -49,6 +51,12 @@ def create_new_user(
             role=payload.role,
             brand_access=payload.brand_access,
         )
+        AuditLogService.log(
+            action="USER_CREATED",
+            resource="profiles",
+            details={"created_user_email": payload.email, "role": payload.role, "full_name": payload.full_name},
+            user_role="super_admin",
+        )
         return user
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -69,6 +77,12 @@ def update_user_role_or_profile(
             full_name=payload.full_name,
             brand_access=payload.brand_access,
         )
+        AuditLogService.log(
+            action="USER_ROLE_UPDATED",
+            resource="profiles",
+            details={"target_user_id": user_id, "new_role": payload.role},
+            user_role="super_admin",
+        )
         return updated
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -83,6 +97,12 @@ def delete_user_account(
     verify_admin_access(x_admin_token)
     try:
         AdminUserService.delete_user(user_id)
+        AuditLogService.log(
+            action="USER_DELETED",
+            resource="profiles",
+            details={"deleted_user_id": user_id},
+            user_role="super_admin",
+        )
         return {"success": True, "message": f"User {user_id} berhasil dihapus."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

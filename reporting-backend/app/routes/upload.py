@@ -94,6 +94,18 @@ async def upload_file(
             invalid_rows,
         )
 
+        from app.services.audit_log_service import AuditLogService
+        AuditLogService.log(
+            action="UPLOAD_DATA",
+            resource=target_table,
+            details={
+                "filename": file.filename,
+                "file_type": file_type,
+                "total_rows": total_rows,
+                "inserted_rows": inserted_rows,
+            },
+        )
+
         return {
             "success": True,
             "total_rows": total_rows,

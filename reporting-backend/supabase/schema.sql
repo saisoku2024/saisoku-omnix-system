@@ -942,3 +942,20 @@ create trigger set_profiles_updated_at
   before update on public.profiles
   for each row execute function public.set_updated_at();
 
+-- ============================================================
+-- SAISOKU OMNIX - Audit Logs Setup
+-- ============================================================
+create table if not exists public.audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_email text not null default 'system@omnix.com',
+  user_role text not null default 'admin',
+  action text not null,
+  resource text not null,
+  details jsonb default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_audit_logs_created_at on public.audit_logs(created_at desc);
+create index if not exists idx_audit_logs_action on public.audit_logs(action);
+
+

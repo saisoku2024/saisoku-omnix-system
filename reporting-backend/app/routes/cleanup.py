@@ -66,10 +66,20 @@ def soft_delete_cleanup(
     _: None = Depends(require_admin_token),
 ):
     try:
-        return CleanupService.soft_delete(
+        result = CleanupService.soft_delete(
             items=[item.model_dump() for item in payload.items],
             deleted_by=payload.deleted_by,
         )
+        from app.services.audit_log_service import AuditLogService
+        AuditLogService.log(
+            action="SOFT_DELETE",
+            resource="cleanup_deleted_cases",
+            details={
+                "deleted_count": len(payload.items),
+                "deleted_by": payload.deleted_by,
+            },
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

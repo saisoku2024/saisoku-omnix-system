@@ -96,6 +96,11 @@ export const sidebarMenu: SidebarMenuItem[] = [
         url: "/management-system/users",
         icon: <UsersIcon />,
       },
+      {
+        title: "Audit Logs & Activity",
+        url: "/management-system/audit-logs",
+        icon: <ActivityIcon />,
+      },
     ],
   },
 ]
