@@ -1,5 +1,12 @@
 -- Harden audit and permission RLS policies after the initial audit baseline.
 
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+  role public.user_role NOT NULL,
+  permission text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (role, permission)
+);
+
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
 
