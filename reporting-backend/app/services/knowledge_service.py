@@ -15,8 +15,9 @@ from app.services.audit_log_service import AuditLogService
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
 DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2"
+LEGACY_GEMINI_MODELS = {"gemini-2.5-flash"}
 EMBEDDING_DIMENSION = 768
 MAX_KB_FILE_SIZE_BYTES = 10 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
@@ -37,7 +38,8 @@ def _embedding_model() -> str:
 
 
 def _chat_model() -> str:
-    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip()
+    model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip()
+    return DEFAULT_GEMINI_MODEL if model in LEGACY_GEMINI_MODELS else model
 
 
 def _clean_text(value: str) -> str:

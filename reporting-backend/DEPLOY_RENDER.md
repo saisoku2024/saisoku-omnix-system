@@ -24,7 +24,7 @@ ADMIN_USERNAME=use-a-private-admin-username
 ADMIN_PASSWORD=use-a-strong-admin-password
 JWT_SECRET_KEY=use-a-different-long-random-jwt-secret
 GEMINI_API_KEY=use-your-google-ai-studio-api-key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.5-flash
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 ```
 
