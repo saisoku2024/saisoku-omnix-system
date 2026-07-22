@@ -52,6 +52,19 @@ function readError(payload: unknown, fallback: string) {
     const data = payload as { detail?: unknown; error?: unknown; message?: unknown }
     const message = data.detail ?? data.error ?? data.message
     if (typeof message === "string" && message.trim()) return message
+    if (Array.isArray(message)) {
+      const firstMessage = message
+        .map((item) => {
+          if (typeof item === "string") return item
+          if (item && typeof item === "object" && "msg" in item) {
+            return String((item as { msg?: unknown }).msg ?? "")
+          }
+          return ""
+        })
+        .find(Boolean)
+      if (firstMessage) return firstMessage
+    }
+    if (message && typeof message === "object") return JSON.stringify(message)
   }
   return fallback
 }

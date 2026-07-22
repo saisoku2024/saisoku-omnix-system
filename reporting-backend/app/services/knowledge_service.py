@@ -216,7 +216,15 @@ class KnowledgeService:
             raise HTTPException(status_code=413, detail="Ukuran dokumen knowledge base maksimal 10MB.")
 
         document_title = (title or file.filename or "Untitled Knowledge Document").strip()
-        text = extract_document_text(content, file.filename or document_title, file.content_type)
+        try:
+            text = extract_document_text(content, file.filename or document_title, file.content_type)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Gagal membaca dokumen knowledge base: {str(exc)[:300]}",
+            ) from exc
         if len(text) < 20:
             raise HTTPException(status_code=400, detail="Dokumen terlalu kosong untuk diproses sebagai knowledge base.")
 

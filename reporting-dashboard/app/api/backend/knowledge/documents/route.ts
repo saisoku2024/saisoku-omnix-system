@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
+import { readProxyResponse } from "@/lib/proxy-response"
 import { getCurrentSession } from "@/lib/server-auth"
 
 export async function GET() {
@@ -16,9 +17,7 @@ export async function GET() {
       headers: adminHeaders(),
       cache: "no-store",
     })
-    const data = await response.json().catch(() => ({
-      detail: `Knowledge documents request failed with HTTP ${response.status}`,
-    }))
+    const data = await readProxyResponse(response, "Knowledge documents request")
     return NextResponse.json(data, { status: response.status })
   } catch (error) {
     return NextResponse.json(
