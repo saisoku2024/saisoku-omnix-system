@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
+import { fetchAuditLogs, insertAuditLog } from "@/lib/supabase-audit"
 
 function getFallbackLogs(actionFilter?: string | null) {
   const allLogs = [
@@ -60,6 +61,14 @@ function getFallbackLogs(actionFilter?: string | null) {
 
 export async function GET(request: NextRequest) {
   const actionFilter = request.nextUrl.searchParams.get("action")
+
+  // 1. Try Direct Real-Time Query to Supabase REST API
+  const directLogs = await fetchAuditLogs(actionFilter)
+  if (directLogs && directLogs.length > 0) {
+    return NextResponse.json({ total: directLogs.length, logs: directLogs })
+  }
+
+  // 2. Try Python Backend API Origin
   try {
     const searchParams = request.nextUrl.searchParams.toString()
     const backendUrl = `${API_ORIGIN}/api/admin/audit-logs${searchParams ? `?${searchParams}` : ""}`
@@ -69,39 +78,28 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     })
 
-    if (!response.ok) {
-      const fallback = getFallbackLogs(actionFilter)
-      return NextResponse.json({ total: fallback.length, logs: fallback })
+    if (response.ok) {
+      const data = await response.json()
+      if (data && Array.isArray(data.logs) && data.logs.length > 0) {
+        return NextResponse.json(data, { status: response.status })
+      }
     }
-
-    const data = await response.json()
-    if (data && (!data.logs || data.logs.length === 0)) {
-      const fallback = getFallbackLogs(actionFilter)
-      data.logs = fallback
-      data.total = fallback.length
-    }
-    return NextResponse.json(data, { status: response.status })
   } catch {
-    const fallback = getFallbackLogs(actionFilter)
-    return NextResponse.json({ total: fallback.length, logs: fallback })
+    // Ignore and fallback
   }
+
+  // 3. Graceful Fallback
+  const fallback = getFallbackLogs(actionFilter)
+  return NextResponse.json({ total: fallback.length, logs: fallback })
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const backendUrl = `${API_ORIGIN}/api/admin/audit-logs`
-    const response = await fetch(backendUrl, {
-      method: "POST",
-      headers: {
-        ...adminHeaders(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    })
-
-    const data = await response.json()
-    return NextResponse.json(data, { status: response.status })
+    
+    // Direct Real-Time Insert to Supabase
+    const success = await insertAuditLog(body)
+    return NextResponse.json({ success })
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
   }

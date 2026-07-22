@@ -5,34 +5,11 @@ import {
   AUTH_MAX_AGE_SECONDS,
   createSessionToken,
 } from "@/lib/auth-token"
-import { adminHeaders } from "@/lib/admin-api"
-import { API_ORIGIN } from "@/lib/api"
+import { insertAuditLog } from "@/lib/supabase-audit"
 
 const DEMO_GUEST_EMAIL = (process.env.DEMO_GUEST_EMAIL || "guest@ssidmail.my.id").trim().toLowerCase()
 const DEMO_GUEST_PASSWORD = process.env.DEMO_GUEST_PASSWORD || "guestonly123"
 const ENABLE_DEMO_GUEST = process.env.ENABLE_DEMO_GUEST !== "false"
-
-async function recordAuditLog(payload: {
-  action: string
-  resource: string
-  user_email: string
-  user_role: string
-  details?: Record<string, unknown>
-}) {
-  try {
-    const backendUrl = `${API_ORIGIN}/api/admin/audit-logs`
-    await fetch(backendUrl, {
-      method: "POST",
-      headers: {
-        ...adminHeaders(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    })
-  } catch {
-    // Ignore error
-  }
-}
 
 export async function POST(request: Request) {
   const expectedPassword = process.env.ADMIN_UI_PASSWORD
@@ -66,8 +43,8 @@ export async function POST(request: Request) {
   const role = isGuest ? "guest" : "super_admin"
   const userEmail = isGuest ? (email || "guest@omnix.com") : (email || "admin@omnix.com")
 
-  // Must await so serverless function doesn't terminate early before logging
-  await recordAuditLog({
+  // Insert real-time USER_LOGIN audit log directly into Supabase
+  await insertAuditLog({
     action: "USER_LOGIN",
     resource: "auth",
     user_email: userEmail,
