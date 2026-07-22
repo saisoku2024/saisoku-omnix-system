@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { memo } from "react"
 import type { LucideIcon } from "lucide-react"
 import Card from "@/components/ui/card"
 import Skeleton from "@/components/ui/skeleton"
@@ -18,7 +18,7 @@ function isEmpty(value: string): boolean {
   return EMPTY_VALUES.has(value.trim())
 }
 
-export default function KpiCard({ label, value, Icon, color, loading }: Props) {
+function KpiCard({ label, value, Icon, color, loading }: Props) {
   const empty = !loading && isEmpty(value)
 
   return (
@@ -64,3 +64,5 @@ export default function KpiCard({ label, value, Icon, color, loading }: Props) {
     </Card>
   )
 }
+
+export default memo(KpiCard)

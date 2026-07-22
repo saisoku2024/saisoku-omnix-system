@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState } from "react"
+import React, { useMemo, useState, memo } from "react"
 import { PALETTE } from "@/features/dashboard/constants"
 import { getChannelIcon } from "@/features/dashboard/data/channelIcons"
 import type { PieItemWithPct } from "@/features/dashboard/types/dashboard"
@@ -9,7 +9,7 @@ type Props = {
   data: PieItemWithPct[]
 }
 
-export default function ChannelBreakdown({ data }: Props) {
+function ChannelBreakdown({ data }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const maxCount = useMemo(() => Math.max(...data.map((c) => c.count), 0), [data])
 
@@ -60,3 +60,5 @@ export default function ChannelBreakdown({ data }: Props) {
     </ul>
   )
 }
+
+export default memo(ChannelBreakdown)
