@@ -7,7 +7,7 @@ Use this service configuration when creating the FastAPI backend on Render.
 ```txt
 Root Directory: reporting-backend
 Build Command: pip install -r requirements.txt
-Start Command: uvicorn main:app --host 0.0.0.0 --port $PORT
+Start Command: python main.py
 Health Check Path: /health
 ```
 
@@ -19,6 +19,9 @@ Set these values in Render only. Do not add real secrets to Git.
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ADMIN_API_TOKEN=use-a-long-random-token
+ADMIN_USERNAME=use-a-private-admin-username
+ADMIN_PASSWORD=use-a-strong-admin-password
+JWT_SECRET_KEY=use-a-different-long-random-jwt-secret
 ```
 
 Optional but recommended:

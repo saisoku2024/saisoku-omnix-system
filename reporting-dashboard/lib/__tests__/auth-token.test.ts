@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { createSessionToken, verifySessionToken } from "../auth-token"
+import { createSessionToken, getSessionPayload } from "../auth-token"
 
 describe("Auth Token Web Crypto Utilities", () => {
   const secret = "test-session-secret-key-123456789"
@@ -9,19 +9,19 @@ describe("Auth Token Web Crypto Utilities", () => {
     expect(token).toBeTruthy()
     expect(typeof token).toBe("string")
 
-    const session = await verifySessionToken(token, secret)
+    const session = await getSessionPayload(token, secret)
     expect(session).not.toBeNull()
     expect(session?.sub).toBe("admin")
   })
 
   it("should fail verification with invalid secret", async () => {
     const token = await createSessionToken(secret, "guest")
-    const session = await verifySessionToken(token, "wrong-secret-key")
+    const session = await getSessionPayload(token, "wrong-secret-key")
     expect(session).toBeNull()
   })
 
   it("should fail verification with tampered token string", async () => {
-    const session = await verifySessionToken("invalid.token.payload", secret)
+    const session = await getSessionPayload("invalid.token.payload", secret)
     expect(session).toBeNull()
   })
 })
