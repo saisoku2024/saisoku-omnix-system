@@ -21,6 +21,13 @@ saisoku-omnix-system/
 
 ## Menjalankan Lokal
 
+Runtime yang disarankan:
+
+```txt
+Node.js >=20.19.0
+Python 3.11.9
+```
+
 ### Backend
 
 ```bash
@@ -35,7 +42,14 @@ Environment backend:
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ADMIN_API_TOKEN=
+ADMIN_USERNAME=
+ADMIN_PASSWORD=
+JWT_SECRET_KEY=
 ```
+
+Backend akan gagal start jika `SUPABASE_URL` atau `SUPABASE_SERVICE_ROLE_KEY`
+belum diset. Ini disengaja agar konfigurasi Supabase yang salah tidak diam-diam
+memakai placeholder.
 
 ### Frontend
 
@@ -54,6 +68,10 @@ ADMIN_UI_PASSWORD=
 AUTH_SESSION_SECRET=
 ```
 
+`ADMIN_API_TOKEN` di frontend harus sama persis dengan `ADMIN_API_TOKEN` di
+backend. Server route Next.js memakai token ini saat mem-proxy request ke
+FastAPI.
+
 ## URL Lokal
 
 - Frontend: `http://localhost:3000`
@@ -71,6 +89,8 @@ AUTH_SESSION_SECRET=
 - Halaman dashboard dilindungi auth UI berbasis cookie:
   - Vercel: `ADMIN_UI_PASSWORD`
   - Vercel: `AUTH_SESSION_SECRET`
+- Setelah mengubah environment variable di Vercel atau Render, lakukan redeploy
+  atau restart service agar runtime memakai nilai terbaru.
 
 ## Changelog
 

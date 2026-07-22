@@ -9,6 +9,7 @@ Root Directory: reporting-backend
 Build Command: pip install -r requirements.txt
 Start Command: python main.py
 Health Check Path: /health
+Python Version: 3.11.9
 ```
 
 ## Environment Variables
@@ -24,11 +25,15 @@ ADMIN_PASSWORD=use-a-strong-admin-password
 JWT_SECRET_KEY=use-a-different-long-random-jwt-secret
 ```
 
-Optional but recommended:
+Required runtime:
 
 ```txt
 PYTHON_VERSION=3.11.9
 ```
+
+The backend fails fast when `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` is
+missing. If `/health` does not come up after deploy, check the Render environment
+variables before debugging application data.
 
 ## After Deploy
 
@@ -48,3 +53,7 @@ ADMIN_API_TOKEN=use-the-same-admin-api-token
 ADMIN_UI_PASSWORD=use-an-admin-login-password
 AUTH_SESSION_SECRET=use-a-different-long-random-session-secret
 ```
+
+The frontend requires Node.js `>=20.19.0`; this is declared in
+`reporting-dashboard/package.json`. After changing any Vercel environment
+variable, redeploy the frontend so server routes receive the new values.

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react"
 import { useTheme } from "@/providers/theme-provider"
-import { BarChart3, Sun, Moon } from "lucide-react"
+import { AlertCircle, BarChart3, Sun, Moon } from "lucide-react"
 import Card from "@/components/ui/card"
 import { useDashboardData } from "@/features/dashboard/hooks/useDashboardData"
 import type { ModeType, StatsData } from "@/features/dashboard/types/dashboard"
@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const [mode, setMode] = useState<ModeType>("monthly")
   const [period, setPeriod] = useState(() => getDefaultMonth(MONTHS))
   const [year, setYear] = useState(() => getDefaultYear(REPORT_YEARS))
-  const { loading, stats, trendData, channelPie, category, brand, customer, newCustomer } = useDashboardData(mode, period, year)
+  const { loading, error, stats, trendData, channelPie, category, brand, customer, newCustomer } = useDashboardData(mode, period, year)
   const cssVars = isDark ? DARK_VARS : LIGHT_VARS
   const periodOptions = useMemo(() => (mode === "monthly" ? MONTHS : QUARTERS), [mode])
   const highlightedMonths = useMemo(() => getHighlightedMonths(mode, period), [mode, period])
@@ -83,6 +83,15 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {error && (
+          <div className="flex shrink-0 items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-200">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 break-words">
+              Dashboard gagal memuat data: {error}
+            </span>
+          </div>
+        )}
 
         <div className="shrink-0"><CustomerSummaryBar customer={customer} newCustomer={newCustomer} periodLabel={periodLabel} /></div>
         
