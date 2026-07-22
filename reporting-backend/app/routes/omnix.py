@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from app.core.security import require_admin_token
 from app.services.omnix_service import OmnixService
 
-router = APIRouter(prefix="/omnix", tags=["Omnix"])
+router = APIRouter(
+    prefix="/omnix",
+    tags=["Omnix"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 
 def _omnix_master(mode: str, period: str, year: int):
@@ -103,7 +108,6 @@ def omnix_all(
 ):
     raw = _omnix_master(mode, period, year)
 
-    # SIVA Fix: Langsung ambil data dari service, karena format sudah sempurna dari DB
     trend = raw.get("daily") or []
 
     return {

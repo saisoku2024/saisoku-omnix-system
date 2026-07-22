@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from app.core.security import require_admin_token
 from app.services.csat_service import CsatService
 
-router = APIRouter(prefix="/csat", tags=["CSAT"])
+router = APIRouter(
+    prefix="/csat",
+    tags=["CSAT"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 
 # =========================

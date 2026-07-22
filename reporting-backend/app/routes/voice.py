@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Query
-
+from fastapi import APIRouter, Query, Depends
+from app.core.security import require_admin_token
 from app.services.voice_service import VoiceService
 
 router = APIRouter(
     prefix="/voice",
     tags=["Voice"],
+    dependencies=[Depends(require_admin_token)],
 )
 
 

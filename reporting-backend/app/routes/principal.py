@@ -8,7 +8,8 @@ import io
 
 router = APIRouter(
     prefix="/principal-report",
-    tags=["Principal Report"]
+    tags=["Principal Report"],
+    dependencies=[Depends(require_admin_token)],
 )
 
 
@@ -24,7 +25,6 @@ def _make_end_date_inclusive(end_date: str) -> str:
 def export_principal_report(
     start_date: str,
     end_date: str,
-    _: None = Depends(require_admin_token),
 ):
     end_date_inclusive = _make_end_date_inclusive(end_date)
 

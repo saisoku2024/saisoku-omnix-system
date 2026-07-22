@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from app.core.security import require_admin_token
 from app.services.dashboard_service import (
     get_dashboard_all,
     get_dashboard_years,
 )
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+router = APIRouter(
+    prefix="/dashboard",
+    tags=["Dashboard"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 
 def _dashboard_master(mode: str, period: str, year: int):

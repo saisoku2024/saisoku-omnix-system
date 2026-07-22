@@ -6,12 +6,12 @@ from app.core.security import require_admin_token
 from app.services.report_service import ReportService
 from app.export.digital_export import DigitalExport
 from app.export.inbound_export import InboundExport
-# Silakan pastikan path import di bawah sesuai dengan lokasi file setelah dipindahkan
 from app.schemas.report import PreviewRequest, ExportRequest
 
 router = APIRouter(
     prefix="/reports",
     tags=["Reports"],
+    dependencies=[Depends(require_admin_token)],
 )
 
 # ==========================================
@@ -40,7 +40,7 @@ def report_preview(req: PreviewRequest):
             end_date=req.end_date,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Gagal memuat preview laporan")
 
 
 # ==========================================
@@ -52,7 +52,6 @@ def report_preview(req: PreviewRequest):
 )
 def export_digital(
     req: ExportRequest,
-    _: None = Depends(require_admin_token),
 ):
     try:
         data = ReportService.export_digital(req.model_dump())
@@ -70,7 +69,7 @@ def export_digital(
     except HTTPException as he:
         raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Gagal melakukan ekspor laporan digital")
 
 
 @router.post(
@@ -79,7 +78,6 @@ def export_digital(
 )
 def export_inbound(
     req: ExportRequest,
-    _: None = Depends(require_admin_token),
 ):
     try:
         data = ReportService.export_inbound(req.model_dump())
@@ -97,4 +95,4 @@ def export_inbound(
     except HTTPException as he:
         raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Gagal melakukan ekspor laporan inbound")
