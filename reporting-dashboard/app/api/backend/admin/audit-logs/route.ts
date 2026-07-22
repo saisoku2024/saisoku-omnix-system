@@ -3,12 +3,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
 import { requireAdminSession } from "@/lib/auth-token"
+import { getCurrentSession } from "@/lib/server-auth"
 import { fetchAuditLogs, insertAuditLog } from "@/lib/supabase-audit"
 
 export async function GET(request: NextRequest) {
-  const session = await requireAdminSession()
+  const session = await getCurrentSession()
   if (!session) {
-    return NextResponse.json({ detail: "Forbidden" }, { status: 403 })
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
   }
 
   const actionFilter = request.nextUrl.searchParams.get("action")

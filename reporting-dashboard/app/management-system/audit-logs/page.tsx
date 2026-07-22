@@ -96,8 +96,8 @@ export default function AuditLogsPage() {
 
       const res = await fetch(url, { cache: "no-store" })
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || "Gagal memuat log audit")
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.detail || data.error || "Gagal memuat log audit")
       }
       const data = await res.json()
       setLogs(data.logs || [])
