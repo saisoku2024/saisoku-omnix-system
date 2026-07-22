@@ -17,6 +17,7 @@ from app.routes import (
 
 # Principal Report
 from app.routes.principal import router as principal_router
+from app.routes.admin_users import router as admin_users_router
 
 # Load environment variables
 load_dotenv()
@@ -56,6 +57,7 @@ app.include_router(cleanup.router, prefix="/api")
 app.include_router(report.router, prefix="/api")      # ✅ Router report diinclude
 app.include_router(principal_router, prefix="/api")
 app.include_router(auth.router, prefix="/api")         # ✅ Router auth diinclude
+app.include_router(admin_users_router, prefix="/api")  # ✅ Router Admin Users (Management System)
 
 # ============================================================
 # ROOT ENDPOINT
