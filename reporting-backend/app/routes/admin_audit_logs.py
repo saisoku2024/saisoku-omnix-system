@@ -1,4 +1,5 @@
 import os
+import secrets
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Header, Query, status
@@ -19,7 +20,11 @@ class AuditLogCreateRequest(BaseModel):
     details: Optional[Dict[str, Any]] = {}
 
 def verify_admin_access(x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    if ADMIN_API_TOKEN and x_admin_token != ADMIN_API_TOKEN:
+    """Verify admin token using constant-time comparison to prevent timing attacks."""
+    if not ADMIN_API_TOKEN:
+        # Token not configured — skip validation (development mode)
+        return
+    if not x_admin_token or not secrets.compare_digest(x_admin_token, ADMIN_API_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Akses ditolak: Diperlukan kredensial Super Admin.",
@@ -36,7 +41,7 @@ def get_audit_logs(
         data = AuditLogService.list_logs(limit=limit, action=action)
         return data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Gagal memuat audit logs")
 
 @router.post("")
 def create_audit_log(
@@ -54,4 +59,4 @@ def create_audit_log(
         )
         return {"success": success}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Gagal menyimpan audit log")
