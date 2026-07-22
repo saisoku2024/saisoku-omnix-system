@@ -1,10 +1,13 @@
+import io
+import logging
+import uuid
+import pandas as pd
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from app.core.security import require_admin_token
 from app.core.supabase import supabase
 from app.services.upload_service import UploadService
-import pandas as pd
-import uuid
-import io
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Upload"])
 
@@ -100,7 +103,7 @@ async def upload_file(
             resource=target_table,
             details={
                 "filename": file.filename,
-                "file_type": file_type,
+                "file_type": type,
                 "total_rows": total_rows,
                 "inserted_rows": inserted_rows,
             },
@@ -120,13 +123,13 @@ async def upload_file(
     except HTTPException as he:
         raise he
     except Exception as e:
-        print(f"UPLOAD ERROR: {str(e)}")
+        logger.error(f"UPLOAD ERROR: {str(e)}", exc_info=True)
         try:
             UploadService.update_upload_failed(
                 upload_id,
                 e,
             )
-        except:
-            pass
+        except Exception as fail_err:
+            logger.warning(f"Failed to record upload failure state: {fail_err}")
         status_code = 400 if isinstance(e, ValueError) else 500
         raise HTTPException(status_code=status_code, detail=str(e))

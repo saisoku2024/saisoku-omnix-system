@@ -1,6 +1,9 @@
 import json
+import logging
 from typing import Dict, Any, Optional
 from app.core.supabase import supabase
+
+logger = logging.getLogger(__name__)
 
 class AuditLogService:
     @staticmethod
@@ -25,7 +28,7 @@ class AuditLogService:
             supabase.table("audit_logs").insert(payload).execute()
             return True
         except Exception as e:
-            print(f"AUDIT LOG INSERT WARNING: {str(e)}")
+            logger.warning(f"AUDIT LOG INSERT WARNING: {str(e)}")
             return False
 
     @staticmethod
@@ -47,6 +50,6 @@ class AuditLogService:
         except Exception as e:
             err_msg = str(e)
             if "relation \"public.audit_logs\" does not exist" in err_msg or "42P01" in err_msg:
-                print("WARNING: Tabel public.audit_logs belum dibuat di Supabase SQL Editor.")
+                logger.warning("Tabel public.audit_logs belum dibuat di Supabase SQL Editor.")
                 return {"total": 0, "logs": [], "warning": "Tabel public.audit_logs belum dibuat di Supabase SQL Editor."}
             raise e

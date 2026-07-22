@@ -1,5 +1,8 @@
+import logging
 from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
+
+logger = logging.getLogger(__name__)
 
 
 def _rpc_json(data):
@@ -51,7 +54,7 @@ class OmnixService:
             }
 
         except Exception as e:
-            print(f"ERROR OMNIX SUMMARY: {e}")
+            logger.error(f"ERROR OMNIX SUMMARY: {e}", exc_info=True)
             return {
                 "total_ticket": 0,
                 "aht": "0m 0s",
@@ -65,12 +68,10 @@ class OmnixService:
     # =========================
     @staticmethod
     def get_daily(mode, period, year):
-        # SIVA FIX: Jika kuartal/tahun, paksa tarik 12 bulan (Jan-Dec) agar grafik utuh
         if mode in ["quarterly", "yearly"]:
             start = f"{year}-01-01"
             end = f"{int(year) + 1}-01-01"
         else:
-            # Mode bulanan tetap tarik aslinya agar menghasilkan harian (01-31)
             start, end = get_date_range(mode, period, year)
 
         try:
@@ -85,7 +86,7 @@ class OmnixService:
             ]
 
         except Exception as e:
-            print(f"ERROR OMNIX DAILY: {e}")
+            logger.error(f"ERROR OMNIX DAILY: {e}", exc_info=True)
             return []
 
     # =========================
@@ -107,7 +108,7 @@ class OmnixService:
             ]
 
         except Exception as e:
-            print(f"ERROR OMNIX HOURLY: {e}")
+            logger.error(f"ERROR OMNIX HOURLY: {e}", exc_info=True)
             return []
 
 
@@ -130,7 +131,7 @@ class OmnixService:
             ]
 
         except Exception as e:
-            print(f"ERROR OMNIX DAY: {e}")
+            logger.error(f"ERROR OMNIX DAY: {e}", exc_info=True)
             return []
 
 
@@ -153,7 +154,7 @@ class OmnixService:
             ]
 
         except Exception as e:
-            print(f"ERROR OMNIX CHANNEL: {e}")
+            logger.error(f"ERROR OMNIX CHANNEL: {e}", exc_info=True)
             return []
 
 
@@ -176,7 +177,7 @@ class OmnixService:
             ]
 
         except Exception as e:
-            print(f"ERROR OMNIX CATEGORY: {e}")
+            logger.error(f"ERROR OMNIX CATEGORY: {e}", exc_info=True)
             return []
 
 
@@ -228,11 +229,11 @@ class OmnixService:
             )
 
         except Exception as e:
-            print(f"ERROR OMNIX PRODUCT: {e}")
+            logger.error(f"ERROR OMNIX PRODUCT: {e}", exc_info=True)
             try:
                 return OmnixService._get_product_from_category(start, end)
             except Exception as fallback_error:
-                print(f"ERROR OMNIX PRODUCT FALLBACK: {fallback_error}")
+                logger.error(f"ERROR OMNIX PRODUCT FALLBACK: {fallback_error}", exc_info=True)
                 return []
 
 
@@ -241,7 +242,6 @@ class OmnixService:
     # =========================
     @staticmethod
     def get_customer(mode, period, year):
-        # SIVA FIX: Selalu tarik 1 tahun penuh agar sumbu X selalu berisi 12 Bulan (Jan - Dec)
         start = f"{year}-01-01"
         end = f"{int(year) + 1}-01-01"
 
@@ -257,7 +257,7 @@ class OmnixService:
             ]
 
         except Exception as e:
-            print(f"ERROR OMNIX CUSTOMERS: {e}")
+            logger.error(f"ERROR OMNIX CUSTOMERS: {e}", exc_info=True)
             return []
 
     # =========================
@@ -339,7 +339,7 @@ class OmnixService:
             }
 
         except Exception as e:
-            print(f"ERROR OMNIX MASTER ALL: {e}")
+            logger.error(f"ERROR OMNIX MASTER ALL: {e}", exc_info=True)
             return {
                 "summary": {
                     "total_ticket": 0,

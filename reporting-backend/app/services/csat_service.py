@@ -1,5 +1,8 @@
+import logging
 from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
+
+logger = logging.getLogger(__name__)
 
 class CsatService:
 
@@ -35,7 +38,7 @@ class CsatService:
             }
 
         except Exception as e:
-            print(f"ERROR CSAT MASTER ALL: {e}")
+            logger.error(f"ERROR CSAT MASTER ALL: {e}", exc_info=True)
             return {
                 "summary": {
                     "total_response": 0,

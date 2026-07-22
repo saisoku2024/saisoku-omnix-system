@@ -1,7 +1,10 @@
+import logging
 import os
 import uuid
 from typing import List, Dict, Any, Optional
 from app.core.supabase import supabase
+
+logger = logging.getLogger(__name__)
 
 class AdminUserService:
     @staticmethod
@@ -19,7 +22,7 @@ class AdminUserService:
         except Exception as e:
             err_msg = str(e)
             if "relation \"public.profiles\" does not exist" in err_msg or "42P01" in err_msg:
-                print("WARNING: Tabel public.profiles belum dibuat di Supabase SQL Editor.")
+                logger.warning("Tabel public.profiles belum dibuat di Supabase SQL Editor.")
                 return {"total": 0, "users": [], "warning": "Tabel public.profiles belum dibuat di Supabase."}
             raise e
 
@@ -50,7 +53,7 @@ class AdminUserService:
             if auth_response and auth_response.user:
                 user_id = auth_response.user.id
         except Exception as auth_err:
-            print(f"Auth Admin Create Warning: {str(auth_err)}")
+            logger.warning(f"Auth Admin Create Warning: {str(auth_err)}")
             # Fallback UUID jika Auth Create mengembalikan user already registered
             user_id = str(uuid.uuid4())
 
@@ -116,11 +119,11 @@ class AdminUserService:
         try:
             supabase.auth.admin.delete_user(user_id)
         except Exception as e:
-            print(f"Auth Admin Delete Warning: {str(e)}")
+            logger.warning(f"Auth Admin Delete Warning: {str(e)}")
 
         try:
             supabase.table("profiles").delete().eq("id", user_id).execute()
             return True
         except Exception as db_err:
-            print(f"DB Delete Profile Error: {str(db_err)}")
+            logger.error(f"DB Delete Profile Error: {str(db_err)}")
             return True

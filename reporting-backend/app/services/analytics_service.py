@@ -1,4 +1,7 @@
+import logging
 from app.core.supabase import supabase
+
+logger = logging.getLogger(__name__)
 
 
 def _rpc_json(data):
@@ -37,7 +40,7 @@ class AnalyticsService:
             }
 
         except Exception as e:
-            print(f"ERROR ANALYTICS OVERVIEW: {e}")
+            logger.error(f"ERROR ANALYTICS OVERVIEW: {e}", exc_info=True)
             return {
                 "total_case": 0,
                 "art_avg_sec": 0,

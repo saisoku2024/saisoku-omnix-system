@@ -1,5 +1,8 @@
+import logging
 from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
+
+logger = logging.getLogger(__name__)
 
 
 def _rpc_json(data):
@@ -72,7 +75,7 @@ class VoiceService:
             }
 
         except Exception as e:
-            print(f"ERROR VOICE SUMMARY: {e}")
+            logger.error(f"ERROR VOICE SUMMARY: {e}", exc_info=True)
             return {
                 "total_calls": 0,
                 "answered": 0,
@@ -103,7 +106,7 @@ class VoiceService:
             ]
 
         except Exception as e:
-            print(f"ERROR VOICE DAILY: {e}")
+            logger.error(f"ERROR VOICE DAILY: {e}", exc_info=True)
             return []
 
     # =========================================================
@@ -130,7 +133,7 @@ class VoiceService:
             ]
 
         except Exception as e:
-            print(f"ERROR VOICE HOURLY: {e}")
+            logger.error(f"ERROR VOICE HOURLY: {e}", exc_info=True)
             return []
 
     # =========================================================
@@ -177,7 +180,7 @@ class VoiceService:
             ]
 
         except Exception as e:
-            print(f"ERROR VOICE DAY: {e}")
+            logger.error(f"ERROR VOICE DAY: {e}", exc_info=True)
             return []
 
     # =========================================================
@@ -199,7 +202,7 @@ class VoiceService:
             ]
 
         except Exception as e:
-            print(f"ERROR VOICE AGENT HANDLING: {e}")
+            logger.error(f"ERROR VOICE AGENT HANDLING: {e}", exc_info=True)
             return []
 
     # =========================================================
@@ -221,7 +224,7 @@ class VoiceService:
             ]
 
         except Exception as e:
-            print(f"ERROR VOICE AGENT AHT: {e}")
+            logger.error(f"ERROR VOICE AGENT AHT: {e}", exc_info=True)
             return []
 
     # =========================================================
@@ -243,7 +246,7 @@ class VoiceService:
             ]
 
         except Exception as e:
-            print(f"ERROR VOICE AGENT AWT: {e}")
+            logger.error(f"ERROR VOICE AGENT AWT: {e}", exc_info=True)
             return []
 
     # =========================================================
@@ -265,7 +268,7 @@ class VoiceService:
             ]
 
         except Exception as e:
-            print(f"ERROR VOICE STATUS: {e}")
+            logger.error(f"ERROR VOICE STATUS: {e}", exc_info=True)
             return []
 
     # =========================================================
@@ -343,7 +346,7 @@ class VoiceService:
             }
 
         except Exception as e:
-            print(f"ERROR VOICE MASTER ALL: {e}")
+            logger.error(f"ERROR VOICE MASTER ALL: {e}", exc_info=True)
             return {
                 "summary": {
                     "total_calls": 0,

@@ -1,7 +1,10 @@
+import logging
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from app.core.supabase import supabase
+
+logger = logging.getLogger(__name__)
 
 
 DIGITAL_REPORT_DEFAULTS = {
@@ -166,7 +169,7 @@ class ReportService:
             }
 
         except Exception as e:
-            print(f"REPORT OPTIONS ERROR : {e}")
+            logger.error(f"REPORT OPTIONS ERROR : {e}", exc_info=True)
 
             return {
                 "report_types": [],
@@ -188,9 +191,7 @@ class ReportService:
         main_category,
     ):
         try:
-
             if report_type == "traffic_digital":
-
                 res = supabase.rpc(
                     "report_preview_digital_daily",
                     {
@@ -212,7 +213,6 @@ class ReportService:
                 ).execute()
 
             else:
-
                 res = supabase.rpc(
                     "report_preview_inbound_daily",
                     {
@@ -233,7 +233,7 @@ class ReportService:
             return res.data or []
 
         except Exception as e:
-            print(f"REPORT PREVIEW ERROR : {e}")
+            logger.error(f"REPORT PREVIEW ERROR : {e}", exc_info=True)
             return []
 
     # ==========================================
@@ -311,7 +311,7 @@ class ReportService:
             return output
 
         except Exception as e:
-            print(f"DIGITAL EXPORT ERROR : {e}")
+            logger.error(f"DIGITAL EXPORT ERROR : {e}", exc_info=True)
             return []
 
     # ==========================================
@@ -360,5 +360,5 @@ class ReportService:
             return result
 
         except Exception as e:
-            print(f"VOICE EXPORT ERROR : {e}")
+            logger.error(f"VOICE EXPORT ERROR : {e}", exc_info=True)
             return []

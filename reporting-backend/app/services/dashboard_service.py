@@ -1,5 +1,8 @@
+import logging
 from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
+
+logger = logging.getLogger(__name__)
 
 
 def _rpc_json(data):
@@ -95,7 +98,7 @@ def get_dashboard_summary(mode: str, period: str, year: int):
         }
 
     except Exception as e:
-        print(f"ERROR SUMMARY SQL: {e}")
+        logger.error(f"ERROR SUMMARY SQL: {e}", exc_info=True)
 
         return {
             "total_ticket": "0",
@@ -135,7 +138,7 @@ def get_dashboard_trend(mode, period, year):
         return res.data or []
 
     except Exception as e:
-        print(f"ERROR TREND SQL ({mode}): {e}")
+        logger.error(f"ERROR TREND SQL ({mode}): {e}", exc_info=True)
         return []
 
 
@@ -160,7 +163,7 @@ def get_dashboard_by_channel(mode, period, year):
         ]
 
     except Exception as e:
-        print(f"ERROR CHANNEL SQL: {e}")
+        logger.error(f"ERROR CHANNEL SQL: {e}", exc_info=True)
         return []
 
 
@@ -185,7 +188,7 @@ def get_dashboard_by_category(mode, period, year):
         ]
 
     except Exception as e:
-        print(f"ERROR CATEGORY SQL: {e}")
+        logger.error(f"ERROR CATEGORY SQL: {e}", exc_info=True)
         return []
 
 
@@ -211,7 +214,7 @@ def get_dashboard_by_brand(mode, period, year):
         ]
 
     except Exception as e:
-        print(f"ERROR BRAND SQL: {e}")
+        logger.error(f"ERROR BRAND SQL: {e}", exc_info=True)
         return []
 
 
@@ -245,7 +248,7 @@ def get_dashboard_customer_summary(mode, period, year):
         }
 
     except Exception as e:
-        print(f"ERROR CUSTOMER SUMMARY SQL: {e}")
+        logger.error(f"ERROR CUSTOMER SUMMARY SQL: {e}", exc_info=True)
 
         return {
             "customer": {
@@ -330,7 +333,7 @@ def get_dashboard_all(mode, period, year):
         }
 
     except Exception as e:
-        print(f"ERROR DASHBOARD ALL: {e}")
+        logger.error(f"ERROR DASHBOARD ALL: {e}", exc_info=True)
         return {
             "summary": {
                 "total_ticket": "0",
@@ -357,5 +360,5 @@ def get_dashboard_years():
         return res.data if res.data else [2026]
 
     except Exception as e:
-        print(f"ERROR YEARS SQL: {e}")
+        logger.error(f"ERROR YEARS SQL: {e}", exc_info=True)
         return [2026]
