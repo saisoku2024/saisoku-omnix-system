@@ -1,3 +1,4 @@
+import base64
 import io
 import logging
 import os
@@ -18,6 +19,7 @@ DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2"
 EMBEDDING_DIMENSION = 768
 MAX_KB_FILE_SIZE_BYTES = 10 * 1024 * 1024
+MIN_EXTRACTED_TEXT_CHARS = 20
 
 
 def _gemini_api_key() -> str:
@@ -98,6 +100,47 @@ def _extract_pdf(content: bytes) -> str:
     return "\n\n".join(pages)
 
 
+def _extract_pdf_with_gemini_ocr(content: bytes) -> str:
+    key = _gemini_api_key()
+    model = _chat_model()
+    encoded_pdf = base64.b64encode(content).decode("ascii")
+    prompt = (
+        "Transkripsikan teks dari PDF ini untuk knowledge base RAG. "
+        "Baca juga halaman scan/gambar dengan OCR. "
+        "Kembalikan hanya teks dokumen yang terbaca, pertahankan heading, tabel sederhana, "
+        "nomor langkah, dan FAQ jika ada. Jangan membuat ringkasan atau menambah informasi."
+    )
+    response = requests.post(
+        f"{GEMINI_API_BASE}/models/{model}:generateContent",
+        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+        json={
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt},
+                        {
+                            "inlineData": {
+                                "mimeType": "application/pdf",
+                                "data": encoded_pdf,
+                            }
+                        },
+                    ]
+                }
+            ]
+        },
+        timeout=120,
+    )
+    if not response.ok:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Gemini PDF OCR request failed: {response.text[:300]}",
+        )
+    candidates = response.json().get("candidates") or []
+    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+    return _clean_text(text)
+
+
 def _extract_docx(content: bytes) -> str:
     try:
         from docx import Document
@@ -126,7 +169,10 @@ def _extract_spreadsheet(content: bytes, filename: str) -> str:
 def extract_document_text(content: bytes, filename: str, content_type: str | None) -> str:
     lower_name = filename.lower()
     if lower_name.endswith(".pdf") or content_type == "application/pdf":
-        return _clean_text(_extract_pdf(content))
+        extracted_text = _clean_text(_extract_pdf(content))
+        if len(extracted_text) >= MIN_EXTRACTED_TEXT_CHARS:
+            return extracted_text
+        return _extract_pdf_with_gemini_ocr(content)
     if lower_name.endswith(".docx"):
         return _clean_text(_extract_docx(content))
     if lower_name.endswith((".xlsx", ".xls", ".csv")):
@@ -262,7 +308,7 @@ class KnowledgeService:
                     status_code=400,
                     detail=f"Gagal membaca dokumen knowledge base: {str(exc)[:300]}",
                 ) from exc
-            if len(text) < 20:
+            if len(text) < MIN_EXTRACTED_TEXT_CHARS:
                 raise HTTPException(status_code=400, detail="Dokumen terlalu kosong untuk diproses sebagai knowledge base.")
 
             chunks = _chunk_text(text)

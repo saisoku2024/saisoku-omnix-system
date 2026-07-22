@@ -228,7 +228,7 @@ export default function KnowledgeBasePage() {
               AI Knowledge Base
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-(--c-muted)">
-              Upload SOP, FAQ, product guide, dan policy CS untuk dipakai sebagai sumber jawaban RAG.
+              Upload SOP, FAQ, product guide, dan policy CS untuk dipakai sebagai sumber jawaban RAG. PDF scan kecil akan dibaca dengan OCR Gemini.
             </p>
           </div>
           <div className="rounded-xl border border-(--c-border) bg-(--c-surface) px-4 py-3 text-xs text-(--c-muted)">
@@ -287,7 +287,7 @@ export default function KnowledgeBasePage() {
                     className="mt-1 block w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs text-(--c-text) disabled:opacity-50"
                   />
                   <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
-                    Batas aman upload dashboard: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.
+                    Batas aman upload dashboard: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}. PDF scan didukung selama ukurannya masih aman.
                   </span>
                 </label>
                 <button
