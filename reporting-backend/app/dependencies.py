@@ -1,7 +1,7 @@
 import os
 import jwt
 from datetime import datetime, timezone, timedelta
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from app.core.supabase import supabase
 
 # --- Environment Variables (NO hardcoded defaults) ---
@@ -11,12 +11,12 @@ JWT_ALGORITHM = "HS256"
 # UUID for the seeded Super Admin profile (must match migration seed)
 ADMIN_PROFILE_UUID = "00000000-0000-0000-0000-000000000001"
 
-def get_current_user(token: str = Depends(lambda: None)):
+def get_current_user(authorization: str | None = Header(default=None)):
     """Decode JWT token, fetch user profile from Supabase and attach role.
     The token is expected to be passed via the Authorization header as
     ``Bearer <jwt>``. If the token is missing or invalid, a 401 error is raised.
     """
-    if not token:
+    if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
 
     if not JWT_SECRET_KEY:
@@ -26,8 +26,9 @@ def get_current_user(token: str = Depends(lambda: None)):
         )
 
     # Strip possible "Bearer " prefix
+    token = authorization
     if token.lower().startswith("bearer "):
-        token = token[7:]
+        token = token[7:].strip()
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError:

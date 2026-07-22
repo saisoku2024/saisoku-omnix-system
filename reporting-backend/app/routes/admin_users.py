@@ -1,6 +1,4 @@
-import os
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException
 from app.schemas.admin_user import (
     UserCreateRequest,
     UserUpdateRequest,
@@ -11,8 +9,7 @@ from app.services.admin_user_service import AdminUserService
 
 from app.services.audit_log_service import AuditLogService
 
-from app.dependencies import requires_permission, get_current_user
-ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN")
+from app.core.security import require_admin_token
 
 router = APIRouter(
     prefix="/admin/users",
@@ -21,7 +18,7 @@ router = APIRouter(
 
 
 
-@router.get("", response_model=UserListResponse, dependencies=[Depends(requires_permission("manage_users"))])
+@router.get("", response_model=UserListResponse, dependencies=[Depends(require_admin_token)])
 def get_user_list():
     try:
         data = AdminUserService.list_users()
@@ -29,7 +26,7 @@ def get_user_list():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("", response_model=UserProfileResponse, dependencies=[Depends(requires_permission("manage_users"))])
+@router.post("", response_model=UserProfileResponse, dependencies=[Depends(require_admin_token)])
 def create_new_user(payload: UserCreateRequest):
     try:
         user = AdminUserService.create_user(
@@ -51,7 +48,7 @@ def create_new_user(payload: UserCreateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.patch("/{user_id}", response_model=UserProfileResponse, dependencies=[Depends(requires_permission("manage_users"))])
+@router.patch("/{user_id}", response_model=UserProfileResponse, dependencies=[Depends(require_admin_token)])
 def update_user_role_or_profile(user_id: str, payload: UserUpdateRequest):
     try:
         updated = AdminUserService.update_user_role(
@@ -72,7 +69,7 @@ def update_user_role_or_profile(user_id: str, payload: UserUpdateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/{user_id}", dependencies=[Depends(requires_permission("manage_users"))])
+@router.delete("/{user_id}", dependencies=[Depends(require_admin_token)])
 def delete_user_account(user_id: str):
     try:
         AdminUserService.delete_user(user_id)

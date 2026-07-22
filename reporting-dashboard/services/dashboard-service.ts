@@ -1,4 +1,3 @@
-import { apiUrl } from "@/lib/api"
 import type {
   BrandItem,
   CategoryItem,
@@ -8,8 +7,8 @@ import type {
   TrendItem,
 } from "@/features/dashboard/types/dashboard"
 
-const DASHBOARD_API = apiUrl("/api/dashboard")
-const CSAT_API = apiUrl("/api/csat")
+const DASHBOARD_API = "/api/backend/dashboard"
+const CSAT_API = "/api/backend/csat"
 const EMPTY_STATS: StatsData = {
   total_ticket: "-",
   aht: "-",

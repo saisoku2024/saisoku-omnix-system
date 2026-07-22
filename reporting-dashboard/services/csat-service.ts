@@ -1,4 +1,3 @@
-import { apiUrl } from "@/lib/api"
 import type {
   AgentAvg,
   AgentTotal,
@@ -9,7 +8,7 @@ import type {
 } from "@/features/csat/types/csat"
 import { buildPeriodQuery } from "@/services/period"
 
-const CSAT_API = apiUrl("/api/csat")
+const CSAT_API = "/api/backend/csat"
 const EMPTY_SUMMARY: SummaryData = {
   total_response: 0,
   high_score: 0,

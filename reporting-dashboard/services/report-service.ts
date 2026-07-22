@@ -1,11 +1,10 @@
-import { apiUrl } from "@/lib/api"
 import type {
   ExportRequest,
   PreviewRequest,
   ReportOptions,
 } from "@/features/report/types/report"
 
-const REPORT_API = apiUrl("/api/reports")
+const REPORT_API = "/api/backend/reports"
 const BFF_REPORT_EXPORT_API = "/api/backend/reports/export"
 
 export interface ExportFileResponse {

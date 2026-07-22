@@ -1,4 +1,3 @@
-import { apiUrl } from "@/lib/api"
 import type {
   CustomerData,
   ModeType,
@@ -11,7 +10,7 @@ import type {
 import { buildPeriodQuery } from "@/services/period"
 import { MONTHS } from "@/features/omnix/constants"
 
-const OMNIX_API = apiUrl("/api/omnix")
+const OMNIX_API = "/api/backend/omnix"
 const EMPTY_SUMMARY: SummaryData = {
   total_ticket: 0,
   aht: "0m 0s",

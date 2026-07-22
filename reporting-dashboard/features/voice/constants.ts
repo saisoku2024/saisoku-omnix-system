@@ -1,6 +1,4 @@
-import { apiUrl } from "@/lib/api"
-
-export const API_BASE = apiUrl("/api/voice")
+export const API_BASE = "/api/backend/voice"
 
 export const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",

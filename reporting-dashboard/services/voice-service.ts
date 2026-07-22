@@ -1,4 +1,3 @@
-import { apiUrl } from "@/lib/api"
 import type {
   AgentHandling,
   AgentMetric,
@@ -12,7 +11,7 @@ import type {
 import { buildPeriodQuery } from "@/services/period"
 import { HOURS, MONTHS } from "@/features/voice/constants"
 
-const VOICE_API = apiUrl("/api/voice")
+const VOICE_API = "/api/backend/voice"
 const EMPTY_SUMMARY: SummaryData = {
   total_calls: 0,
   answered: 0,

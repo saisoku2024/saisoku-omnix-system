@@ -22,8 +22,10 @@ class AuditLogCreateRequest(BaseModel):
 def verify_admin_access(x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
     """Verify admin token using constant-time comparison to prevent timing attacks."""
     if not ADMIN_API_TOKEN:
-        # Token not configured — skip validation (development mode)
-        return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin API token is not configured",
+        )
     if not x_admin_token or not secrets.compare_digest(x_admin_token, ADMIN_API_TOKEN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

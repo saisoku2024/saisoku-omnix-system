@@ -11,7 +11,7 @@ const DEMO_GUEST_EMAIL = (process.env.DEMO_GUEST_EMAIL || "guest@omnix.com")
   .trim()
   .toLowerCase()
 const DEMO_GUEST_PASSWORD = process.env.DEMO_GUEST_PASSWORD
-const ENABLE_DEMO_GUEST = process.env.ENABLE_DEMO_GUEST === "true"
+const ENABLE_DEMO_GUEST = process.env.ENABLE_DEMO_GUEST !== "false"
 
 export async function POST(request: Request) {
   const expectedPassword = process.env.ADMIN_UI_PASSWORD

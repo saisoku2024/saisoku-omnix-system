@@ -1,5 +1,3 @@
-import { apiUrl } from "@/lib/api"
-import { adminHeaders } from "@/lib/admin-api"
 import type {
   CleanupPreviewRequest,
   CleanupPreviewResponse,
@@ -7,7 +5,7 @@ import type {
   CleanupSoftDeleteResponse,
 } from "@/features/data-cleanup/types/cleanup"
 
-const CLEANUP_API = apiUrl("/api/cleanup")
+const CLEANUP_API = "/api/backend/cleanup"
 
 async function handleJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {

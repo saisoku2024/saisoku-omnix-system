@@ -1,6 +1,4 @@
-import { apiUrl } from "@/lib/api"
-
-export const API_BASE = apiUrl("/api/omnix")
+export const API_BASE = "/api/backend/omnix"
 
 export const MONTHS = [
   "Jan",

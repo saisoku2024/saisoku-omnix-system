@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react"
 
-import { apiUrl } from "@/lib/api"
-
 const IconTicket = () => (
   <svg
     width="18"
@@ -207,7 +205,7 @@ export default function PrincipalReportPage() {
     }
   }, [])
 
-  const principalApi = apiUrl("/api/principal-report")
+  const principalApi = "/api/backend/principal-report"
 
   const validateDates = () => {
     if (startDate > endDate) {
