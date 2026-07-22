@@ -13,6 +13,7 @@ from app.routes import (
     cleanup,
     report,          # ✅ Router report ditambahkan
     auth,            # ✅ Router auth ditambahkan
+    knowledge,
 )
 
 # Principal Report
@@ -56,6 +57,7 @@ app.include_router(csat.router, prefix="/api")
 app.include_router(omnix.router, prefix="/api")
 app.include_router(cleanup.router, prefix="/api")
 app.include_router(report.router, prefix="/api")      # ✅ Router report diinclude
+app.include_router(knowledge.router, prefix="/api")
 app.include_router(principal_router, prefix="/api")
 app.include_router(auth.router, prefix="/api")         # ✅ Router auth diinclude
 app.include_router(admin_users_router, prefix="/api")  # ✅ Router Admin Users (Management System)

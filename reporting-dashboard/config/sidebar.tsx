@@ -2,6 +2,7 @@ import {
   ActivityIcon,
   AudioLinesIcon,
   BotIcon,
+  BookOpenIcon,
   FileSpreadsheetIcon,
   PieChartIcon,
   ShieldCheckIcon,
@@ -60,6 +61,18 @@ export const sidebarMenu: SidebarMenuItem[] = [
         title: "Custom Report Builder",
         url: "/reports/custom_report_builder",
         icon: <FileSpreadsheetIcon />,
+      },
+    ],
+  },
+  {
+    title: "AI Workspace",
+    url: "#",
+    icon: <BotIcon />,
+    items: [
+      {
+        title: "Knowledge Base",
+        url: "/ai/knowledge-base",
+        icon: <BookOpenIcon />,
       },
     ],
   },

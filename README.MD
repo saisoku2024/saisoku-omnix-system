@@ -45,6 +45,9 @@ ADMIN_API_TOKEN=
 ADMIN_USERNAME=
 ADMIN_PASSWORD=
 JWT_SECRET_KEY=
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 ```
 
 Backend akan gagal start jika `SUPABASE_URL` atau `SUPABASE_SERVICE_ROLE_KEY`
@@ -72,6 +75,9 @@ AUTH_SESSION_SECRET=
 backend. Server route Next.js memakai token ini saat mem-proxy request ke
 FastAPI.
 
+Fitur `AI Knowledge Base` memakai Gemini API dari backend. Simpan
+`GEMINI_API_KEY` hanya di Render/backend, bukan di browser.
+
 ## URL Lokal
 
 - Frontend: `http://localhost:3000`
@@ -89,6 +95,10 @@ FastAPI.
 - Halaman dashboard dilindungi auth UI berbasis cookie:
   - Vercel: `ADMIN_UI_PASSWORD`
   - Vercel: `AUTH_SESSION_SECRET`
+- AI Knowledge Base:
+  - Render: `GEMINI_API_KEY`
+  - Render: `GEMINI_MODEL`
+  - Render: `GEMINI_EMBEDDING_MODEL`
 - Setelah mengubah environment variable di Vercel atau Render, lakukan redeploy
   atau restart service agar runtime memakai nilai terbaru.
 

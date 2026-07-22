@@ -23,6 +23,9 @@ ADMIN_API_TOKEN=use-a-long-random-token
 ADMIN_USERNAME=use-a-private-admin-username
 ADMIN_PASSWORD=use-a-strong-admin-password
 JWT_SECRET_KEY=use-a-different-long-random-jwt-secret
+GEMINI_API_KEY=use-your-google-ai-studio-api-key
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 ```
 
 Required runtime:
@@ -34,6 +37,10 @@ PYTHON_VERSION=3.11.9
 The backend fails fast when `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` is
 missing. If `/health` does not come up after deploy, check the Render environment
 variables before debugging application data.
+
+`GEMINI_API_KEY` is required only for AI Knowledge Base ingestion and query. The
+rest of the backend can still run without calling Gemini routes, but those routes
+return `503` until the key is configured.
 
 ## After Deploy
 
