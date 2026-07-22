@@ -1,6 +1,6 @@
 import os
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from app.schemas.admin_user import (
     UserCreateRequest,
     UserUpdateRequest,
