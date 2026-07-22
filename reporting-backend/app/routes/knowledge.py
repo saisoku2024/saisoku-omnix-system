@@ -16,6 +16,11 @@ class KnowledgeQueryRequest(BaseModel):
     match_count: int = Field(6, ge=1, le=12)
 
 
+class KnowledgeTextRequest(BaseModel):
+    title: str = Field(..., min_length=3, max_length=180)
+    text: str = Field(..., min_length=20, max_length=50000)
+
+
 @router.get("/documents")
 def list_documents():
     return KnowledgeService.list_documents()
@@ -36,6 +41,22 @@ async def upload_knowledge_document(
         upload.get("source_file"),
         upload.get("content_type"),
         upload["title"],
+    )
+    return upload
+
+
+@router.post("/text")
+def add_manual_knowledge_text(
+    payload: KnowledgeTextRequest,
+    background_tasks: BackgroundTasks,
+):
+    upload = KnowledgeService.prepare_manual_text(payload.title, payload.text)
+    text = upload.pop("text")
+    background_tasks.add_task(
+        KnowledgeService.process_manual_text,
+        upload["document_id"],
+        upload["title"],
+        text,
     )
     return upload
 

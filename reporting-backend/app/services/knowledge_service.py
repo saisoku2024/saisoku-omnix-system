@@ -292,24 +292,14 @@ class KnowledgeService:
         }
 
     @staticmethod
-    def process_upload(
+    def _process_text_content(
         document_id: str,
-        content: bytes,
-        filename: str | None,
-        content_type: str | None,
         document_title: str,
+        text: str,
         user_email: str = "admin@omnix.com",
     ) -> None:
         try:
-            try:
-                text = extract_document_text(content, filename or document_title, content_type)
-            except HTTPException:
-                raise
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Gagal membaca dokumen knowledge base: {str(exc)[:300]}",
-                ) from exc
+            text = _clean_text(text)
             if len(text) < MIN_EXTRACTED_TEXT_CHARS:
                 raise HTTPException(status_code=400, detail="Dokumen terlalu kosong untuk diproses sebagai knowledge base.")
 
@@ -344,7 +334,6 @@ class KnowledgeService:
                 user_role="super_admin",
                 details={"document_id": document_id, "title": document_title, "chunks": len(rows)},
             )
-            return {"success": True, "document_id": document_id, "title": document_title, "chunk_count": len(rows)}
         except Exception as exc:
             logger.error("Knowledge ingestion failed", exc_info=True)
             error_summary = exc.detail if isinstance(exc, HTTPException) else str(exc)
@@ -354,6 +343,79 @@ class KnowledgeService:
                 .eq("id", document_id)
                 .execute()
             )
+
+    @staticmethod
+    def process_upload(
+        document_id: str,
+        content: bytes,
+        filename: str | None,
+        content_type: str | None,
+        document_title: str,
+        user_email: str = "admin@omnix.com",
+    ) -> None:
+        try:
+            try:
+                text = extract_document_text(content, filename or document_title, content_type)
+            except HTTPException:
+                raise
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Gagal membaca dokumen knowledge base: {str(exc)[:300]}",
+                ) from exc
+            KnowledgeService._process_text_content(document_id, document_title, text, user_email)
+        except Exception as exc:
+            logger.error("Knowledge ingestion failed", exc_info=True)
+            error_summary = exc.detail if isinstance(exc, HTTPException) else str(exc)
+            (
+                supabase.table("knowledge_documents")
+                .update({"status": "failed", "error_summary": str(error_summary)[:500]})
+                .eq("id", document_id)
+                .execute()
+            )
+
+    @staticmethod
+    def prepare_manual_text(title: str, text: str, user_email: str = "admin@omnix.com") -> Dict[str, Any]:
+        document_title = title.strip()
+        cleaned_text = _clean_text(text)
+        if len(document_title) < 3:
+            raise HTTPException(status_code=400, detail="Judul knowledge manual minimal 3 karakter.")
+        if len(cleaned_text) < MIN_EXTRACTED_TEXT_CHARS:
+            raise HTTPException(status_code=400, detail="Teks knowledge manual terlalu pendek.")
+
+        doc_res = (
+            supabase.table("knowledge_documents")
+            .insert(
+                {
+                    "title": document_title,
+                    "source_file": "manual:text",
+                    "mime_type": "text/plain",
+                    "status": "processing",
+                    "created_by": user_email,
+                }
+            )
+            .execute()
+        )
+        document = (doc_res.data or [None])[0]
+        if not document:
+            raise HTTPException(status_code=500, detail="Gagal membuat manual knowledge document.")
+
+        return {
+            "success": True,
+            "document_id": document["id"],
+            "title": document_title,
+            "status": "processing",
+            "text": cleaned_text,
+        }
+
+    @staticmethod
+    def process_manual_text(
+        document_id: str,
+        document_title: str,
+        text: str,
+        user_email: str = "admin@omnix.com",
+    ) -> None:
+        KnowledgeService._process_text_content(document_id, document_title, text, user_email)
 
     @staticmethod
     def query(question: str, match_count: int = 6) -> Dict[str, Any]:

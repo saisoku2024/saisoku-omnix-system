@@ -8,6 +8,7 @@ import {
   Loader2Icon,
   SearchIcon,
   SendIcon,
+  TypeIcon,
   UploadIcon,
 } from "lucide-react"
 
@@ -40,6 +41,7 @@ interface KnowledgeAnswer {
 
 const DOCUMENT_API = "/api/backend/knowledge/documents"
 const UPLOAD_API = "/api/backend/knowledge/upload"
+const TEXT_API = "/api/backend/knowledge/text"
 const QUERY_API = "/api/backend/knowledge/query"
 const MAX_UPLOAD_FILE_SIZE_BYTES = 4 * 1024 * 1024
 
@@ -80,9 +82,12 @@ export default function KnowledgeBasePage() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
   const [loadingDocuments, setLoadingDocuments] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [addingText, setAddingText] = useState(false)
   const [asking, setAsking] = useState(false)
   const [title, setTitle] = useState("")
   const [file, setFile] = useState<File | null>(null)
+  const [manualTitle, setManualTitle] = useState("")
+  const [manualText, setManualText] = useState("")
   const [question, setQuestion] = useState("")
   const [answer, setAnswer] = useState<KnowledgeAnswer | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -199,6 +204,47 @@ export default function KnowledgeBasePage() {
       setError(err instanceof Error ? err.message : "Gagal upload knowledge document")
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleAddText = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!isAdmin) return
+
+    const cleanTitle = manualTitle.trim()
+    const cleanText = manualText.trim()
+    if (cleanTitle.length < 3) {
+      setError("Judul manual knowledge minimal 3 karakter.")
+      setSuccess(null)
+      return
+    }
+    if (cleanText.length < 20) {
+      setError("Isi manual knowledge minimal 20 karakter.")
+      setSuccess(null)
+      return
+    }
+
+    setAddingText(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const response = await fetch(TEXT_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: cleanTitle, text: cleanText }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(readError(data, "Gagal menambahkan manual knowledge"))
+      }
+      setSuccess(`Manual knowledge diproses: ${data.title || cleanTitle}`)
+      setManualTitle("")
+      setManualText("")
+      await loadDocuments()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menambahkan manual knowledge")
+    } finally {
+      setAddingText(false)
     }
   }
 
@@ -320,6 +366,48 @@ export default function KnowledgeBasePage() {
                 >
                   {uploading ? <Loader2Icon size={14} className="animate-spin" /> : <UploadIcon size={14} />}
                   {isAdmin ? "Ingest Knowledge" : "Guest read-only"}
+                </button>
+              </div>
+            </form>
+
+            <form onSubmit={handleAddText} className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <TypeIcon size={16} className="text-(--c-accent)" />
+                <h2 className="text-base font-bold">Add Text Manual</h2>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold text-(--c-muted)">
+                  Judul knowledge
+                  <input
+                    value={manualTitle}
+                    onChange={(event) => setManualTitle(event.target.value)}
+                    disabled={!isAdmin || addingText}
+                    placeholder="Contoh: Product Knowledge YONIEV"
+                    className="mt-1 h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-(--c-muted)">
+                  Isi knowledge
+                  <textarea
+                    value={manualText}
+                    onChange={(event) => setManualText(event.target.value)}
+                    disabled={!isAdmin || addingText}
+                    placeholder="Paste FAQ, spesifikasi produk, SOP, policy CS, atau catatan training di sini..."
+                    rows={8}
+                    className="mt-1 w-full resize-y rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs leading-5 text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
+                  />
+                  <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
+                    Cocok untuk product knowledge singkat, FAQ, dan catatan training tanpa file.
+                  </span>
+                </label>
+                <button
+                  type="submit"
+                  disabled={!isAdmin || addingText || manualTitle.trim().length < 3 || manualText.trim().length < 20}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {addingText ? <Loader2Icon size={14} className="animate-spin" /> : <TypeIcon size={14} />}
+                  {isAdmin ? "Add Manual Text" : "Guest read-only"}
                 </button>
               </div>
             </form>
