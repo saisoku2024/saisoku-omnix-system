@@ -93,6 +93,10 @@ export default function KnowledgeBasePage() {
     () => documents.filter((document) => document.status === "ready"),
     [documents]
   )
+  const processingDocuments = useMemo(
+    () => documents.filter((document) => document.status === "processing"),
+    [documents]
+  )
 
   const loadDocuments = async () => {
     setLoadingDocuments(true)
@@ -149,6 +153,16 @@ export default function KnowledgeBasePage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (processingDocuments.length === 0) return
+
+    const pollId = window.setInterval(() => {
+      void loadDocuments()
+    }, 5000)
+
+    return () => window.clearInterval(pollId)
+  }, [processingDocuments.length])
+
   const handleUpload = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!isAdmin || !file) return
@@ -191,6 +205,15 @@ export default function KnowledgeBasePage() {
   const handleAsk = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!question.trim()) return
+    if (readyDocuments.length === 0) {
+      setAnswer(null)
+      setError(
+        processingDocuments.length > 0
+          ? "Knowledge document masih diproses. Tunggu status berubah menjadi ready, lalu tanya lagi."
+          : "Belum ada knowledge document yang ready untuk ditanya."
+      )
+      return
+    }
 
     setAsking(true)
     setError(null)
@@ -307,7 +330,10 @@ export default function KnowledgeBasePage() {
                   <BookOpenIcon size={16} className="text-(--c-accent)" />
                   <h2 className="text-base font-bold">Documents</h2>
                 </div>
-                <span className="text-xs text-(--c-muted)">{readyDocuments.length} ready</span>
+                <span className="text-xs text-(--c-muted)">
+                  {readyDocuments.length} ready
+                  {processingDocuments.length > 0 ? ` | ${processingDocuments.length} processing` : ""}
+                </span>
               </div>
               {loadingDocuments ? (
                 <div className="flex h-28 items-center justify-center gap-2 text-sm text-(--c-muted)">
@@ -353,13 +379,18 @@ export default function KnowledgeBasePage() {
                 <input
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
-                  placeholder="Tanya SOP, FAQ, product guide, atau policy CS..."
-                  className="h-11 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) pl-9 pr-3 text-sm text-(--c-text) outline-none focus:border-(--c-accent)"
+                  disabled={readyDocuments.length === 0}
+                  placeholder={
+                    readyDocuments.length > 0
+                      ? "Tanya SOP, FAQ, product guide, atau policy CS..."
+                      : "Tunggu knowledge document selesai diproses..."
+                  }
+                  className="h-11 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) pl-9 pr-3 text-sm text-(--c-text) outline-none focus:border-(--c-accent) disabled:opacity-50"
                 />
               </div>
               <button
                 type="submit"
-                disabled={asking || !question.trim()}
+                disabled={asking || !question.trim() || readyDocuments.length === 0}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-5 text-sm font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {asking ? <Loader2Icon size={15} className="animate-spin" /> : <SendIcon size={15} />}
