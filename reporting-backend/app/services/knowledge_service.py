@@ -210,28 +210,12 @@ class KnowledgeService:
         return {"total": len(documents), "documents": documents}
 
     @staticmethod
-    async def ingest_upload(file: UploadFile, title: str | None, user_email: str = "admin@omnix.com") -> Dict[str, Any]:
+    async def prepare_upload(file: UploadFile, title: str | None, user_email: str = "admin@omnix.com") -> Dict[str, Any]:
         content = await file.read()
         if len(content) > MAX_KB_FILE_SIZE_BYTES:
             raise HTTPException(status_code=413, detail="Ukuran dokumen knowledge base maksimal 10MB.")
 
         document_title = (title or file.filename or "Untitled Knowledge Document").strip()
-        try:
-            text = extract_document_text(content, file.filename or document_title, file.content_type)
-        except HTTPException:
-            raise
-        except Exception as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Gagal membaca dokumen knowledge base: {str(exc)[:300]}",
-            ) from exc
-        if len(text) < 20:
-            raise HTTPException(status_code=400, detail="Dokumen terlalu kosong untuk diproses sebagai knowledge base.")
-
-        chunks = _chunk_text(text)
-        if not chunks:
-            raise HTTPException(status_code=400, detail="Dokumen tidak menghasilkan chunk knowledge base.")
-
         doc_res = (
             supabase.table("knowledge_documents")
             .insert(
@@ -248,9 +232,43 @@ class KnowledgeService:
         document = (doc_res.data or [None])[0]
         if not document:
             raise HTTPException(status_code=500, detail="Gagal membuat knowledge document.")
-        document_id = document["id"]
 
+        return {
+            "success": True,
+            "document_id": document["id"],
+            "title": document_title,
+            "status": "processing",
+            "source_file": file.filename,
+            "content_type": file.content_type,
+            "content": content,
+        }
+
+    @staticmethod
+    def process_upload(
+        document_id: str,
+        content: bytes,
+        filename: str | None,
+        content_type: str | None,
+        document_title: str,
+        user_email: str = "admin@omnix.com",
+    ) -> None:
         try:
+            try:
+                text = extract_document_text(content, filename or document_title, content_type)
+            except HTTPException:
+                raise
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Gagal membaca dokumen knowledge base: {str(exc)[:300]}",
+                ) from exc
+            if len(text) < 20:
+                raise HTTPException(status_code=400, detail="Dokumen terlalu kosong untuk diproses sebagai knowledge base.")
+
+            chunks = _chunk_text(text)
+            if not chunks:
+                raise HTTPException(status_code=400, detail="Dokumen tidak menghasilkan chunk knowledge base.")
+
             rows = []
             for index, chunk in enumerate(chunks):
                 embedding = _embed_text(chunk, title=document_title, is_query=False)
@@ -281,13 +299,13 @@ class KnowledgeService:
             return {"success": True, "document_id": document_id, "title": document_title, "chunk_count": len(rows)}
         except Exception as exc:
             logger.error("Knowledge ingestion failed", exc_info=True)
+            error_summary = exc.detail if isinstance(exc, HTTPException) else str(exc)
             (
                 supabase.table("knowledge_documents")
-                .update({"status": "failed", "error_summary": str(exc)[:500]})
+                .update({"status": "failed", "error_summary": str(error_summary)[:500]})
                 .eq("id", document_id)
                 .execute()
             )
-            raise
 
     @staticmethod
     def query(question: str, match_count: int = 6) -> Dict[str, Any]:

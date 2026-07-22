@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.security import require_admin_token
@@ -23,10 +23,21 @@ def list_documents():
 
 @router.post("/upload")
 async def upload_knowledge_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: str | None = Form(default=None),
 ):
-    return await KnowledgeService.ingest_upload(file=file, title=title)
+    upload = await KnowledgeService.prepare_upload(file=file, title=title)
+    content = upload.pop("content")
+    background_tasks.add_task(
+        KnowledgeService.process_upload,
+        upload["document_id"],
+        content,
+        upload.get("source_file"),
+        upload.get("content_type"),
+        upload["title"],
+    )
+    return upload
 
 
 @router.post("/query")

@@ -41,6 +41,12 @@ interface KnowledgeAnswer {
 const DOCUMENT_API = "/api/backend/knowledge/documents"
 const UPLOAD_API = "/api/backend/knowledge/upload"
 const QUERY_API = "/api/backend/knowledge/query"
+const MAX_UPLOAD_FILE_SIZE_BYTES = 4 * 1024 * 1024
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
 
 function formatDate(value?: string) {
   if (!value) return "-"
@@ -87,12 +93,6 @@ export default function KnowledgeBasePage() {
     () => documents.filter((document) => document.status === "ready"),
     [documents]
   )
-
-  const loadSession = async () => {
-    const response = await fetch("/api/auth/session", { cache: "no-store" })
-    const data = (await response.json().catch(() => ({}))) as { role?: SessionRole }
-    setSessionRole(data.role ?? null)
-  }
 
   const loadDocuments = async () => {
     setLoadingDocuments(true)
@@ -152,6 +152,14 @@ export default function KnowledgeBasePage() {
   const handleUpload = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!isAdmin || !file) return
+
+    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+      setError(
+        `File ${formatFileSize(file.size)} terlalu besar untuk upload via dashboard. Batas aman sementara ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}. Pecah PDF atau upload dokumen yang lebih kecil dulu.`
+      )
+      setSuccess(null)
+      return
+    }
 
     setUploading(true)
     setError(null)
@@ -263,10 +271,24 @@ export default function KnowledgeBasePage() {
                   <input
                     type="file"
                     disabled={!isAdmin || uploading}
-                    onChange={(event) => setFile(event.target.files?.[0] || null)}
+                    onChange={(event) => {
+                      const selectedFile = event.target.files?.[0] || null
+                      setFile(selectedFile)
+                      setSuccess(null)
+                      if (selectedFile && selectedFile.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+                        setError(
+                          `File ${formatFileSize(selectedFile.size)} terlalu besar untuk upload via dashboard. Batas aman sementara ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.`
+                        )
+                      } else {
+                        setError(null)
+                      }
+                    }}
                     accept=".txt,.md,.csv,.xlsx,.xls,.pdf,.docx"
                     className="mt-1 block w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs text-(--c-text) disabled:opacity-50"
                   />
+                  <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
+                    Batas aman upload dashboard: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.
+                  </span>
                 </label>
                 <button
                   type="submit"
