@@ -70,7 +70,6 @@ export default function UserManagementPage() {
   const [formPassword, setFormPassword] = useState("")
   const [formFullName, setFormFullName] = useState("")
   const [formRole, setFormRole] = useState<RoleType>("agent")
-  const [formBrand, setFormBrand] = useState<string>("ALL")
 
   // Edit Modal State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null)
@@ -116,6 +115,11 @@ export default function UserManagementPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isAdmin) {
+      setError("Mode Guest (Demo Promosi): Fitur penambahan user baru dinonaktifkan.")
+      return
+    }
+
     if (!formEmail || !formPassword || !formFullName) {
       setError("Semua field wajib diisi")
       return
@@ -134,7 +138,7 @@ export default function UserManagementPage() {
           password: formPassword,
           full_name: formFullName,
           role: formRole,
-          brand_access: [formBrand],
+          brand_access: ["ALL"],
         }),
       })
 
@@ -149,7 +153,6 @@ export default function UserManagementPage() {
       setFormPassword("")
       setFormFullName("")
       setFormRole("agent")
-      setFormBrand("ALL")
       fetchUsers()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat user")
@@ -160,6 +163,10 @@ export default function UserManagementPage() {
 
   const handleUpdateRole = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isAdmin) {
+      setError("Mode Guest (Demo Promosi): Perubahan role dinonaktifkan.")
+      return
+    }
     if (!editingUser) return
 
     setEditSubmitting(true)
@@ -191,6 +198,11 @@ export default function UserManagementPage() {
   }
 
   const handleDeleteUser = async (userId: string, name: string) => {
+    if (!isAdmin) {
+      setError("Mode Guest (Demo Promosi): Penghapusan user dinonaktifkan.")
+      return
+    }
+
     if (!confirm(`Apakah Anda yakin ingin menghapus user '${name}'?`)) return
 
     setError(null)
@@ -227,7 +239,7 @@ export default function UserManagementPage() {
               User & Access Control
             </h1>
             <p className="mt-1 text-sm text-(--c-muted)">
-              Kelola kredensial pengguna, hierarki role (Super Admin, Manager, SPV, Agent, Guest), dan hak akses brand.
+              Kelola kredensial pengguna dan hierarki role (Super Admin, Manager, SPV, Agent, Guest).
             </p>
           </div>
 
@@ -243,10 +255,12 @@ export default function UserManagementPage() {
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) shadow-lg transition hover:opacity-90"
+              disabled={!isAdmin}
+              title={!isAdmin ? "Aksi penambahan user khusus Super Admin" : undefined}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <UserPlusIcon size={15} />
-              + Create New User
+              {!isAdmin ? "Mode Guest (Read-Only)" : "+ Create New User"}
             </button>
           </div>
         </header>
@@ -322,7 +336,6 @@ export default function UserManagementPage() {
                   <tr className="border-b border-(--c-border) text-[11px] font-semibold uppercase tracking-wider text-(--c-muted)">
                     <th className="px-4 py-3">User Profile</th>
                     <th className="px-4 py-3">Role Level</th>
-                    <th className="px-4 py-3">Brand Access</th>
                     <th className="px-4 py-3">Created At</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
@@ -343,9 +356,6 @@ export default function UserManagementPage() {
                             {badge.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 font-mono text-(--c-text-soft)">
-                          {(u.brand_access || ["ALL"]).join(", ")}
-                        </td>
                         <td className="px-4 py-3.5 font-mono text-(--c-muted)">
                           {u.created_at ? new Date(u.created_at).toLocaleDateString("id-ID") : "-"}
                         </td>
@@ -357,14 +367,16 @@ export default function UserManagementPage() {
                                 setEditingUser(u)
                                 setEditRole(u.role)
                               }}
-                              className="rounded-lg border border-(--c-border) bg-(--c-overlay) px-2.5 py-1.5 font-semibold text-(--c-text) transition hover:bg-(--c-overlay-2)"
+                              disabled={!isAdmin}
+                              className="rounded-lg border border-(--c-border) bg-(--c-overlay) px-2.5 py-1.5 font-semibold text-(--c-text) transition hover:bg-(--c-overlay-2) disabled:opacity-50"
                             >
                               Edit Role
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteUser(u.id, u.full_name)}
-                              className="rounded-lg border border-red-500/20 bg-red-500/10 p-1.5 text-red-400 transition hover:bg-red-500/20"
+                              disabled={!isAdmin}
+                              className="rounded-lg border border-red-500/20 bg-red-500/10 p-1.5 text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
                               title="Delete User"
                             >
                               <Trash2Icon size={14} />
@@ -444,19 +456,6 @@ export default function UserManagementPage() {
                     <option value="spv">Supervisor / SPV (Team & Upload Access)</option>
                     <option value="agent">Agent CS (Operational & Copilot)</option>
                     <option value="guest">Guest (Interactive Demo Mode)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block font-semibold text-(--c-muted)">Brand Access</label>
-                  <select
-                    value={formBrand}
-                    onChange={(e) => setFormBrand(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent)"
-                  >
-                    <option value="ALL">All Brands (Ecovacs & Tineco)</option>
-                    <option value="Ecovacs">Ecovacs Only</option>
-                    <option value="Tineco">Tineco Only</option>
                   </select>
                 </div>
 

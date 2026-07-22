@@ -89,7 +89,7 @@ export const sidebarMenu: SidebarMenuItem[] = [
     title: "Management System",
     url: "#",
     icon: <ShieldCheckIcon />,
-    roles: ["super_admin", "admin"],
+    roles: ["super_admin", "admin", "guest"],
     items: [
       {
         title: "User & Access Control",
