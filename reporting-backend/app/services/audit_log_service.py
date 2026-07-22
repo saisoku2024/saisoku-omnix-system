@@ -25,7 +25,7 @@ class AuditLogService:
             supabase.table("audit_logs").insert(payload).execute()
             return True
         except Exception as e:
-            print(f"AUDIT LOG ERROR: {str(e)}")
+            print(f"AUDIT LOG INSERT WARNING: {str(e)}")
             return False
 
     @staticmethod
@@ -33,13 +33,20 @@ class AuditLogService:
         """
         Mengambil riwayat audit log terbaru.
         """
-        query = supabase.table("audit_logs").select("*").order("created_at", desc=True).limit(limit)
-        if action:
-            query = query.eq("action", action)
+        try:
+            query = supabase.table("audit_logs").select("*").order("created_at", desc=True).limit(limit)
+            if action:
+                query = query.eq("action", action)
 
-        res = query.execute()
-        logs = res.data or []
-        return {
-            "total": len(logs),
-            "logs": logs
-        }
+            res = query.execute()
+            logs = res.data or []
+            return {
+                "total": len(logs),
+                "logs": logs
+            }
+        except Exception as e:
+            err_msg = str(e)
+            if "relation \"public.audit_logs\" does not exist" in err_msg or "42P01" in err_msg:
+                print("WARNING: Tabel public.audit_logs belum dibuat di Supabase SQL Editor.")
+                return {"total": 0, "logs": [], "warning": "Tabel public.audit_logs belum dibuat di Supabase SQL Editor."}
+            raise e
