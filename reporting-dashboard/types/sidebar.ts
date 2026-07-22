@@ -5,6 +5,7 @@ export interface SidebarMenuItem {
   url: string
   icon: ReactNode
   isActive?: boolean
+  roles?: string[]
   items?: SidebarMenuItem[]
 }
 

@@ -4,9 +4,11 @@ import {
   BotIcon,
   FileSpreadsheetIcon,
   PieChartIcon,
+  ShieldCheckIcon,
   TerminalSquareIcon,
   Trash2Icon,
   UploadIcon,
+  UsersIcon,
 } from "lucide-react"
 
 import type { SidebarMenuItem, SidebarUser, Team } from "@/types/sidebar"
@@ -80,6 +82,19 @@ export const sidebarMenu: SidebarMenuItem[] = [
         title: "Data Cleanup",
         url: "/data-management/data-cleanup",
         icon: <Trash2Icon />,
+      },
+    ],
+  },
+  {
+    title: "Management System",
+    url: "#",
+    icon: <ShieldCheckIcon />,
+    roles: ["super_admin", "admin"],
+    items: [
+      {
+        title: "User & Access Control",
+        url: "/management-system/users",
+        icon: <UsersIcon />,
       },
     ],
   },

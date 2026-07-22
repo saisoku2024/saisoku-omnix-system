@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -28,6 +29,22 @@ export function NavMain({
   isDark?: boolean
 }) {
   const pathname = usePathname()
+  const [role, setRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { role?: string }) => {
+        if (active) setRole(data.role ?? "admin")
+      })
+      .catch(() => {
+        if (active) setRole("admin")
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const textMuted = isDark
     ? "text-gray-400"
@@ -61,6 +78,12 @@ export function NavMain({
     data-[active=true]:${activeBg}
   `
 
+  const visibleItems = items.filter((item) => {
+    if (!item.roles || item.roles.length === 0) return true
+    if (!role) return false
+    return item.roles.includes(role) || role === "super_admin" || role === "admin"
+  })
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel
@@ -70,7 +93,7 @@ export function NavMain({
       </SidebarGroupLabel>
 
       <SidebarMenu className="space-y-1">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const hasChildren = !!item.items?.length
 
           const isParentActive =
