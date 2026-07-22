@@ -40,15 +40,20 @@ const ACTION_CONFIG: Record<string, { label: string; colorClass: string; icon: a
     colorClass: "border-slate-500/30 bg-slate-500/10 text-slate-400",
     icon: LogOutIcon,
   },
+  DATA_UPLOAD: {
+    label: "Data Upload",
+    colorClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    icon: UploadIcon,
+  },
   UPLOAD_DATA: {
     label: "Data Upload",
     colorClass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
     icon: UploadIcon,
   },
-  SOFT_DELETE: {
-    label: "Soft Delete",
-    colorClass: "border-red-500/30 bg-red-500/10 text-red-400",
-    icon: Trash2Icon,
+  EXPORT_REPORT: {
+    label: "Download / Export Report",
+    colorClass: "border-indigo-500/30 bg-indigo-500/10 text-indigo-400",
+    icon: FileSpreadsheetIcon,
   },
   USER_CREATED: {
     label: "Create User",
@@ -65,10 +70,10 @@ const ACTION_CONFIG: Record<string, { label: string; colorClass: string; icon: a
     colorClass: "border-amber-500/30 bg-amber-500/10 text-amber-400",
     icon: Trash2Icon,
   },
-  EXPORT_REPORT: {
-    label: "Export Report",
-    colorClass: "border-indigo-500/30 bg-indigo-500/10 text-indigo-400",
-    icon: FileSpreadsheetIcon,
+  SOFT_DELETE: {
+    label: "Soft Delete",
+    colorClass: "border-red-500/30 bg-red-500/10 text-red-400",
+    icon: Trash2Icon,
   },
 }
 
@@ -122,7 +127,7 @@ export default function AuditLogsPage() {
               Audit Logs & Activity
             </h1>
             <p className="mt-1 text-sm text-(--c-muted)">
-              Pencatatan real-time seluruh aktivitas sistem (Login/Logout, User Control, Data Upload, & Soft Delete).
+              Pencatatan real-time seluruh aktivitas sistem (Login, Logout, Create User, Upload, & Download Report).
             </p>
           </div>
 
@@ -199,11 +204,12 @@ export default function AuditLogsPage() {
                 <option value="ALL">All Action Types</option>
                 <option value="USER_LOGIN">User Login</option>
                 <option value="USER_LOGOUT">User Logout</option>
-                <option value="UPLOAD_DATA">Data Upload</option>
-                <option value="SOFT_DELETE">Soft Delete</option>
+                <option value="DATA_UPLOAD">Data Upload</option>
+                <option value="EXPORT_REPORT">Download / Export Report</option>
                 <option value="USER_CREATED">Create User</option>
                 <option value="USER_ROLE_UPDATED">Update Role</option>
                 <option value="USER_DELETED">Delete User</option>
+                <option value="SOFT_DELETE">Soft Delete</option>
               </select>
             </div>
           </div>
@@ -273,7 +279,7 @@ export default function AuditLogsPage() {
                     )
                   })}
                 </tbody>
-                </table>
+              </table>
             </div>
           )}
         </section>
