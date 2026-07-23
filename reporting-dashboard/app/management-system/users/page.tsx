@@ -60,7 +60,7 @@ export default function UserManagementPage() {
 
   // Session Role
   const [sessionRole, setSessionRole] = useState<SessionRole | null>(null)
-  const isAdmin = sessionRole !== "guest"
+  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)

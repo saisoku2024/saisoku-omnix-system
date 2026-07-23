@@ -433,14 +433,14 @@ export default function DataCleanupPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [sessionRole, setSessionRole] = useState<"admin" | "guest" | null>(null)
-  const isAdmin = sessionRole === "admin"
+  const [sessionRole, setSessionRole] = useState<"admin" | "super_admin" | "guest" | null>(null)
+  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
 
   useEffect(() => {
     let active = true
     fetch("/api/auth/session", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { role?: "admin" | "guest" }) => {
+      .then((data: { role?: "admin" | "super_admin" | "guest" }) => {
         if (active) setSessionRole(data.role ?? null)
       })
       .catch(() => {
