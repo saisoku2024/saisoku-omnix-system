@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
 import requests
 from fastapi import HTTPException, status
@@ -178,12 +178,12 @@ def assert_allowed_bucket(kind: str, bucket: str, path: str) -> None:
 def download_storage_object(kind: str, bucket: str, path: str) -> bytes:
     assert_allowed_bucket(kind, bucket, path)
     encoded_path = quote(path, safe="/")
-    url = f"{_supabase_url()}/storage/v1/object/authenticated/{bucket}/{encoded_path}"
+    url = f"{_supabase_url()}/storage/v1/object/{bucket}/{encoded_path}"
     response = requests.get(url, headers=_headers(), timeout=(10, 120))
     if not response.ok:
         raise HTTPException(
             status_code=502,
-            detail=f"Gagal membaca file dari Supabase Storage: HTTP {response.status_code}",
+            detail=f"Gagal membaca file dari Supabase Storage: HTTP {response.status_code} - {response.text[:300]}",
         )
     if len(response.content) > MAX_STORAGE_UPLOAD_SIZE_BYTES:
         raise HTTPException(status_code=413, detail="Ukuran file maksimal 50MB.")
