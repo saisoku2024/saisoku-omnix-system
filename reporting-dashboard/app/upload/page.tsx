@@ -32,7 +32,7 @@ import { uploadFileToStorage } from "@/lib/storage-upload"
    ============================================================ */
 
 type DatasetType = "omnix" | "voice" | "csat"
-type SessionRole = "admin" | "guest" | null
+type SessionRole = "admin" | "super_admin" | "guest" | null
 
 type UploadStatus =
   | "idle"
@@ -1203,7 +1203,7 @@ export default function UploadPage() {
   const isUploading = status === "uploading"
   const isSuccess = status === "success"
   const isError = status === "error" || status === "aborted"
-  const isAdmin = sessionRole === "admin"
+  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
   const uploadDisabled = !isAdmin || isUploading
 
   useEffect(() => {

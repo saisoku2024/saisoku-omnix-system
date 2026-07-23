@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     details: { login_method: "password" },
   })
 
-  const token = await createSessionToken(sessionSecret, isGuest ? "guest" : "admin")
+  const token = await createSessionToken(sessionSecret, isGuest ? "guest" : "super_admin")
   const response = NextResponse.json({ ok: true })
 
   response.cookies.set(AUTH_COOKIE_NAME, token, {

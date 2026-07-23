@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import {
   AUTH_COOKIE_NAME,
   getSessionPayload,
+  isAdminSession,
   type SessionPayload,
 } from "@/lib/auth-token"
 
@@ -18,5 +19,5 @@ export async function getCurrentSession(): Promise<SessionPayload | null> {
 
 export async function requireAdminSession(): Promise<SessionPayload | null> {
   const session = await getCurrentSession()
-  return session?.sub === "admin" ? session : null
+  return isAdminSession(session) ? session : null
 }

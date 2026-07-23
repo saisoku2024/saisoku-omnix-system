@@ -15,7 +15,7 @@ import {
 
 import { uploadFileToStorage } from "@/lib/storage-upload"
 
-type SessionRole = "admin" | "guest" | null
+type SessionRole = "admin" | "super_admin" | "guest" | null
 type KnowledgeInputMode = "file" | "text" | "url"
 
 interface KnowledgeDocument {
@@ -103,7 +103,7 @@ export default function KnowledgeBasePage() {
   const [inputMode, setInputMode] = useState<KnowledgeInputMode>("file")
   const [uploadProgress, setUploadProgress] = useState(0)
 
-  const isAdmin = sessionRole === "admin"
+  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
   const readyDocuments = useMemo(
     () => documents.filter((document) => document.status === "ready"),
     [documents]

@@ -5,7 +5,11 @@ export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 12
 
 export type SessionPayload = {
   exp: number
-  sub: "admin" | "guest"
+  sub: "admin" | "super_admin" | "guest"
+}
+
+export function isAdminSession(session: SessionPayload | null | undefined) {
+  return session?.sub === "admin" || session?.sub === "super_admin"
 }
 
 function encodeBase64Url(value: string | Uint8Array) {
@@ -90,7 +94,7 @@ export async function getSessionPayload(
   try {
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionPayload
     if (
-      (payload.sub === "admin" || payload.sub === "guest") &&
+      (payload.sub === "admin" || payload.sub === "super_admin" || payload.sub === "guest") &&
       payload.exp > Math.floor(Date.now() / 1000)
     ) {
       return payload
@@ -113,6 +117,6 @@ export async function requireAdminSession() {
   if (!sessionSecret) return null
 
   const session = await getSessionPayload(token, sessionSecret)
-  if (!session || session.sub !== "admin") return null
+  if (!isAdminSession(session)) return null
   return session
 }
