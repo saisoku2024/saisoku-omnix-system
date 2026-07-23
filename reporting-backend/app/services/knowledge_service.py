@@ -15,6 +15,7 @@ from fastapi import HTTPException, UploadFile, status
 
 from app.core.supabase import supabase
 from app.services.audit_log_service import AuditLogService
+from app.services.storage_upload_service import MAX_STORAGE_UPLOAD_SIZE_BYTES
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
 DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2"
 LEGACY_GEMINI_MODELS = {"gemini-2.5-flash"}
 EMBEDDING_DIMENSION = 768
-MAX_KB_FILE_SIZE_BYTES = 10 * 1024 * 1024
+MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
 IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
@@ -359,7 +360,7 @@ class KnowledgeService:
     def list_documents() -> Dict[str, Any]:
         res = (
             supabase.table("knowledge_documents")
-            .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,created_at,updated_at")
+            .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,storage_bucket,storage_path,file_size,created_at,updated_at")
             .order("created_at", desc=True)
             .limit(100)
             .execute()
@@ -399,6 +400,48 @@ class KnowledgeService:
             "source_file": file.filename,
             "content_type": file.content_type,
             "content": content,
+        }
+
+    @staticmethod
+    def prepare_storage_upload(
+        filename: str,
+        title: str | None,
+        content_type: str | None,
+        storage_bucket: str,
+        storage_path: str,
+        file_size: int,
+        user_email: str = "admin@omnix.com",
+    ) -> Dict[str, Any]:
+        document_title = (title or filename or "Untitled Knowledge Document").strip()
+        doc_res = (
+            supabase.table("knowledge_documents")
+            .insert(
+                {
+                    "title": document_title,
+                    "source_file": filename,
+                    "mime_type": content_type,
+                    "status": "processing",
+                    "created_by": user_email,
+                    "storage_bucket": storage_bucket,
+                    "storage_path": storage_path,
+                    "file_size": file_size,
+                }
+            )
+            .execute()
+        )
+        document = (doc_res.data or [None])[0]
+        if not document:
+            raise HTTPException(status_code=500, detail="Gagal membuat knowledge document.")
+
+        return {
+            "success": True,
+            "document_id": document["id"],
+            "title": document_title,
+            "status": "processing",
+            "source_file": filename,
+            "content_type": content_type,
+            "storage_bucket": storage_bucket,
+            "storage_path": storage_path,
         }
 
     @staticmethod

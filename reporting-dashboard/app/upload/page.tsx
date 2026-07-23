@@ -25,6 +25,7 @@ import { useTheme } from "@/providers/theme-provider"
 import UploadResultSummaryCard from "@/features/upload/components/UploadResultSummaryCard"
 import type { UploadResult } from "@/features/upload/types/Upload"
 import { API_ORIGIN } from "@/lib/api"
+import { uploadFileToStorage } from "@/lib/storage-upload"
 
 /* ============================================================
    TYPES
@@ -73,7 +74,7 @@ interface UploadMetrics {
    CONSTANTS
    ============================================================ */
 
-const UPLOAD_API = "/api/backend/upload"
+const STORAGE_INGEST_API = "/api/backend/upload/storage-ingest"
 
 const ALLOWED_TYPES = [
   "text/csv",
@@ -304,15 +305,15 @@ function useFileUpload(
     eta: 0,
   })
 
-  const xhrRef = useRef<XMLHttpRequest | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
   const lastSampleRef = useRef<{ t: number; loaded: number }>({
     t: 0,
     loaded: 0,
   })
 
   const reset = useCallback(() => {
-    xhrRef.current?.abort()
-    xhrRef.current = null
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
 
     setStatus("idle")
     setProgress(0)
@@ -322,135 +323,88 @@ function useFileUpload(
   }, [])
 
   const abort = useCallback(() => {
-    if (xhrRef.current) {
-      xhrRef.current.abort()
-      xhrRef.current = null
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
       setStatus("aborted")
       setErrorMsg("Upload dibatalkan")
     }
   }, [])
 
   const upload = useCallback(
-    (file: File, type: DatasetType): Promise<InternalUploadResult> =>
-      new Promise((resolve) => {
-        const xhr = new XMLHttpRequest()
-        xhrRef.current = xhr
-        lastSampleRef.current = { t: Date.now(), loaded: 0 }
+    async (file: File, type: DatasetType): Promise<InternalUploadResult> => {
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      lastSampleRef.current = { t: Date.now(), loaded: 0 }
 
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("type", type)
+      setStatus("uploading")
+      setProgress(0)
+      setErrorMsg("")
+      setMetrics({ speed: 0, eta: 0 })
 
-        setStatus("uploading")
-        setProgress(0)
-        setErrorMsg("")
-        setMetrics({ speed: 0, eta: 0 })
+      try {
+        const storageFile = await uploadFileToStorage(
+          "data",
+          file,
+          (pct, loaded, total) => {
+            setProgress(Math.min(pct, 99))
+            const now = Date.now()
+            const dt = (now - lastSampleRef.current.t) / 1000
 
-        xhr.upload.addEventListener("progress", (e) => {
-          if (!e.lengthComputable) return
+            if (dt > 0.2) {
+              const dBytes = loaded - lastSampleRef.current.loaded
+              const speed = dBytes / dt
+              const remaining = total - loaded
+              const eta = speed > 0 ? remaining / speed : 0
 
-          const pct = Math.round((e.loaded / e.total) * 100)
-          setProgress(Math.min(pct, 99))
-
-          // Calculate speed & ETA — sliding window
-          const now = Date.now()
-          const dt = (now - lastSampleRef.current.t) / 1000
-
-          if (dt > 0.2) {
-            const dBytes = e.loaded - lastSampleRef.current.loaded
-            const speed = dBytes / dt
-            const remaining = e.total - e.loaded
-            const eta = speed > 0 ? remaining / speed : 0
-
-            setMetrics({ speed, eta })
-            lastSampleRef.current = { t: now, loaded: e.loaded }
-          }
-        })
-
-        xhr.addEventListener("load", () => {
-          xhrRef.current = null
-
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText || "{}")
-
-              if (data?.error) {
-                setStatus("error")
-                setErrorMsg(data.error)
-
-                onSuccess?.({
-                  filename: file.name,
-                  size: file.size,
-                  type,
-                  status: "error",
-                })
-
-                resolve({ ok: false, error: data.error })
-                return
-              }
-
-              setProgress(100)
-              setStatus("success")
-
-              onSuccess?.({
-                filename: file.name,
-                size: file.size,
-                type,
-                status: "success",
-              })
-
-              resolve({ ok: true, data })
-            } catch {
-              setProgress(100)
-              setStatus("success")
-
-              onSuccess?.({
-                filename: file.name,
-                size: file.size,
-                type,
-                status: "success",
-              })
-
-              resolve({ ok: true })
+              setMetrics({ speed, eta })
+              lastSampleRef.current = { t: now, loaded }
             }
-          } else {
-            let msg = `Server error · HTTP ${xhr.status}`
-            if (xhr.status === 413) {
-              msg = "File terlalu besar (melebihi batas maksimum 50MB)"
-            } else if (xhr.status === 414) {
-              msg = "URI permintaan terlalu besar untuk diproses server"
-            } else if (xhr.responseText) {
-              try {
-                const parsed = JSON.parse(xhr.responseText)
-                if (parsed?.detail) msg = String(parsed.detail)
-              } catch {}
-            }
-            setStatus("error")
-            setErrorMsg(msg)
-            resolve({ ok: false, error: msg })
-          }
+          },
+          controller.signal
+        )
+
+        const response = await fetch(STORAGE_INGEST_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...storageFile, type }),
+          cache: "no-store",
         })
+        const data = await response.json().catch(() => ({}))
 
-        xhr.addEventListener("error", () => {
-          xhrRef.current = null
-
-          const msg = "Kesalahan koneksi ke server"
+        if (!response.ok) {
+          const msg = String(data?.detail || data?.error || `Server error HTTP ${response.status}`)
           setStatus("error")
           setErrorMsg(msg)
-          resolve({ ok: false, error: msg })
-        })
+          onSuccess?.({
+            filename: file.name,
+            size: file.size,
+            type,
+            status: "error",
+          })
+          return { ok: false, error: msg }
+        }
 
-        xhr.addEventListener("abort", () => {
-          xhrRef.current = null
-          resolve({ ok: false, error: "aborted" })
+        setProgress(100)
+        setStatus("success")
+        onSuccess?.({
+          filename: file.name,
+          size: file.size,
+          type,
+          status: "success",
         })
-        
-        xhr.open("POST", UPLOAD_API)
-        xhr.send(formData)
-      }),
+        return { ok: true, data }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Kesalahan koneksi upload"
+        setStatus(msg === "Upload dibatalkan" ? "aborted" : "error")
+        setErrorMsg(msg)
+        return { ok: false, error: msg }
+      } finally {
+        abortControllerRef.current = null
+      }
+    },
     [onSuccess]
   )
-
   const retry = useCallback(
     async (file: File, type: DatasetType): Promise<InternalUploadResult> => {
       if (retryCount >= MAX_RETRY) {
@@ -469,7 +423,7 @@ function useFileUpload(
 
   useEffect(() => {
     return () => {
-      xhrRef.current?.abort()
+      abortControllerRef.current?.abort()
     }
   }, [])
 
@@ -1452,8 +1406,8 @@ export default function UploadPage() {
                                 Uploading
                               </h3>
                               <p className="mt-1 text-xs text-(--c-text-soft)">
-                                File sedang dikirim ke server, tunggu sampai
-                                proses selesai.
+                                File sedang dikirim ke Supabase Storage, lalu
+                                backend akan memproses data dan duplikasi.
                               </p>
                             </div>
                           </div>

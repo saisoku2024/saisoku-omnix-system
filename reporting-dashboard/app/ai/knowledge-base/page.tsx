@@ -13,6 +13,8 @@ import {
   UploadIcon,
 } from "lucide-react"
 
+import { uploadFileToStorage } from "@/lib/storage-upload"
+
 type SessionRole = "admin" | "guest" | null
 type KnowledgeInputMode = "file" | "text" | "url"
 
@@ -42,11 +44,11 @@ interface KnowledgeAnswer {
 }
 
 const DOCUMENT_API = "/api/backend/knowledge/documents"
-const UPLOAD_API = "/api/backend/knowledge/upload"
+const STORAGE_INGEST_API = "/api/backend/knowledge/storage-ingest"
 const TEXT_API = "/api/backend/knowledge/text"
 const URL_API = "/api/backend/knowledge/url"
 const QUERY_API = "/api/backend/knowledge/query"
-const MAX_UPLOAD_FILE_SIZE_BYTES = 4 * 1024 * 1024
+const MAX_UPLOAD_FILE_SIZE_BYTES = 50 * 1024 * 1024
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))}KB`
@@ -99,6 +101,7 @@ export default function KnowledgeBasePage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [inputMode, setInputMode] = useState<KnowledgeInputMode>("file")
+  const [uploadProgress, setUploadProgress] = useState(0)
 
   const isAdmin = sessionRole === "admin"
   const readyDocuments = useMemo(
@@ -191,13 +194,17 @@ export default function KnowledgeBasePage() {
     setError(null)
     setSuccess(null)
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      if (title.trim()) formData.append("title", title.trim())
+      const storageFile = await uploadFileToStorage("knowledge", file, (progress) => {
+        setUploadProgress(progress)
+      })
 
-      const response = await fetch(UPLOAD_API, {
+      const response = await fetch(STORAGE_INGEST_API, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...storageFile,
+          title: title.trim() || undefined,
+        }),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
@@ -206,6 +213,7 @@ export default function KnowledgeBasePage() {
       setSuccess(`Knowledge document diproses: ${data.title || file.name}`)
       setTitle("")
       setFile(null)
+      setUploadProgress(0)
       await loadDocuments()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal upload knowledge document")
@@ -426,9 +434,23 @@ export default function KnowledgeBasePage() {
                       className="mt-1 block w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs text-(--c-text) disabled:opacity-50"
                     />
                     <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
-                      Batas aman upload dashboard: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.
+                      Batas aman upload via Supabase Storage: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.
                     </span>
                   </label>
+                  {uploading && (
+                    <div className="rounded-xl border border-(--c-border) bg-(--c-overlay) p-3">
+                      <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-(--c-muted)">
+                        <span>Upload ke Storage</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-(--c-overlay-2)">
+                        <div
+                          className="h-full rounded-full bg-(--c-accent) transition-all"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <button
                     type="submit"
                     disabled={!isAdmin || !file || uploading}
