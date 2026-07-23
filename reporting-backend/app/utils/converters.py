@@ -1,4 +1,5 @@
 from decimal import Decimal
+import re
 import pandas as pd
 
 
@@ -23,7 +24,9 @@ def safe_datetime(v):
     if pd.isna(v) or v == "":
         return None
     try:
-        dt = pd.to_datetime(v, dayfirst=True, errors="coerce")
+        value = str(v).strip()
+        dayfirst = not re.match(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}", value)
+        dt = pd.to_datetime(value, dayfirst=dayfirst, errors="coerce")
 
         if pd.isna(dt):
             return None
