@@ -87,11 +87,6 @@ export const sidebarMenu: SidebarMenuItem[] = [
         icon: <UploadIcon />,
       },
       {
-        title: "Customer Journey",
-        url: "/data-management/customer-journey",
-        icon: <TerminalSquareIcon />,
-      },
-      {
         title: "Data Cleanup",
         url: "/data-management/data-cleanup",
         icon: <Trash2Icon />,

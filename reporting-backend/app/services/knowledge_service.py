@@ -358,13 +358,24 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
 class KnowledgeService:
     @staticmethod
     def list_documents() -> Dict[str, Any]:
-        res = (
-            supabase.table("knowledge_documents")
-            .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,storage_bucket,storage_path,file_size,created_at,updated_at")
-            .order("created_at", desc=True)
-            .limit(100)
-            .execute()
-        )
+        try:
+            res = (
+                supabase.table("knowledge_documents")
+                .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,storage_bucket,storage_path,file_size,created_at,updated_at")
+                .order("created_at", desc=True)
+                .limit(100)
+                .execute()
+            )
+        except Exception as exc:
+            if not any(key in str(exc).lower() for key in ["storage_bucket", "storage_path", "file_size"]):
+                raise
+            res = (
+                supabase.table("knowledge_documents")
+                .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,created_at,updated_at")
+                .order("created_at", desc=True)
+                .limit(100)
+                .execute()
+            )
         documents = res.data or []
         return {"total": len(documents), "documents": documents}
 
@@ -413,22 +424,29 @@ class KnowledgeService:
         user_email: str = "admin@omnix.com",
     ) -> Dict[str, Any]:
         document_title = (title or filename or "Untitled Knowledge Document").strip()
-        doc_res = (
-            supabase.table("knowledge_documents")
-            .insert(
-                {
-                    "title": document_title,
-                    "source_file": filename,
-                    "mime_type": content_type,
-                    "status": "processing",
-                    "created_by": user_email,
-                    "storage_bucket": storage_bucket,
-                    "storage_path": storage_path,
-                    "file_size": file_size,
-                }
-            )
-            .execute()
-        )
+        payload = {
+            "title": document_title,
+            "source_file": filename,
+            "mime_type": content_type,
+            "status": "processing",
+            "created_by": user_email,
+            "storage_bucket": storage_bucket,
+            "storage_path": storage_path,
+            "file_size": file_size,
+        }
+        try:
+            doc_res = supabase.table("knowledge_documents").insert(payload).execute()
+        except Exception as exc:
+            if not any(key in str(exc).lower() for key in ["storage_bucket", "storage_path", "file_size"]):
+                raise
+            fallback_payload = {
+                "title": document_title,
+                "source_file": f"{storage_bucket}/{storage_path}",
+                "mime_type": content_type,
+                "status": "processing",
+                "created_by": user_email,
+            }
+            doc_res = supabase.table("knowledge_documents").insert(fallback_payload).execute()
         document = (doc_res.data or [None])[0]
         if not document:
             raise HTTPException(status_code=500, detail="Gagal membuat knowledge document.")
