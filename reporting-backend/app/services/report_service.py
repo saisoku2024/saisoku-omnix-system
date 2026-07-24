@@ -191,12 +191,15 @@ class ReportService:
         main_category,
     ):
         try:
+            start_str = start_date.isoformat() if hasattr(start_date, "isoformat") else (str(start_date) if start_date else None)
+            end_str = end_date.isoformat() if hasattr(end_date, "isoformat") else (str(end_date) if end_date else None)
+
             if report_type == "traffic_digital":
                 res = supabase.rpc(
                     "report_preview_digital_daily",
                     {
-                        "p_start_date": start_date.isoformat() if start_date else None,
-                        "p_end_date": end_date.isoformat() if end_date else None,
+                        "p_start_date": start_str,
+                        "p_end_date": end_str,
                         "p_brand": brand,
                         "p_channel": channel,
                         "p_main_category": main_category,
@@ -216,8 +219,8 @@ class ReportService:
                 res = supabase.rpc(
                     "report_preview_inbound_daily",
                     {
-                        "p_start_date": start_date.isoformat() if start_date else None,
-                        "p_end_date": end_date.isoformat() if end_date else None,
+                        "p_start_date": start_str,
+                        "p_end_date": end_str,
                         "p_divisi": "",
                         "p_departemen": "",
                         "p_customer": "",

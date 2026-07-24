@@ -80,7 +80,8 @@ class UploadService:
             )
             if res.data:
                 for item in res.data:
-                    existing_ids.add(item[unique_key])
+                    if item.get(unique_key) is not None:
+                        existing_ids.add(str(item[unique_key]).strip())
 
         inserted_candidates = []
 
