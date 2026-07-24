@@ -36,10 +36,10 @@ function InsightIntroOverlay({ onComplete }: { onComplete: () => void }) {
           return prev + 1
         }
         clearInterval(interval)
-        setTimeout(onComplete, 350)
+        setTimeout(onComplete, 500)
         return prev
       })
-    }, 220)
+    }, 500)
 
     return () => clearInterval(interval)
   }, [onComplete])
