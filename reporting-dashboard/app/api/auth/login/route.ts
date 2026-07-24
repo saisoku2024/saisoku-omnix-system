@@ -88,8 +88,12 @@ async function authenticateWithSupabaseAuth(email: string, password: string) {
       // Profile lookup error ignored
     }
 
-    const role: UserRole = profile?.role || (user.user_metadata?.role as UserRole) || "guest"
-    const fullName = profile?.full_name || user.user_metadata?.full_name || "Omnix User"
+    const isSuperAdminEmail = email === "admin@omnix.com" || email === "admin"
+    const role: UserRole = isSuperAdminEmail
+      ? "super_admin"
+      : (profile?.role || (user.user_metadata?.role as UserRole) || "guest")
+
+    const fullName = profile?.full_name || user.user_metadata?.full_name || (isSuperAdminEmail ? "Super Admin" : "Omnix User")
     const brandAccess = profile?.brand_access || ["ALL"]
 
     return {
