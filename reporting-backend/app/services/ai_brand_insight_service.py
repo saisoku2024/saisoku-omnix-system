@@ -178,21 +178,14 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
             "error": f"Gagal mendapatkan insight AI dari Gemini. Detail: {last_error_text}"
         }
 
-        candidates = response.json().get("candidates") or []
-        parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-        report_text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+    candidates = response.json().get("candidates") or []
+    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+    report_text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
 
-        return {
-            "success": True,
-            "brand": brand_name,
-            "total_chat_records_analyzed": len(chats),
-            "total_sessions_analyzed": len(session_map),
-            "report": report_text.strip()
-        }
-
-    except Exception as e:
-        logger.error(f"ERROR GENERATE BRAND AI INSIGHT ({brand_name}): {e}", exc_info=True)
-        return {
-            "success": False,
-            "error": str(e)
-        }
+    return {
+        "success": True,
+        "brand": brand_name,
+        "total_chat_records_analyzed": len(chats),
+        "total_sessions_analyzed": len(session_map),
+        "report": report_text.strip()
+    }
