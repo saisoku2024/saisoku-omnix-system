@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -31,12 +31,21 @@ export function NavMain({
 }) {
   const pathname = usePathname()
   const [role, setRole] = useState<string | null>(null)
-  const { setOpenMobile } = useSidebar()
+  const { setOpenMobile, setOpen, isMobile } = useSidebar()
 
-  // Auto-close sidebar mobile drawer on page navigation
-  useEffect(() => {
+  const closeSidebar = useCallback(() => {
     setOpenMobile(false)
-  }, [pathname, setOpenMobile])
+    if (isMobile) {
+      setOpenMobile(false)
+    } else {
+      setOpen(false)
+    }
+  }, [isMobile, setOpen, setOpenMobile])
+
+  // Auto-close sidebar on page navigation
+  useEffect(() => {
+    closeSidebar()
+  }, [pathname, closeSidebar])
 
   useEffect(() => {
     let active = true
@@ -69,7 +78,7 @@ export function NavMain({
   })
 
   const handleLinkClick = () => {
-    setOpenMobile(false)
+    closeSidebar()
   }
 
   return (
