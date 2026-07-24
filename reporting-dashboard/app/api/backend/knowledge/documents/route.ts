@@ -1,18 +1,19 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
 import { readProxyResponse } from "@/lib/proxy-response"
 import { getCurrentSession } from "@/lib/server-auth"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getCurrentSession()
   if (!session) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
   }
 
   try {
-    const response = await fetch(`${API_ORIGIN}/api/knowledge/documents`, {
+    const search = request.nextUrl.search
+    const response = await fetch(`${API_ORIGIN}/api/knowledge/documents${search}`, {
       method: "GET",
       headers: adminHeaders(),
       cache: "no-store",

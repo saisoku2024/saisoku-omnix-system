@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException, status
@@ -49,7 +50,9 @@ def login(request: LoginRequest):
             detail="Auth environment variables (ADMIN_USERNAME, ADMIN_PASSWORD, JWT_SECRET_KEY) are not configured",
         )
 
-    if request.username != admin_username or request.password != admin_password:
+    is_user_valid = secrets.compare_digest(request.username, admin_username)
+    is_pass_valid = secrets.compare_digest(request.password, admin_password)
+    if not is_user_valid or not is_pass_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Username atau password salah",

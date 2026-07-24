@@ -3,14 +3,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
 import { requireAdminSession } from "@/lib/auth-token"
-import { getCurrentSession } from "@/lib/server-auth"
 
 export async function GET() {
-  const session = await getCurrentSession()
+  const session = await requireAdminSession()
   if (!session) {
     return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
+      { error: "Akses ditolak: Diperlukan sesi Admin/Super Admin" },
+      { status: 403 }
     )
   }
 

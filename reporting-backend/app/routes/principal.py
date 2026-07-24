@@ -13,9 +13,19 @@ router = APIRouter(
 )
 
 
+def _validate_date(date_str: str, name: str) -> None:
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format {name} '{date_str}' tidak valid (harus YYYY-MM-DD)",
+        ) from exc
+
 def _make_end_date_inclusive(end_date: str) -> str:
     """Geser end_date +1 hari supaya seluruh tanggal akhir ikut terhitung
     (filter SQL pakai '<' bukan '<=')."""
+    _validate_date(end_date, "end_date")
     return (
         datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
     ).strftime("%Y-%m-%d")
@@ -26,6 +36,7 @@ def export_principal_report(
     start_date: str,
     end_date: str,
 ):
+    _validate_date(start_date, "start_date")
     end_date_inclusive = _make_end_date_inclusive(end_date)
 
     # 1. Ambil data dengan fallback jika None
@@ -159,6 +170,7 @@ def export_principal_report(
 
 @router.get("/summary")
 def get_summary(start_date: str, end_date: str):
+    _validate_date(start_date, "start_date")
     end_date_inclusive = _make_end_date_inclusive(end_date)
     row = get_principal_summary(start_date, end_date_inclusive)
 
