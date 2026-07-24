@@ -31,30 +31,35 @@ def _get_brand_fallback(start, end):
     offset = 0
 
     while True:
-        res = (
-            supabase
-            .table("omnix_cases")
-            .select("category")
-            .gte("interaction_at", start)
-            .lt("interaction_at", end)
-            .is_("deleted_at", "null")
-            .range(offset, offset + page_size - 1)
-            .execute()
-        )
-        rows = res.data or []
-        if not rows:
+        try:
+            res = (
+                supabase
+                .table("omnix_cases")
+                .select("category")
+                .gte("interaction_at", start)
+                .lt("interaction_at", end)
+                .is_("deleted_at", "null")
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            rows = res.data or []
+            if not rows:
+                break
+
+            for row in rows:
+                name = str(row.get("category") or "").strip()
+                if name and name.lower() != "unknown":
+                    counts[name] = counts.get(name, 0) + 1
+                    total += 1
+
+            if len(rows) < page_size:
+                break
+            offset += page_size
+        except Exception as e:
+            logger.error(f"ERROR BRAND FALLBACK QUERY: {e}", exc_info=True)
             break
 
-        for row in rows:
-            name = str(row.get("category") or "").strip() or "Unknown"
-            counts[name] = counts.get(name, 0) + 1
-            total += 1
-
-        if len(rows) < page_size:
-            break
-        offset += page_size
-
-    if not total:
+    if not total or not counts:
         return []
 
     return [
@@ -287,15 +292,17 @@ def get_dashboard_all(mode, period, year):
 
         data = _rpc_json(res.data)
         summary = data.get("summary") or {}
+        raw_brand = data.get("brand") or []
         brand = [
             {
                 "name": row.get("name"),
                 "count": int(row.get("total") or 0),
                 "pct": float(row.get("pct") or 0),
             }
-            for row in (data.get("brand") or [])
+            for row in raw_brand
+            if str(row.get("name") or "").strip() and str(row.get("name") or "").strip().lower() != "unknown"
         ]
-        if not brand or _is_unknown_only(brand):
+        if not brand:
             brand = _get_brand_fallback(start, end)
 
         return {

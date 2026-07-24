@@ -109,7 +109,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 shrink-0">
           <Card><CardHeader title="Channel" /><div className="p-4">{loading ? (<BarListSkeleton rows={5} />) : channelPie.length === 0 ? (<EmptyState />) : (<ChannelBreakdown data={channelPie} />)}</div></Card>
           <Card><CardHeader title="Category" /><div className="p-4">{loading ? (<BarListSkeleton rows={6} />) : category.length === 0 ? (<EmptyState />) : (<BarList items={category} />)}</div></Card>
-          <Card><CardHeader title="Brand" /><div className="p-4">{loading ? (<BarListSkeleton rows={6} />) : brand.length === 0 ? (<EmptyState />) : (<BrandList items={brand} />)}</div></Card>
+          <Card><CardHeader title="Product" /><div className="p-4">{loading ? (<BarListSkeleton rows={6} />) : brand.length === 0 ? (<EmptyState message="Tidak ada data produk" />) : (<BarList items={brand} />)}</div></Card>
         </div>
 
       </main>

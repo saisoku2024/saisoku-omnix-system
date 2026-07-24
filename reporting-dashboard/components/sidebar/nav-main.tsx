@@ -33,22 +33,29 @@ export function NavMain({
   const [role, setRole] = useState<string | null>(null)
   const { setOpenMobile, isMobile } = useSidebar()
 
-  // Track currently expanded accordion parent menu
-  const [openParent, setOpenParent] = useState<string | null>(null)
-
   const visibleItems = items.filter((item) => {
     if (!item.roles || item.roles.length === 0) return true
     if (!role) return false
     return item.roles.includes(role) || role === "super_admin" || role === "admin"
   })
 
-  // Automatically adjust open accordion parent when pathname changes (auto-close inactive submenus)
-  useEffect(() => {
+  // Track currently expanded accordion parent menu
+  const [prevKey, setPrevKey] = useState({ pathname, role })
+  const [openParent, setOpenParent] = useState<string | null>(() => {
+    const activeParent = visibleItems.find((item) =>
+      item.items?.some((sub) => sub.url !== "/" && pathname.startsWith(sub.url))
+    )
+    return activeParent ? activeParent.title : null
+  })
+
+  // Automatically adjust open accordion parent when pathname or role changes during render
+  if (prevKey.pathname !== pathname || prevKey.role !== role) {
+    setPrevKey({ pathname, role })
     const activeParent = visibleItems.find((item) =>
       item.items?.some((sub) => sub.url !== "/" && pathname.startsWith(sub.url))
     )
     setOpenParent(activeParent ? activeParent.title : null)
-  }, [pathname, role]) // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   const closeMobileSidebar = useCallback(() => {
     if (isMobile) {
@@ -95,7 +102,7 @@ export function NavMain({
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className={`text-[10px] font-bold uppercase tracking-wider px-2 ${labelColor}`}>
+      <SidebarGroupLabel className={`text-[10px] font-bold uppercase tracking-wider px-2 ${labelColor} group-data-[collapsible=icon]:hidden`}>
         Platform Menu
       </SidebarGroupLabel>
 
@@ -122,6 +129,7 @@ export function NavMain({
                 <SidebarMenuButton
                   asChild
                   data-active={isActive}
+                  tooltip={item.title}
                   className={`
                     relative flex items-center gap-2.5
                     px-3 py-2 rounded-xl transition-all duration-200
@@ -130,7 +138,7 @@ export function NavMain({
                 >
                   <Link href={item.url} onClick={handleLinkClick}>
                     {item.icon}
-                    <span className="text-[13px]">{item.title}</span>
+                    <span className="text-[13px] group-data-[collapsible=icon]:hidden">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -147,7 +155,8 @@ export function NavMain({
             >
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <div
+                  <SidebarMenuButton
+                    tooltip={item.title}
                     className={`
                       relative flex items-center
                       w-full px-3 py-2 rounded-xl
@@ -161,7 +170,7 @@ export function NavMain({
                   >
                     <div className="flex items-center gap-2.5 flex-1 text-[13px]">
                       {item.icon}
-                      <span>{item.title}</span>
+                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </div>
 
                     <ChevronRightIcon
@@ -171,12 +180,13 @@ export function NavMain({
                         duration-200
                         ${isOpen ? "rotate-90" : ""}
                         opacity-50
+                        group-data-[collapsible=icon]:hidden
                       `}
                     />
-                  </div>
+                  </SidebarMenuButton>
                 </CollapsibleTrigger>
 
-                <CollapsibleContent>
+                <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
                   <SidebarMenuSub className="mt-1 space-y-1 pl-4 border-l border-slate-200 dark:border-white/10 ml-3">
                     {item.items?.map((subItem) => {
                       const isActive =

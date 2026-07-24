@@ -74,13 +74,20 @@ function resolveDashboardTrend(response: DashboardAllResponse) {
   return []
 }
 
+function sanitizeNamedItems<T extends { name?: string }>(items: T[] | undefined): T[] {
+  if (!items || items.length === 0) return []
+  return items.filter(
+    (item) => item.name && item.name.trim().toLowerCase() !== "unknown"
+  )
+}
+
 function normalizeDashboardResponse(response: DashboardAllResponse): DashboardPayload {
   return {
     stats: response.summary || EMPTY_STATS,
     trend: resolveDashboardTrend(response),
     channel: response.channel || [],
     category: response.category || [],
-    brand: response.brand || [],
+    brand: sanitizeNamedItems(response.brand),
     customer: response.customer?.total ?? 0,
     newCustomer: response.new_customer?.total ?? 0,
   }

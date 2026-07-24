@@ -35,16 +35,17 @@ export function AppSidebar(
   return (
     <Sidebar
       {...props}
+      collapsible="icon"
       className={`${bgClass} border-r ${borderClass} transition-colors duration-300 font-sans antialiased tracking-tight`}
     >
       <SidebarHeader
-        className={`border-b ${borderClass} px-3 py-2.5 flex flex-row items-center justify-between`}
+        className={`border-b ${borderClass} px-3 py-2.5 flex flex-row items-center justify-between group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:justify-center`}
       >
         <SidebarLogo teams={sidebarTeams} />
       </SidebarHeader>
 
       <SidebarContent>
-        <div className="px-2 py-2">
+        <div className="px-2 py-2 group-data-[collapsible=icon]:px-1">
           <NavMain
             items={sidebarMenu}
             isDark={isDark}
@@ -53,7 +54,7 @@ export function AppSidebar(
       </SidebarContent>
 
       <SidebarFooter
-        className={`border-t ${borderClass} px-3 py-2`}
+        className={`border-t ${borderClass} px-3 py-2 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:justify-center`}
       >
         <SidebarFooterContent user={sidebarUser} />
       </SidebarFooter>

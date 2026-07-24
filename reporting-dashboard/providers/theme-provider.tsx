@@ -17,14 +17,15 @@ const ThemeContext = createContext<ThemeContextValue>({
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark")
-
-  useEffect(() => {
-    const saved = localStorage.getItem("saisoku_theme") as Theme | null
-    if (saved === "light" || saved === "dark") {
-      setTheme(saved)
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("saisoku_theme") as Theme | null
+      if (saved === "light" || saved === "dark") {
+        return saved
+      }
     }
-  }, [])
+    return "dark"
+  })
 
   useEffect(() => {
     const root = document.documentElement

@@ -26,6 +26,7 @@ export function TeamSwitcher({
       <SidebarMenuItem>
         <SidebarMenuButton
           size="lg"
+          tooltip={activeTeam.name}
           className="
             h-14
             cursor-default
@@ -40,12 +41,14 @@ export function TeamSwitcher({
             shadow-sm
 
             hover:bg-background/70
+            group-data-[collapsible=icon]:justify-center
           "
         >
           <div
             className="
               flex
               size-10
+              shrink-0
               items-center
               justify-center
 
@@ -60,7 +63,7 @@ export function TeamSwitcher({
           >
             {activeTeam.logo}
           </div>
-          <div className="grid flex-1 text-left leading-tight">
+          <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="truncate text-[13px] font-semibold tracking-tight">
               {activeTeam.name}
             </span>
