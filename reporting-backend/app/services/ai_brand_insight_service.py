@@ -143,16 +143,17 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
     # Try models in order of availability
     candidate_models = [
         os.environ.get("GEMINI_MODEL"),
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro-latest",
+        "gemini-1.5-flash",
         "gemini-2.0-flash",
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-flash-8b",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-pro",
     ]
-    candidate_models = [m for m in candidate_models if m]
+    seen = set()
+    candidate_models = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
 
     response = None
     model_errors = []
+    has_rate_limit = False
 
     for m in candidate_models:
         try:
@@ -166,6 +167,8 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
                 response = res
                 break
             else:
+                if res.status_code == 429:
+                    has_rate_limit = True
                 err_text = res.text[:150]
                 try:
                     err_json = res.json()
@@ -182,9 +185,15 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
     if not response or not response.ok:
         detailed_err = " | ".join(model_errors)
         logger.error(f"GEMINI BRAND INSIGHT ALL MODELS FAILED: {detailed_err}")
+
+        if has_rate_limit:
+            user_msg = "Layanan Gemini AI sedang mencapai batas kuota gratis sementara (Rate Limit 429). Silakan tunggu sekitar 30–60 detik lalu klik 'Analyze' kembali."
+        else:
+            user_msg = f"Gagal mendapatkan insight AI dari Gemini. Detail: {detailed_err}"
+
         return {
             "success": False,
-            "error": f"Gagal mendapatkan insight AI dari Gemini. Detail: {detailed_err}"
+            "error": user_msg
         }
 
     candidates = response.json().get("candidates") or []
