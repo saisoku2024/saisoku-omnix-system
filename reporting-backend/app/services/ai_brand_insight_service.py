@@ -43,7 +43,13 @@ def generate_brand_ai_insight(brand_name: str, user_query: str = "") -> Dict[str
     2. Agent compliance & discrepancy between raw chat problem vs agent ticket categorization.
     3. Partner service performance (Unicom, Mitracare, Plaza Segi 8, PRJ, Tokopedia, etc.).
     """
-    api_key = _get_gemini_api_key()
+    try:
+        api_key = _get_gemini_api_key()
+    except Exception:
+        return {
+            "success": False,
+            "error": "GEMINI_API_KEY belum dikonfigurasi di environment backend (Render / .env). Silakan atur GEMINI_API_KEY pada Environment Variables backend."
+        }
     model = DEFAULT_GEMINI_MODEL
 
     # Fetch data
@@ -150,7 +156,7 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
     for m in candidate_models:
         try:
             res = requests.post(
-                f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                f"{GEMINI_API_BASE}/models/{m}:generateContent?key={api_key}",
                 headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
                 json={"contents": [{"parts": [{"text": prompt}]}]},
                 timeout=60,
