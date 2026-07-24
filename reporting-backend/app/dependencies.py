@@ -4,8 +4,8 @@ from datetime import datetime, timezone, timedelta
 from fastapi import Depends, Header, HTTPException, status
 from app.core.supabase import supabase
 
-# --- Environment Variables (NO hardcoded defaults) ---
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+# NOTE: JWT_SECRET_KEY dibaca per-call (bukan module-level) agar key rotation
+# via env var langsung efektif tanpa perlu restart proses.
 JWT_ALGORITHM = "HS256"
 
 # UUID for the seeded Super Admin profile (must match migration seed)
@@ -19,7 +19,9 @@ def get_current_user(authorization: str | None = Header(default=None)):
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
 
-    if not JWT_SECRET_KEY:
+    # H-1 fix: baca JWT_SECRET_KEY per-call agar key rotation langsung efektif
+    jwt_secret = os.getenv("JWT_SECRET_KEY")
+    if not jwt_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="JWT_SECRET_KEY is not configured",
@@ -30,7 +32,7 @@ def get_current_user(authorization: str | None = Header(default=None)):
     if token.lower().startswith("bearer "):
         token = token[7:].strip()
     try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, jwt_secret, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
@@ -44,16 +46,19 @@ def get_current_user(authorization: str | None = Header(default=None)):
         if resp.data and len(resp.data) > 0:
             return resp.data[0]
     except Exception:
-        pass  # Fallback to JWT claims if profiles table is unavailable
+        # H-2 fix: fallback ke "guest" (bukan "super_admin") jika profiles
+        # table tidak bisa diakses, mencegah privilege escalation otomatis.
+        pass
 
     # Fallback: construct profile from JWT claims if DB lookup fails
-    role = payload.get("role", "super_admin")
+    # H-2: default role ke "guest", bukan "super_admin"
+    role = payload.get("role", "guest")
     return {
         "id": user_id,
-        "email": payload.get("username", "admin@omnix.com"),
-        "full_name": "Super Admin",
+        "email": payload.get("username", "unknown@omnix.com"),
+        "full_name": "Unknown User",
         "role": role,
-        "brand_access": ["ALL"],
+        "brand_access": [],
     }
 
 # Static permission map (can be replaced by DB-driven lookup later)

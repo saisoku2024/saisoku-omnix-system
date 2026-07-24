@@ -11,7 +11,9 @@ const DEMO_GUEST_EMAIL = (process.env.DEMO_GUEST_EMAIL || "guest@omnix.com")
   .trim()
   .toLowerCase()
 const DEMO_GUEST_PASSWORD = process.env.DEMO_GUEST_PASSWORD
-const ENABLE_DEMO_GUEST = process.env.ENABLE_DEMO_GUEST !== "false"
+// M-4 fix: default ke false — guest mode hanya aktif jika ENABLE_DEMO_GUEST=true
+// diset secara eksplisit. Sebelumnya default true (aktif saat env tidak di-set).
+const ENABLE_DEMO_GUEST = process.env.ENABLE_DEMO_GUEST === "true"
 
 export async function POST(request: Request) {
   const expectedPassword = process.env.ADMIN_UI_PASSWORD
