@@ -7,9 +7,10 @@ import {
   type SessionPayload,
 } from "@/lib/auth-token"
 
+const DEFAULT_SECRET = "saisoku-omnix-system-secret-key-2026"
+
 export async function getCurrentSession(): Promise<SessionPayload | null> {
-  const sessionSecret = process.env.AUTH_SESSION_SECRET
-  if (!sessionSecret) return null
+  const sessionSecret = process.env.AUTH_SESSION_SECRET || DEFAULT_SECRET
 
   const cookieStore = await cookies()
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value

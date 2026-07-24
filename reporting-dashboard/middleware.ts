@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { AUTH_COOKIE_NAME, getSessionPayload } from "@/lib/auth-token"
 
 const PUBLIC_FILE = /\.(.*)$/
+const DEFAULT_SECRET = "saisoku-omnix-system-secret-key-2026"
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
@@ -16,14 +17,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const sessionSecret = process.env.AUTH_SESSION_SECRET
-  if (!sessionSecret) {
-    console.warn("[AUTH WARNING] AUTH_SESSION_SECRET is missing in environment variables.")
-  }
+  const sessionSecret = process.env.AUTH_SESSION_SECRET || DEFAULT_SECRET
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value
-  const session = sessionSecret
-    ? await getSessionPayload(token, sessionSecret)
-    : null
+  const session = await getSessionPayload(token, sessionSecret)
   const isAuthenticated = session !== null
 
   if (pathname === "/login") {
