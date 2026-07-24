@@ -40,6 +40,12 @@ const ALLOWED_READ_ROUTES = new Set([
   "GET principal-report/summary",
 ])
 
+const SENSITIVE_PROXY_ROUTES = new Set([
+  "POST reports/preview",
+  "POST cleanup/preview",
+  "POST cleanup/diagnostics/phone-format",
+])
+
 function isAllowedBackendRead(method: string, path: string) {
   return ALLOWED_READ_ROUTES.has(`${method.toUpperCase()} ${path}`)
 }
@@ -66,9 +72,19 @@ async function proxyBackendRequest(
 
   const { path: pathSegments } = await params
   const path = pathSegments.join("/")
+  const routeKey = `${request.method.toUpperCase()} ${path}`
 
   if (!isAllowedBackendRead(request.method, path)) {
     return NextResponse.json({ detail: "Forbidden" }, { status: 403 })
+  }
+
+  // Restrict sensitive proxy routes for guest role
+  const role = session.role || session.sub
+  if (SENSITIVE_PROXY_ROUTES.has(routeKey) && role === "guest") {
+    return NextResponse.json(
+      { detail: "Forbidden: Guest role cannot execute sensitive management operations" },
+      { status: 403 }
+    )
   }
 
   if (!getAdminApiToken()) {
@@ -119,3 +135,4 @@ async function proxyBackendRequest(
 
 export const GET = proxyBackendRequest
 export const POST = proxyBackendRequest
+

@@ -35,9 +35,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  // RBAC Route Guard: Only super_admin / admin can access /management-system
+  if (pathname.startsWith("/management-system")) {
+    const role = session?.role || session?.sub
+    if (role !== "super_admin" && role !== "admin") {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    }
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 }
+

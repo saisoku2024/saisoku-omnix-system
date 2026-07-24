@@ -4,13 +4,21 @@ export const AUTH_COOKIE_NAME = "saisoku_session"
 export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 12
 const DEFAULT_SECRET = "saisoku-omnix-system-secret-key-2026"
 
+export type UserRole = "super_admin" | "manager" | "spv" | "agent" | "guest"
+
 export type SessionPayload = {
   exp: number
-  sub: "admin" | "super_admin" | "guest"
+  sub: string
+  email?: string
+  role?: UserRole | string
+  fullName?: string
+  brandAccess?: string[]
 }
 
 export function isAdminSession(session: SessionPayload | null | undefined) {
-  return session?.sub === "admin" || session?.sub === "super_admin"
+  if (!session) return false
+  const role = session.role || session.sub
+  return role === "admin" || role === "super_admin" || role === "manager"
 }
 
 function encodeBase64Url(value: string | Uint8Array) {
@@ -68,12 +76,28 @@ function timingSafeEqual(left: string, right: string) {
 
 export async function createSessionToken(
   secret: string,
-  subject: SessionPayload["sub"] = "admin"
+  subjectOrPayload: string | Omit<SessionPayload, "exp"> = "admin"
 ) {
-  const payload: SessionPayload = {
-    exp: Math.floor(Date.now() / 1000) + AUTH_MAX_AGE_SECONDS,
-    sub: subject,
+  const exp = Math.floor(Date.now() / 1000) + AUTH_MAX_AGE_SECONDS
+  let payload: SessionPayload
+
+  if (typeof subjectOrPayload === "string") {
+    const role: UserRole =
+      subjectOrPayload === "admin" || subjectOrPayload === "super_admin"
+        ? "super_admin"
+        : (subjectOrPayload as UserRole)
+    payload = {
+      exp,
+      sub: subjectOrPayload,
+      role,
+    }
+  } else {
+    payload = {
+      ...subjectOrPayload,
+      exp,
+    }
   }
+
   const encodedPayload = encodeBase64Url(JSON.stringify(payload))
   const signature = await sign(encodedPayload, secret)
 
@@ -94,10 +118,7 @@ export async function getSessionPayload(
 
   try {
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionPayload
-    if (
-      (payload.sub === "admin" || payload.sub === "super_admin" || payload.sub === "guest") &&
-      payload.exp > Math.floor(Date.now() / 1000)
-    ) {
+    if (payload && payload.exp && payload.exp > Math.floor(Date.now() / 1000)) {
       return payload
     }
     return null
@@ -120,3 +141,4 @@ export async function requireAdminSession() {
   if (!isAdminSession(session)) return null
   return session
 }
+
