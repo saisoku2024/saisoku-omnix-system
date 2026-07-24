@@ -32,26 +32,31 @@ MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
 IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
 
-# --- DNS Pinning for SSRF & DNS Rebinding Protection ---
-_pinned_ips = contextvars.ContextVar("pinned_ips", default={})
-_original_create_connection = connection.create_connection
+import urllib3
+from requests.adapters import HTTPAdapter
 
-def _patched_create_connection(address, *args, **kwargs):
-    host, port = address
-    pinned = _pinned_ips.get()
-    if host in pinned:
-        return _original_create_connection((pinned[host], port), *args, **kwargs)
-    return _original_create_connection(address, *args, **kwargs)
+class HostPinnedHTTPAdapter(HTTPAdapter):
+    def __init__(self, hostname: str, pinned_ip: str, **kwargs):
+        self.hostname = hostname
+        self.pinned_ip = pinned_ip
+        super().__init__(**kwargs)
 
-connection.create_connection = _patched_create_connection
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        class PinnedPoolManager(urllib3.PoolManager):
+            def __init__(pm_self, hostname, pinned_ip, *args, **kwargs):
+                pm_self.hostname = hostname
+                pm_self.pinned_ip = pinned_ip
+                super().__init__(*args, **kwargs)
 
-@contextmanager
-def pin_dns(hostname: str, ip: str):
-    token = _pinned_ips.set({**_pinned_ips.get(), hostname: ip})
-    try:
-        yield
-    finally:
-        _pinned_ips.reset(token)
+            def _new_pool(pm_self, scheme, host, port, request_context=None):
+                if host == pm_self.hostname:
+                    if request_context is None:
+                        request_context = {}
+                    request_context["server_hostname"] = pm_self.hostname
+                    return super()._new_pool(scheme, pm_self.pinned_ip, port, request_context)
+                return super()._new_pool(scheme, host, port, request_context)
+
+        self.poolmanager = PinnedPoolManager(self.hostname, self.pinned_ip, connections, maxsize, block=block, **pool_kwargs)
 
 
 def _gemini_api_key() -> str:
@@ -206,14 +211,18 @@ def _extract_web_page_text(url: str) -> str:
         # Resolve and validate host to prevent SSRF
         ip = _resolve_and_validate_host(parsed.hostname)
         
-        with pin_dns(parsed.hostname, ip):
-            response = requests.get(
-                current_url,
-                headers=headers,
-                timeout=(5, 20),
-                stream=True,
-                allow_redirects=False,
-            )
+        session = requests.Session()
+        adapter = HostPinnedHTTPAdapter(parsed.hostname, ip)
+        session.mount(f"http://{parsed.hostname}", adapter)
+        session.mount(f"https://{parsed.hostname}", adapter)
+
+        response = session.get(
+            current_url,
+            headers=headers,
+            timeout=(5, 20),
+            stream=True,
+            allow_redirects=False,
+        )
             
         if response.is_redirect or response.is_permanent_redirect:
             location = response.headers.get("location")
@@ -455,13 +464,17 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
 
 class KnowledgeService:
     @staticmethod
-    def list_documents() -> Dict[str, Any]:
+    def list_documents(limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        safe_limit = max(1, min(limit, 200))
+        safe_offset = max(0, offset)
+        end_range = safe_offset + safe_limit - 1
+
         try:
             res = (
                 supabase.table("knowledge_documents")
-                .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,storage_bucket,storage_path,file_size,created_at,updated_at")
+                .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,storage_bucket,storage_path,file_size,created_at,updated_at", count="exact")
                 .order("created_at", desc=True)
-                .limit(100)
+                .range(safe_offset, end_range)
                 .execute()
             )
         except Exception as exc:
@@ -469,13 +482,19 @@ class KnowledgeService:
                 raise
             res = (
                 supabase.table("knowledge_documents")
-                .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,created_at,updated_at")
+                .select("id,title,source_file,mime_type,status,chunk_count,created_by,error_summary,created_at,updated_at", count="exact")
                 .order("created_at", desc=True)
-                .limit(100)
+                .range(safe_offset, end_range)
                 .execute()
             )
         documents = res.data or []
-        return {"total": len(documents), "documents": documents}
+        total_count = res.count if getattr(res, "count", None) is not None else len(documents)
+        return {
+            "total": total_count,
+            "limit": safe_limit,
+            "offset": safe_offset,
+            "documents": documents,
+        }
 
     @staticmethod
     async def prepare_upload(file: UploadFile, title: str | None, user_email: str = "admin@omnix.com") -> Dict[str, Any]:

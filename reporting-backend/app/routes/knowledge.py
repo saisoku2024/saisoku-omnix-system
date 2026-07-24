@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.security import require_admin_token
@@ -37,8 +37,11 @@ class KnowledgeStorageIngestRequest(BaseModel):
 
 
 @router.get("/documents")
-def list_documents():
-    return KnowledgeService.list_documents()
+def list_documents(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    return KnowledgeService.list_documents(limit=limit, offset=offset)
 
 
 @router.post("/upload")

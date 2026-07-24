@@ -20,8 +20,13 @@ export async function POST(request: Request) {
   const sessionSecret = process.env.AUTH_SESSION_SECRET
 
   if (!expectedPassword || !sessionSecret) {
+    const missing: string[] = []
+    if (!expectedPassword) missing.push("ADMIN_UI_PASSWORD")
+    if (!sessionSecret) missing.push("AUTH_SESSION_SECRET")
     return NextResponse.json(
-      { detail: "Auth environment is not configured" },
+      {
+        detail: `Konfigurasi autentikasi belum lengkap. Harap set environment variable berikut di Vercel/.env.local: ${missing.join(", ")}`,
+      },
       { status: 503 }
     )
   }

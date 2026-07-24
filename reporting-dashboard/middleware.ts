@@ -17,6 +17,9 @@ export async function middleware(request: NextRequest) {
   }
 
   const sessionSecret = process.env.AUTH_SESSION_SECRET
+  if (!sessionSecret) {
+    console.warn("[AUTH WARNING] AUTH_SESSION_SECRET is missing in environment variables.")
+  }
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value
   const session = sessionSecret
     ? await getSessionPayload(token, sessionSecret)
