@@ -49,6 +49,17 @@ def detect_partner(message: str, subject: str = "") -> str:
             return partner_name
     return "General"
 
+def safe_parse_int(val: Any) -> int:
+    if val is None:
+        return 0
+    cleaned = clean_val(val).replace(" ", "").replace(",", "")
+    if not cleaned or cleaned == "-":
+        return 0
+    try:
+        return int(float(cleaned))
+    except Exception:
+        return 0
+
 def parse_date(date_str: str) -> str:
     cleaned = clean_val(date_str)
     if not cleaned or cleaned == "-":
@@ -112,7 +123,7 @@ def parse_chat_csv_content(content_bytes: bytes) -> Tuple[List[Dict[str, Any]], 
             "message": message,
             "date_origin": parse_date(row.get("date_origin")),
             "date_received": parse_date(row.get("date_received")),
-            "response_time_sec": int(float(clean_val(row.get("response_time")) or 0)),
+            "response_time_sec": safe_parse_int(row.get("response_time")),
             "detected_brand": brand,
             "detected_partner": partner,
         })
