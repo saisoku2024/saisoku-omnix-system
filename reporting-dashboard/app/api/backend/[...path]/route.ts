@@ -39,6 +39,7 @@ const ALLOWED_READ_ROUTES = new Set([
   "POST cleanup/diagnostics/phone-format",
   "GET principal-report/summary",
   "POST chat/upload",
+  "POST chat/storage-ingest",
   "POST chat/ingest-sample-local",
   "POST chat/brand-insight",
 ])

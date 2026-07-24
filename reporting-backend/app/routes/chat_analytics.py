@@ -24,6 +24,35 @@ class BrandInsightRequest(BaseModel):
     brand: str
     query: Optional[str] = ""
 
+class StorageIngestRequest(BaseModel):
+    bucket: str
+    path: str
+    filename: Optional[str] = None
+    size: Optional[int] = 0
+
+@router.post("/storage-ingest")
+async def ingest_chat_storage_upload(
+    payload: StorageIngestRequest,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")
+):
+    """
+    Ingests chat transcript file directly uploaded to Supabase Storage, bypassing HTTP 413 payload limits.
+    """
+    _verify_admin_token(x_admin_token)
+    try:
+        from app.services.storage_upload_service import download_storage_object, filename_from_path, validate_storage_upload
+        filename = payload.filename or filename_from_path(payload.path)
+        validate_storage_upload("data", filename, payload.size or 0)
+        content = download_storage_object("data", payload.bucket, payload.path)
+        result = ingest_chat_transcripts_bytes(content)
+        return {
+            "message": "Ingest storage rekam chat berhasil",
+            "data": result
+        }
+    except Exception as e:
+        logger.error(f"ERROR CHAT STORAGE INGEST: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/upload")
 async def upload_chat_transcript(
     file: UploadFile = File(...),

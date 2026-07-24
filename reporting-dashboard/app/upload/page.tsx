@@ -368,11 +368,10 @@ function useFileUpload(
 
         let response: Response
         if (type === "chat") {
-          const formData = new FormData()
-          formData.append("file", file)
-          response = await fetch("/api/backend/chat/upload", {
+          response = await fetch("/api/backend/chat/storage-ingest", {
             method: "POST",
-            body: formData,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...storageFile, filename: file.name }),
             cache: "no-store",
           })
         } else {
