@@ -152,7 +152,7 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
     candidate_models = [m for m in candidate_models if m]
 
     response = None
-    last_error_text = ""
+    model_errors = []
 
     for m in candidate_models:
         try:
@@ -166,17 +166,25 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
                 response = res
                 break
             else:
-                last_error_text = f"Model {m} returned HTTP {res.status_code}: {res.text[:200]}"
+                err_text = res.text[:150]
+                try:
+                    err_json = res.json()
+                    if "error" in err_json:
+                        err_text = err_json["error"].get("message", err_text)
+                except Exception:
+                    pass
+                model_errors.append(f"[{m}: HTTP {res.status_code} - {err_text}]")
                 logger.warning(f"Gemini model {m} failed: {res.status_code}")
         except Exception as ex:
-            last_error_text = str(ex)
+            model_errors.append(f"[{m}: {str(ex)}]")
             logger.warning(f"Gemini model {m} exception: {ex}")
 
     if not response or not response.ok:
-        logger.error(f"GEMINI BRAND INSIGHT ALL MODELS FAILED: {last_error_text}")
+        detailed_err = " | ".join(model_errors)
+        logger.error(f"GEMINI BRAND INSIGHT ALL MODELS FAILED: {detailed_err}")
         return {
             "success": False,
-            "error": f"Gagal mendapatkan insight AI dari Gemini. Detail: {last_error_text}"
+            "error": f"Gagal mendapatkan insight AI dari Gemini. Detail: {detailed_err}"
         }
 
     candidates = response.json().get("candidates") or []
