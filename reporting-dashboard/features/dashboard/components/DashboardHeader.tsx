@@ -23,14 +23,23 @@ type Props = {
 const MODE_OPTIONS = ["Monthly", "Quarterly", "Yearly"]
 const YEAR_OPTIONS = ["2024", "2025", "2026"]
 
-function InsightLogo({ size = 26 }: { size?: number }) {
+function InsightLogo({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="7" fill="#0ea5e9" />
-      <rect x="7"  y="16" width="3" height="6"  rx="1.5" fill="white" opacity="0.55" />
-      <rect x="12" y="11" width="3" height="11" rx="1.5" fill="white" opacity="0.78" />
-      <rect x="17" y="6"  width="3" height="16" rx="1.5" fill="white" />
-    </svg>
+    <div className="relative flex items-center justify-center">
+      <div className="absolute -inset-1 rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-30 blur-xs" />
+      <svg width={size} height={size} viewBox="0 0 28 28" fill="none" className="relative">
+        <rect width="28" height="28" rx="8" fill="url(#logo-grad)" />
+        <rect x="7" y="16" width="3" height="6" rx="1.5" fill="white" opacity="0.65" />
+        <rect x="12" y="11" width="3" height="11" rx="1.5" fill="white" opacity="0.85" />
+        <rect x="17" y="6" width="3" height="16" rx="1.5" fill="white" />
+        <defs>
+          <linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#6366f1" />
+            <stop offset="1" stopColor="#06b6d4" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
   )
 }
 
@@ -46,26 +55,28 @@ export default function DashboardHeader({
   onToggleTheme,
 }: Props) {
   return (
-    <header className="sticky top-0 z-30 flex h-[54px] items-center justify-between gap-3 border-b border-(--c-border) bg-(--c-surface) px-5">
-      <div className="flex flex-shrink-0 items-center gap-2.5">
+    <header className="sticky top-0 z-30 flex h-[58px] items-center justify-between gap-3 border-b border-white/8 bg-slate-950/80 px-5 backdrop-blur-xl transition-all duration-300">
+      {/* Brand & Live Badge */}
+      <div className="flex flex-shrink-0 items-center gap-3">
         <InsightLogo />
-        <div className="flex flex-col leading-none">
-          <span className="text-[13px] font-extrabold tracking-widest text-(--c-text)">
-            INSIGHT
-          </span>
-          <span className="text-[9px] font-semibold uppercase tracking-wider text-(--c-muted)">
-            Dashboard
+        <div className="flex flex-col leading-tight">
+          <div className="flex items-center gap-2">
+            <span className="font-heading text-[14px] font-black tracking-widest text-white">
+              INSIGHT
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold tracking-wider text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 live-pulse" />
+              LIVE
+            </span>
+          </div>
+          <span className="text-[10px] font-medium tracking-wider text-slate-400">
+            Omnix System Dashboard
           </span>
         </div>
       </div>
 
-      <div
-        className="flex flex-wrap items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
-        style={{
-          background: isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)",
-          borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-        }}
-      >
+      {/* Control Toolbar */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-slate-900/60 p-1.5 backdrop-blur-md shadow-inner">
         <PeriodDropdown
           options={MODE_OPTIONS}
           value={modeLabel(mode)}
