@@ -5,8 +5,6 @@ from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Header, Query, status
 from app.services.audit_log_service import AuditLogService
 
-ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN")
-
 router = APIRouter(
     prefix="/admin/audit-logs",
     tags=["Management System - Audit Logs"],
@@ -21,12 +19,13 @@ class AuditLogCreateRequest(BaseModel):
 
 def verify_admin_access(x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
     """Verify admin token using constant-time comparison to prevent timing attacks."""
-    if not ADMIN_API_TOKEN:
+    admin_api_token = os.getenv("ADMIN_API_TOKEN")
+    if not admin_api_token:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Admin API token is not configured",
         )
-    if not x_admin_token or not secrets.compare_digest(x_admin_token, ADMIN_API_TOKEN):
+    if not x_admin_token or not secrets.compare_digest(x_admin_token, admin_api_token):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Akses ditolak: Diperlukan kredensial Super Admin.",

@@ -4,7 +4,7 @@ import { AUTH_COOKIE_NAME, getSessionPayload } from "@/lib/auth-token"
 
 const PUBLIC_FILE = /\.(.*)$/
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
   if (

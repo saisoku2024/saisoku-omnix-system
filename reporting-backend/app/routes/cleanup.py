@@ -7,7 +7,11 @@ from app.core.security import require_admin_token
 from app.services.cleanup_service import CleanupService
 
 
-router = APIRouter(prefix="/cleanup", tags=["Data Cleanup"])
+router = APIRouter(
+    prefix="/cleanup",
+    tags=["Data Cleanup"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 CleanupRule = Literal["abandon_match", "test_omnix", "internal_email"]
 CleanupTargetTable = Literal["voice_interactions", "omnix_cases"]
