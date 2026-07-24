@@ -69,8 +69,20 @@ export default function UserManagementPage() {
   // Form State
   const [formEmail, setFormEmail] = useState("")
   const [formPassword, setFormPassword] = useState("")
+  const [showModalPassword, setShowModalPassword] = useState(false)
   const [formFullName, setFormFullName] = useState("")
   const [formRole, setFormRole] = useState<RoleType>("agent")
+  const [formBrandAccess, setFormBrandAccess] = useState<string>("ALL")
+
+  const generateRandomPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%"
+    let pass = ""
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setFormPassword(pass)
+    setShowModalPassword(true)
+  }
 
   // Edit Modal State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null)
@@ -132,6 +144,7 @@ export default function UserManagementPage() {
     setSuccessMsg(null)
 
     try {
+      const selectedBrands = formBrandAccess === "ALL" ? ["ALL"] : [formBrandAccess]
       const res = await fetch("/api/backend/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,7 +153,7 @@ export default function UserManagementPage() {
           password: formPassword,
           full_name: formFullName,
           role: formRole,
-          brand_access: ["ALL"],
+          brand_access: selectedBrands,
         }),
       })
 
@@ -149,12 +162,13 @@ export default function UserManagementPage() {
         throw new Error(data.detail || data.error || "Gagal membuat user baru")
       }
 
-      setSuccessMsg(`User baru '${formFullName}' (${formRole}) berhasil dibuat!`)
+      setSuccessMsg(`User baru '${formFullName}' (${formRole}) berhasil dibuat! Password: ${formPassword}`)
       setIsModalOpen(false)
       setFormEmail("")
       setFormPassword("")
       setFormFullName("")
       setFormRole("agent")
+      setFormBrandAccess("ALL")
       fetchUsers()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat user")
@@ -435,15 +449,33 @@ export default function UserManagementPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block font-semibold text-(--c-muted)">Password Initial</label>
-                  <input
-                    type="password"
-                    required
-                    value={formPassword}
-                    onChange={(e) => setFormPassword(e.target.value)}
-                    placeholder="Minimal 6 karakter"
-                    className="h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent)"
-                  />
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="font-semibold text-(--c-muted)">Password Initial</label>
+                    <button
+                      type="button"
+                      onClick={generateRandomPassword}
+                      className="text-[10px] font-bold text-(--c-accent) hover:underline"
+                    >
+                      ⚡ Auto Generate
+                    </button>
+                  </div>
+                  <div className="relative flex items-center">
+                    <input
+                      type={showModalPassword ? "text" : "password"}
+                      required
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      className="h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) pr-10 pl-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowModalPassword(!showModalPassword)}
+                      className="absolute right-3 text-slate-400 hover:text-white"
+                    >
+                      {showModalPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -458,6 +490,22 @@ export default function UserManagementPage() {
                     <option value="spv">Supervisor / SPV (Team & Upload Access)</option>
                     <option value="agent">Agent CS (Operational & Copilot)</option>
                     <option value="guest">Guest (Interactive Demo Mode)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-semibold text-(--c-muted)">Brand Access Scope</label>
+                  <select
+                    value={formBrandAccess}
+                    onChange={(e) => setFormBrandAccess(e.target.value)}
+                    className="h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent)"
+                  >
+                    <option value="ALL">Semua Brand (ALL Access)</option>
+                    <option value="Tineco">Tineco Only</option>
+                    <option value="Ecovacs">Ecovacs Only</option>
+                    <option value="Yoniev">Yoniev Only</option>
+                    <option value="Laifen">Laifen Only</option>
+                    <option value="Usmile">Usmile Only</option>
                   </select>
                 </div>
 
