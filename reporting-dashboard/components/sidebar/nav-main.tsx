@@ -33,13 +33,30 @@ export function NavMain({
   const [role, setRole] = useState<string | null>(null)
   const { setOpenMobile, isMobile } = useSidebar()
 
+  // Track currently expanded accordion parent menu
+  const [openParent, setOpenParent] = useState<string | null>(null)
+
+  const visibleItems = items.filter((item) => {
+    if (!item.roles || item.roles.length === 0) return true
+    if (!role) return false
+    return item.roles.includes(role) || role === "super_admin" || role === "admin"
+  })
+
+  // Automatically adjust open accordion parent when pathname changes (auto-close inactive submenus)
+  useEffect(() => {
+    const activeParent = visibleItems.find((item) =>
+      item.items?.some((sub) => sub.url !== "/" && pathname.startsWith(sub.url))
+    )
+    setOpenParent(activeParent ? activeParent.title : null)
+  }, [pathname, role]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const closeMobileSidebar = useCallback(() => {
     if (isMobile) {
       setOpenMobile(false)
     }
   }, [isMobile, setOpenMobile])
 
-  // Auto-close sidebar mobile drawer ONLY on mobile screens
+  // Auto-close mobile drawer on route change
   useEffect(() => {
     closeMobileSidebar()
   }, [pathname, closeMobileSidebar])
@@ -68,14 +85,12 @@ export function NavMain({
     : "bg-gradient-to-r from-indigo-50 to-indigo-50/20 text-indigo-600 border-l-2 border-indigo-600 font-semibold"
   const labelColor = isDark ? "text-slate-500" : "text-slate-400"
 
-  const visibleItems = items.filter((item) => {
-    if (!item.roles || item.roles.length === 0) return true
-    if (!role) return false
-    return item.roles.includes(role) || role === "super_admin" || role === "admin"
-  })
-
   const handleLinkClick = () => {
     closeMobileSidebar()
+  }
+
+  const toggleParent = (title: string) => {
+    setOpenParent((prev) => (prev === title ? null : title))
   }
 
   return (
@@ -90,8 +105,10 @@ export function NavMain({
 
           const isParentActive =
             item.items?.some((sub) =>
-              pathname.startsWith(sub.url)
+              sub.url !== "/" && pathname.startsWith(sub.url)
             ) || false
+
+          const isOpen = openParent === item.title
 
           // MENU TANPA SUBMENU
           if (!hasChildren) {
@@ -120,11 +137,12 @@ export function NavMain({
             )
           }
 
-          // MENU DENGAN SUBMENU
+          // MENU DENGAN SUBMENU (Accordion Style)
           return (
             <Collapsible
               key={item.title}
-              defaultOpen={isParentActive}
+              open={isOpen}
+              onOpenChange={() => toggleParent(item.title)}
               className="group/collapsible"
             >
               <SidebarMenuItem>
@@ -147,13 +165,13 @@ export function NavMain({
                     </div>
 
                     <ChevronRightIcon
-                      className="
+                      className={`
                         h-4 w-4
                         transition-transform
                         duration-200
-                        group-data-[state=open]/collapsible:rotate-90
+                        ${isOpen ? "rotate-90" : ""}
                         opacity-50
-                      "
+                      `}
                     />
                   </div>
                 </CollapsibleTrigger>
