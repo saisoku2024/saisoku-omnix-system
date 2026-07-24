@@ -17,6 +17,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { ChevronRightIcon } from "lucide-react"
 import type { SidebarMenuItem as SidebarMenuItemType } from "@/types/sidebar"
@@ -30,6 +31,12 @@ export function NavMain({
 }) {
   const pathname = usePathname()
   const [role, setRole] = useState<string | null>(null)
+  const { setOpenMobile } = useSidebar()
+
+  // Auto-close sidebar mobile drawer on page navigation
+  useEffect(() => {
+    setOpenMobile(false)
+  }, [pathname, setOpenMobile])
 
   useEffect(() => {
     let active = true
@@ -60,6 +67,10 @@ export function NavMain({
     if (!role) return false
     return item.roles.includes(role) || role === "super_admin" || role === "admin"
   })
+
+  const handleLinkClick = () => {
+    setOpenMobile(false)
+  }
 
   return (
     <SidebarGroup>
@@ -94,7 +105,7 @@ export function NavMain({
                     ${isActive ? activeBg : `${textMuted} ${hoverText} ${hoverBg}`}
                   `}
                 >
-                  <Link href={item.url}>
+                  <Link href={item.url} onClick={handleLinkClick}>
                     {item.icon}
                     <span className="text-[13px]">{item.title}</span>
                   </Link>
@@ -161,7 +172,7 @@ export function NavMain({
                               ${isActive ? activeBg : `${textMuted} ${hoverText} ${hoverBg}`}
                             `}
                           >
-                            <Link href={subItem.url}>
+                            <Link href={subItem.url} onClick={handleLinkClick}>
                               {subItem.icon}
                               <span>{subItem.title}</span>
                             </Link>
