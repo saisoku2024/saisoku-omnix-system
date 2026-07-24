@@ -1,4 +1,6 @@
 import base64
+from contextlib import contextmanager
+import contextvars
 from html.parser import HTMLParser
 import ipaddress
 import io
@@ -11,6 +13,7 @@ from urllib.parse import urljoin, urlparse
 
 import pandas as pd
 import requests
+from urllib3.util import connection
 from fastapi import HTTPException, UploadFile, status
 
 from app.core.supabase import supabase
@@ -28,6 +31,27 @@ MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
 IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
+
+# --- DNS Pinning for SSRF & DNS Rebinding Protection ---
+_pinned_ips = contextvars.ContextVar("pinned_ips", default={})
+_original_create_connection = connection.create_connection
+
+def _patched_create_connection(address, *args, **kwargs):
+    host, port = address
+    pinned = _pinned_ips.get()
+    if host in pinned:
+        return _original_create_connection((pinned[host], port), *args, **kwargs)
+    return _original_create_connection(address, *args, **kwargs)
+
+connection.create_connection = _patched_create_connection
+
+@contextmanager
+def pin_dns(hostname: str, ip: str):
+    token = _pinned_ips.set({**_pinned_ips.get(), hostname: ip})
+    try:
+        yield
+    finally:
+        _pinned_ips.reset(token)
 
 
 def _gemini_api_key() -> str:
@@ -124,14 +148,20 @@ class ReadableTextParser(HTMLParser):
         return _clean_text(" ".join(self.parts))
 
 
-def _is_public_hostname(hostname: str) -> bool:
+def _resolve_and_validate_host(hostname: str) -> str:
     try:
         addresses = socket.getaddrinfo(hostname, None)
     except socket.gaierror as exc:
-        raise HTTPException(status_code=400, detail="URL web tidak bisa di-resolve.") from exc
+        raise HTTPException(status_code=400, detail=f"Hostname {hostname} tidak bisa di-resolve.") from exc
 
+    resolved_ip = None
     for address in addresses:
-        ip = ipaddress.ip_address(address[4][0])
+        ip_str = address[4][0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        
         if (
             ip.is_private
             or ip.is_loopback
@@ -140,16 +170,24 @@ def _is_public_hostname(hostname: str) -> bool:
             or ip.is_reserved
             or ip.is_unspecified
         ):
-            return False
-    return True
+            raise HTTPException(
+                status_code=400,
+                detail=f"IP private/internal ({ip_str}) tidak diperbolehkan sebagai knowledge source."
+            )
+        
+        if not resolved_ip:
+            resolved_ip = ip_str
+
+    if not resolved_ip:
+        raise HTTPException(status_code=400, detail=f"Tidak ada IP publik yang valid ditemukan untuk {hostname}.")
+    
+    return resolved_ip
 
 
 def _validate_public_web_url(url: str) -> str:
     parsed = urlparse(url.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc or not parsed.hostname:
         raise HTTPException(status_code=400, detail="URL web harus memakai http/https publik.")
-    if not _is_public_hostname(parsed.hostname):
-        raise HTTPException(status_code=400, detail="URL private/internal tidak boleh dipakai sebagai knowledge source.")
     return parsed.geturl()
 
 
@@ -161,13 +199,22 @@ def _extract_web_page_text(url: str) -> str:
     }
 
     for _ in range(4):
-        response = requests.get(
-            current_url,
-            headers=headers,
-            timeout=(5, 20),
-            stream=True,
-            allow_redirects=False,
-        )
+        parsed = urlparse(current_url)
+        if not parsed.hostname:
+            raise HTTPException(status_code=400, detail="URL redirect tidak valid.")
+        
+        # Resolve and validate host to prevent SSRF
+        ip = _resolve_and_validate_host(parsed.hostname)
+        
+        with pin_dns(parsed.hostname, ip):
+            response = requests.get(
+                current_url,
+                headers=headers,
+                timeout=(5, 20),
+                stream=True,
+                allow_redirects=False,
+            )
+            
         if response.is_redirect or response.is_permanent_redirect:
             location = response.headers.get("location")
             if not location:
@@ -319,6 +366,57 @@ def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) 
     if not isinstance(values, list) or len(values) != EMBEDDING_DIMENSION:
         raise HTTPException(status_code=502, detail="Gemini embedding response is invalid")
     return [float(v) for v in values]
+
+
+def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[float]]:
+    if not texts:
+        return []
+    key = _gemini_api_key()
+    model = _embedding_model()
+    model_name = model if model.startswith("models/") else f"models/{model}"
+    
+    # Max batch size for Gemini batchEmbedContents is 100
+    batch_size = 100
+    all_embeddings = []
+    
+    for i in range(0, len(texts), batch_size):
+        chunk_batch = texts[i : i + batch_size]
+        requests_payload = []
+        for text in chunk_batch:
+            prefix = f"title: {title or 'none'} | text: "
+            requests_payload.append({
+                "model": model_name,
+                "content": {"parts": [{"text": f"{prefix}{text}"}]},
+                "output_dimensionality": EMBEDDING_DIMENSION,
+            })
+            
+        payload = {"requests": requests_payload}
+        response = requests.post(
+            f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+            json=payload,
+            timeout=60,
+        )
+        if not response.ok:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini batch embedding request failed: {response.text[:300]}",
+            )
+        
+        embeddings_data = response.json().get("embeddings") or []
+        if len(embeddings_data) != len(chunk_batch):
+            raise HTTPException(
+                status_code=502,
+                detail="Gemini batch embedding returned mismatching number of embeddings"
+            )
+            
+        for emb in embeddings_data:
+            values = emb.get("values")
+            if not isinstance(values, list) or len(values) != EMBEDDING_DIMENSION:
+                raise HTTPException(status_code=502, detail="Gemini batch embedding response is invalid")
+            all_embeddings.append([float(v) for v in values])
+            
+    return all_embeddings
 
 
 def _vector_literal(values: List[float]) -> str:
@@ -478,9 +576,9 @@ class KnowledgeService:
             if not chunks:
                 raise HTTPException(status_code=400, detail="Dokumen tidak menghasilkan chunk knowledge base.")
 
+            embeddings = _embed_texts(chunks, title=document_title)
             rows = []
             for index, chunk in enumerate(chunks):
-                embedding = _embed_text(chunk, title=document_title, is_query=False)
                 rows.append(
                     {
                         "document_id": document_id,
@@ -488,7 +586,7 @@ class KnowledgeService:
                         "title": document_title,
                         "content": chunk,
                         "token_estimate": _estimate_tokens(chunk),
-                        "embedding": _vector_literal(embedding),
+                        "embedding": _vector_literal(embeddings[index]),
                     }
                 )
             supabase.table("knowledge_chunks").insert(rows).execute()
