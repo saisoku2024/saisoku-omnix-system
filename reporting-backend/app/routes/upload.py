@@ -2,6 +2,7 @@ import io
 import logging
 import uuid
 import pandas as pd
+from typing import Literal
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel, Field
 from app.core.security import require_admin_token
@@ -19,6 +20,8 @@ router = APIRouter(tags=["Upload"])
 
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
+UploadType = Literal["omnix", "voice", "csat"]
+
 
 class StorageDataIngestRequest(BaseModel):
     bucket: str = Field(..., min_length=1, max_length=80)
@@ -26,7 +29,7 @@ class StorageDataIngestRequest(BaseModel):
     filename: str | None = Field(default=None, max_length=180)
     content_type: str | None = Field(default=None, max_length=180)
     size: int = Field(..., gt=0)
-    type: str = Field(..., min_length=1, max_length=30)
+    type: UploadType
 
 
 def process_upload_content(
@@ -128,7 +131,7 @@ def process_upload_content(
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    type: str = Form(...),
+    type: UploadType = Form(...),
     _: None = Depends(require_admin_token),
 ):
     try:
