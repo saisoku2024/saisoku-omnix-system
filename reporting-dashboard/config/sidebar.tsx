@@ -74,6 +74,16 @@ export const sidebarMenu: SidebarMenuItem[] = [
         url: "/ai/knowledge-base",
         icon: <BookOpenIcon />,
       },
+      {
+        title: "Brand Analytics",
+        url: "/ai/brand-analytics",
+        icon: <PieChartIcon />,
+      },
+      {
+        title: "QA & Compliance Audit",
+        url: "/ai/qa-audit",
+        icon: <ShieldCheckIcon />,
+      },
     ],
   },
   {

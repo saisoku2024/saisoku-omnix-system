@@ -21,6 +21,7 @@ from app.routes import (
 from app.routes.principal import router as principal_router
 from app.routes.admin_users import router as admin_users_router
 from app.routes.admin_audit_logs import router as admin_audit_logs_router
+from app.routes.chat_analytics import router as chat_analytics_router
 
 # Load environment variables
 load_dotenv()
@@ -69,6 +70,7 @@ app.include_router(principal_router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(admin_users_router, prefix="/api")
 app.include_router(admin_audit_logs_router, prefix="/api")
+app.include_router(chat_analytics_router, prefix="/api")
 
 # ============================================================
 # ROOT & HEALTH ENDPOINTS

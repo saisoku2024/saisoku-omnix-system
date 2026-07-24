@@ -31,7 +31,7 @@ import { uploadFileToStorage } from "@/lib/storage-upload"
    TYPES
    ============================================================ */
 
-type DatasetType = "omnix" | "voice" | "csat"
+type DatasetType = "omnix" | "voice" | "csat" | "chat"
 type SessionRole = "admin" | "super_admin" | "guest" | null
 
 type UploadStatus =
@@ -112,6 +112,12 @@ const DATASET_OPTIONS: {
     desc: "Satisfaction scores",
     icon: Zap,
   },
+  {
+    value: "chat",
+    label: "Rekam Chat",
+    desc: "Chat transcripts",
+    icon: FileText,
+  },
 ]
 
 const UPLOAD_GUIDE = [
@@ -120,10 +126,6 @@ const UPLOAD_GUIDE = [
   `Ukuran maksimal file: ${MAX_SIZE_MB} MB`,
   `Target Backend: ${API_ORIGIN}`,
 ]
-
-/* ============================================================
-   THEME TOKENS — Indigo/Violet premium palette
-   ============================================================ */
 
 const DARK_VARS: React.CSSProperties = {
   "--c-bg": "#0a0a14",
@@ -364,12 +366,23 @@ function useFileUpload(
           controller.signal
         )
 
-        const response = await fetch(STORAGE_INGEST_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...storageFile, type }),
-          cache: "no-store",
-        })
+        let response: Response
+        if (type === "chat") {
+          const formData = new FormData()
+          formData.append("file", file)
+          response = await fetch("/api/backend/chat/upload", {
+            method: "POST",
+            body: formData,
+            cache: "no-store",
+          })
+        } else {
+          response = await fetch(STORAGE_INGEST_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...storageFile, type }),
+            cache: "no-store",
+          })
+        }
         const data = await response.json().catch(() => ({}))
 
         if (!response.ok) {

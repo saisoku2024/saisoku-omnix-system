@@ -38,6 +38,9 @@ const ALLOWED_READ_ROUTES = new Set([
   "POST cleanup/preview",
   "POST cleanup/diagnostics/phone-format",
   "GET principal-report/summary",
+  "POST chat/upload",
+  "POST chat/ingest-sample-local",
+  "POST chat/brand-insight",
 ])
 
 const SENSITIVE_PROXY_ROUTES = new Set([
