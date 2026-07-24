@@ -27,6 +27,11 @@ class UserProfileResponse(BaseModel):
     updated_at: Optional[str] = None
 
 
+class UserResetPasswordRequest(BaseModel):
+    new_password: str
+
+
 class UserListResponse(BaseModel):
     total: int
     users: List[UserProfileResponse]
+

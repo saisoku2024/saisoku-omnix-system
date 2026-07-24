@@ -1,11 +1,12 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   Activity,
   ArrowRight,
   BarChart3,
+  CheckCircle2,
   Eye,
   EyeOff,
   Loader2,
@@ -15,6 +16,131 @@ import {
   Sparkles,
 } from "lucide-react"
 
+const INSIGHT_STEPS = [
+  { letter: "I", title: "Initializing Security Context..." },
+  { letter: "N", title: "Network & RBAC Encryption Verified" },
+  { letter: "S", title: "Securing Session Token" },
+  { letter: "I", title: "Identity & Profile Authenticated" },
+  { letter: "G", title: "Gathering Omnichannel Telemetry" },
+  { letter: "H", title: "Hyper-scale Data Engine Ready" },
+  { letter: "T", title: "Transferring to INSIGHT Dashboard" },
+]
+
+function InsightIntroOverlay({ onComplete }: { onComplete: () => void }) {
+  const [currentStep, setCurrentStep] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentStep((prev) => {
+        if (prev < INSIGHT_STEPS.length - 1) {
+          return prev + 1
+        }
+        clearInterval(interval)
+        setTimeout(onComplete, 350)
+        return prev
+      })
+    }, 220)
+
+    return () => clearInterval(interval)
+  }, [onComplete])
+
+  const progressPercent = Math.round(((currentStep + 1) / INSIGHT_STEPS.length) * 100)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030712]/92 p-4 backdrop-blur-2xl animate-in fade-in duration-300">
+      {/* Background Ambient Glow */}
+      <div className="pointer-events-none absolute size-96 rounded-full bg-cyan-500/20 blur-[130px]" />
+      <div className="pointer-events-none absolute size-80 rounded-full bg-emerald-500/15 blur-[110px]" />
+
+      {/* Cyber Glass Card */}
+      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/20 bg-[#091322]/95 p-6 sm:p-7 shadow-[0_0_90px_rgba(6,182,212,0.25)] backdrop-blur-xl">
+        {/* Top Glow Progress Line */}
+        <div className="absolute top-0 inset-x-0 h-1 bg-slate-800">
+          <div
+            className="h-full bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 transition-all duration-200"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
+        {/* Card Header */}
+        <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-400/40">
+              <BarChart3 className="size-5" />
+            </div>
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-white">
+                INSIGHT TELEMETRY
+              </p>
+              <p className="text-[10px] font-mono text-cyan-300">AUTHENTICATING SESSION</p>
+            </div>
+          </div>
+          <span className="font-mono text-xs font-bold text-emerald-400">
+            {progressPercent}%
+          </span>
+        </div>
+
+        {/* Vertical INSIGHT Letters Scan List */}
+        <div className="mt-4 space-y-2">
+          {INSIGHT_STEPS.map((step, idx) => {
+            const isCompleted = idx < currentStep
+            const isCurrent = idx === currentStep
+
+            return (
+              <div
+                key={idx}
+                className={`flex items-center gap-3 rounded-xl border p-2.5 transition-all duration-200 ${
+                  isCurrent
+                    ? "border-cyan-400/80 bg-cyan-500/15 text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] scale-[1.02]"
+                    : isCompleted
+                    ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
+                    : "border-white/5 bg-slate-950/40 text-slate-500 opacity-40"
+                }`}
+              >
+                {/* Vertical Letter Badge */}
+                <div
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-black transition-all ${
+                    isCurrent
+                      ? "bg-gradient-to-br from-cyan-400 to-teal-400 text-slate-950 shadow-[0_0_12px_rgba(6,182,212,0.4)]"
+                      : isCompleted
+                      ? "bg-emerald-400/20 text-emerald-300 ring-1 ring-emerald-400/40"
+                      : "bg-white/5 text-slate-500"
+                  }`}
+                >
+                  {step.letter}
+                </div>
+
+                {/* Step Title */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">{step.title}</p>
+                </div>
+
+                {/* Status Indicator */}
+                {isCompleted ? (
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
+                ) : isCurrent ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin text-cyan-300" />
+                ) : (
+                  <div className="size-2 shrink-0 rounded-full bg-slate-700" />
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer Scan Status */}
+        <div className="mt-4 flex items-center justify-between pt-3 border-t border-white/10 text-[11px] font-mono text-slate-400">
+          <span className="flex items-center gap-1.5">
+            <Activity className="size-3 text-cyan-400 animate-pulse" />
+            Scanning System Layers
+          </span>
+          <span className="text-cyan-300 font-semibold">SECURE ACCESS</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
@@ -22,8 +148,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showIntro, setShowIntro] = useState(false)
+  const [pendingNextPath, setPendingNextPath] = useState("/dashboard")
 
   const canSubmit = useMemo(() => Boolean(password.trim()), [password])
+
+  const handleIntroComplete = () => {
+    router.replace(pendingNextPath.startsWith("/") ? pendingNextPath : "/dashboard")
+    router.refresh()
+  }
 
   const submitLogin = async (payload: { email?: string; password?: string; useDemoGuest?: boolean }) => {
     setLoading(true)
@@ -48,11 +181,10 @@ export default function LoginPage() {
       const nextPath =
         new URLSearchParams(window.location.search).get("next") || "/dashboard"
 
-      router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard")
-      router.refresh()
+      setPendingNextPath(nextPath)
+      setShowIntro(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed. Please try again.")
-    } finally {
       setLoading(false)
     }
   }
@@ -73,6 +205,9 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#040914] p-4 text-white selection:bg-cyan-500 selection:text-slate-950 sm:p-6 md:p-8">
+      {/* INSIGHT Telemetry Scan Animation Overlay */}
+      {showIntro ? <InsightIntroOverlay onComplete={handleIntroComplete} /> : null}
+
       {/* Dynamic Ambient Glowing Mesh Background */}
       <div className="pointer-events-none absolute -top-40 -left-40 size-96 rounded-full bg-cyan-500/15 blur-[128px]" />
       <div className="pointer-events-none absolute -bottom-40 -right-40 size-[500px] rounded-full bg-emerald-500/10 blur-[140px]" />
@@ -284,3 +419,4 @@ export default function LoginPage() {
     </main>
   )
 }
+

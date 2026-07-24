@@ -89,6 +89,56 @@ export default function UserManagementPage() {
   const [editRole, setEditRole] = useState<RoleType>("agent")
   const [editSubmitting, setEditSubmitting] = useState(false)
 
+  // Reset Password Modal State
+  const [resetModalUser, setResetModalUser] = useState<UserProfile | null>(null)
+  const [resetPasswordInput, setResetPasswordInput] = useState("")
+  const [resetSubmitting, setResetSubmitting] = useState(false)
+  const [showResetEye, setShowResetEye] = useState(false)
+
+  const generateResetPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%"
+    let pass = ""
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setResetPasswordInput(pass)
+    setShowResetEye(true)
+  }
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isAdmin) {
+      setError("Mode Guest: Reset password dinonaktifkan.")
+      return
+    }
+    if (!resetModalUser || !resetPasswordInput) return
+
+    setResetSubmitting(true)
+    setError(null)
+    setSuccessMsg(null)
+
+    try {
+      const res = await fetch(`/api/backend/admin/users/${resetModalUser.id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_password: resetPasswordInput }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.detail || data.error || "Gagal me-reset password")
+      }
+
+      setSuccessMsg(`Password untuk '${resetModalUser.full_name}' (${resetModalUser.email}) berhasil di-reset ke: ${resetPasswordInput}`)
+      setResetModalUser(null)
+      setResetPasswordInput("")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal me-reset password")
+    } finally {
+      setResetSubmitting(false)
+    }
+  }
+
   useEffect(() => {
     let active = true
     fetch("/api/auth/session", { cache: "no-store" })
@@ -390,6 +440,20 @@ export default function UserManagementPage() {
                             </button>
                             <button
                               type="button"
+                              onClick={() => {
+                                setResetModalUser(u)
+                                setResetPasswordInput("")
+                                setShowResetEye(false)
+                              }}
+                              disabled={!isAdmin}
+                              className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 font-semibold text-cyan-400 transition hover:bg-cyan-500/20 disabled:opacity-50"
+                              title="Reset Password User"
+                            >
+                              <KeyRoundIcon size={13} />
+                              Reset Pass
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleDeleteUser(u.id, u.full_name)}
                               disabled={!isAdmin}
                               className="rounded-lg border border-red-500/20 bg-red-500/10 p-1.5 text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
@@ -588,7 +652,81 @@ export default function UserManagementPage() {
             </div>
           </div>
         )}
+
+        {/* Modal Admin Reset Password */}
+        {resetModalUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-md rounded-2xl border border-(--c-border) bg-(--c-surface) p-6 shadow-2xl">
+              <div className="mb-4 flex items-center justify-between border-b border-(--c-border) pb-3">
+                <h3 className="text-lg font-bold text-(--c-text)">🔑 Reset Password User</h3>
+                <button
+                  type="button"
+                  onClick={() => setResetModalUser(null)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-4 text-xs">
+                <div>
+                  <span className="block text-(--c-muted)">Target User:</span>
+                  <strong className="text-sm text-(--c-text)">{resetModalUser.full_name}</strong> ({resetModalUser.email})
+                </div>
+
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="font-semibold text-(--c-muted)">Password Baru</label>
+                    <button
+                      type="button"
+                      onClick={generateResetPassword}
+                      className="text-[10px] font-bold text-(--c-accent) hover:underline"
+                    >
+                      ⚡ Auto Generate
+                    </button>
+                  </div>
+                  <div className="relative flex items-center">
+                    <input
+                      type={showResetEye ? "text" : "password"}
+                      required
+                      value={resetPasswordInput}
+                      onChange={(e) => setResetPasswordInput(e.target.value)}
+                      placeholder="Masukkan password baru"
+                      className="h-10 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) pr-10 pl-3 text-xs text-(--c-text) outline-none focus:border-(--c-accent)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetEye(!showResetEye)}
+                      className="absolute right-3 text-slate-400 hover:text-white"
+                    >
+                      {showResetEye ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetModalUser(null)}
+                    className="rounded-xl border border-(--c-border) px-4 py-2 text-xs font-semibold hover:bg-(--c-overlay)"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetSubmitting}
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-2 text-xs font-bold text-slate-950 hover:opacity-90 disabled:opacity-50"
+                  >
+                    {resetSubmitting ? <Loader2Icon size={14} className="animate-spin" /> : null}
+                    Reset Password Now
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )
 }
+

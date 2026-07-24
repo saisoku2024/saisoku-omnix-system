@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.schemas.admin_user import (
     UserCreateRequest,
     UserUpdateRequest,
+    UserResetPasswordRequest,
     UserProfileResponse,
     UserListResponse,
 )
@@ -12,11 +13,10 @@ from app.services.audit_log_service import AuditLogService
 from app.core.security import require_admin_token
 
 router = APIRouter(
+
     prefix="/admin/users",
     tags=["Management System - User Control"],
 )
-
-
 
 @router.get("", response_model=UserListResponse, dependencies=[Depends(require_admin_token)])
 def get_user_list():
@@ -69,6 +69,22 @@ def update_user_role_or_profile(user_id: str, payload: UserUpdateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/{user_id}/reset-password", dependencies=[Depends(require_admin_token)])
+def reset_user_password_by_admin(user_id: str, payload: UserResetPasswordRequest):
+    try:
+        res = AdminUserService.reset_user_password(user_id, payload.new_password)
+        AuditLogService.log(
+            action="USER_PASSWORD_RESET",
+            resource="auth",
+            details={"target_user_id": user_id},
+            user_role="super_admin",
+        )
+        return res
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.delete("/{user_id}", dependencies=[Depends(require_admin_token)])
 def delete_user_account(user_id: str):
     try:
@@ -82,3 +98,4 @@ def delete_user_account(user_id: str):
         return {"success": True, "message": f"User {user_id} berhasil dihapus."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
