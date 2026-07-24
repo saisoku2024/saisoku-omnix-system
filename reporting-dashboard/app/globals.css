@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant light (&:is(.light *));
 
 @theme inline {
   --color-background: var(--background);
@@ -33,6 +34,7 @@
   --app-font-heading: var(--font-heading), "Plus Jakarta Sans", "Inter", sans-serif;
   --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
+  /* Default / Dark Mode Fallback */
   --background: #080d19;
   --foreground: #f1f5f9;
 
@@ -57,6 +59,33 @@
   --c-muted: #94a3b8;
   --c-border: rgba(255, 255, 255, 0.08);
   --c-skeleton: rgba(255, 255, 255, 0.04);
+}
+
+.light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  --card: rgba(255, 255, 255, 0.92);
+  --card-foreground: #0f172a;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --border: rgba(15, 23, 42, 0.08);
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #f1f5f9;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: rgba(15, 23, 42, 0.04);
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: rgba(15, 23, 42, 0.08);
+
+  --c-surface: #ffffff;
+  --c-text: #0f172a;
+  --c-muted: #64748b;
+  --c-border: rgba(15, 23, 42, 0.08);
+  --c-skeleton: rgba(0, 0, 0, 0.04);
 }
 
 .dark {
@@ -99,6 +128,14 @@
     background-attachment: fixed;
   }
 
+  .light body {
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.06), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 10% 40%, rgba(6, 182, 212, 0.05), transparent 60%);
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--app-font-heading);
     letter-spacing: -0.02em;
@@ -107,32 +144,26 @@
 
 /* Glassmorphism & Custom Card Utility Classes */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
+  background: var(--card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
 }
 
 .glass-card {
   position: relative;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.005) 100%), rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.glass-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.45), 0 0 20px 0 rgba(99, 102, 241, 0.12);
-}
-
 .card {
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px;
   backdrop-filter: blur(12px);
@@ -140,54 +171,55 @@
   transition: all 0.25s ease;
 }
 
-.card-hover:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4);
-}
-
-.input-dark {
-  background: rgba(3, 7, 18, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f8fafc;
-  backdrop-filter: blur(8px);
-  border-radius: 10px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.input-dark:focus {
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-  outline: none;
-}
-
-.input-dark::placeholder {
-  color: #64748b;
-}
-
-[data-slot="sidebar"] {
-  background: rgba(3, 7, 18, 0.85);
+.dark [data-slot="sidebar"] {
+  background: rgba(3, 7, 18, 0.95) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
 }
 
-[data-slot="sidebar"] button {
+.light [data-slot="sidebar"] {
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+.dark [data-slot="sidebar"] button {
   color: #94a3b8;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 10px;
 }
 
-[data-slot="sidebar"] button:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff;
-  transform: translateX(2px);
+.light [data-slot="sidebar"] button {
+  color: #475569;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 10px;
 }
 
-[data-active="true"] {
+.dark [data-slot="sidebar"] button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.light [data-slot="sidebar"] button:hover {
+  background: rgba(15, 23, 42, 0.05);
+  color: #0f172a;
+}
+
+.dark [data-active="true"] {
   background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.05) 100%);
   border-left: 3px solid #6366f1;
   color: #ffffff !important;
+  font-weight: 600;
+}
+
+.light [data-active="true"] {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.02) 100%);
+  border-left: 3px solid #4f46e5;
+  color: #4f46e5 !important;
   font-weight: 600;
 }
 
@@ -251,34 +283,14 @@
   }
 }
 
-select option {
+.dark select option {
   background: #0f172a;
   color: #f8fafc;
 }
 
-.root {
-  width: 100%;
-  min-height: 100%;
-  background: radial-gradient(
-    ellipse 80% 60% at 10% 0%,
-    #0c2233 0%,
-    #080d19 60%
-  );
-  color: #f1f5f9;
-  padding: 16px;
-  font-family: var(--app-font-sans);
-}
-
-.main-card {
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 24px;
-  backdrop-filter: blur(24px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+.light select option {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 /* Custom Scrollbar */
@@ -287,15 +299,24 @@ select option {
   height: 6px;
 }
 
-::-webkit-scrollbar-track {
+.dark ::-webkit-scrollbar-track {
   background: rgba(3, 7, 18, 0.5);
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+.light ::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.8);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.15);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(99, 102, 241, 0.4);
 }

@@ -46,37 +46,14 @@ export function NavMain({
     }
   }, [])
 
-  const textMuted = isDark
-    ? "text-gray-400"
-    : "text-gray-500"
-
-  const textActive = isDark
-    ? "text-white"
-    : "text-gray-900"
-
-  const hoverText = isDark
-    ? "hover:text-white"
-    : "hover:text-gray-900"
-
-  const hoverBg = isDark
-    ? "hover:bg-white/5"
-    : "hover:bg-black/5"
-
+  const textMuted = isDark ? "text-slate-400" : "text-slate-600"
+  const textActive = isDark ? "text-white font-semibold" : "text-indigo-600 font-semibold"
+  const hoverText = isDark ? "hover:text-white" : "hover:text-slate-900"
+  const hoverBg = isDark ? "hover:bg-white/6" : "hover:bg-slate-100"
   const activeBg = isDark
-    ? "bg-white/10"
-    : "bg-black/10"
-
-  const labelColor = isDark
-    ? "text-gray-500"
-    : "text-gray-400"
-
-  const menuStateClass = `
-    ${textMuted}
-    ${hoverText}
-    ${hoverBg}
-    data-[active=true]:${textActive}
-    data-[active=true]:${activeBg}
-  `
+    ? "bg-gradient-to-r from-indigo-500/20 to-indigo-500/5 text-white border-l-2 border-indigo-500"
+    : "bg-gradient-to-r from-indigo-50 to-indigo-50/20 text-indigo-600 border-l-2 border-indigo-600 font-semibold"
+  const labelColor = isDark ? "text-slate-500" : "text-slate-400"
 
   const visibleItems = items.filter((item) => {
     if (!item.roles || item.roles.length === 0) return true
@@ -86,10 +63,8 @@ export function NavMain({
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel
-        className={`text-xs px-2 ${labelColor}`}
-      >
-        Platform
+      <SidebarGroupLabel className={`text-[10px] font-bold uppercase tracking-wider px-2 ${labelColor}`}>
+        Platform Menu
       </SidebarGroupLabel>
 
       <SidebarMenu className="space-y-1">
@@ -114,14 +89,14 @@ export function NavMain({
                   asChild
                   data-active={isActive}
                   className={`
-                    relative flex items-center gap-2
-                    px-3 py-2 rounded-lg transition-all
-                    ${menuStateClass}
+                    relative flex items-center gap-2.5
+                    px-3 py-2 rounded-xl transition-all duration-200
+                    ${isActive ? activeBg : `${textMuted} ${hoverText} ${hoverBg}`}
                   `}
                 >
                   <Link href={item.url}>
                     {item.icon}
-                    <span>{item.title}</span>
+                    <span className="text-[13px]">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -140,17 +115,16 @@ export function NavMain({
                   <div
                     className={`
                       relative flex items-center
-                      w-full px-3 py-2 rounded-lg
-                      transition-all cursor-pointer
-                      ${menuStateClass}
+                      w-full px-3 py-2 rounded-xl
+                      transition-all duration-200 cursor-pointer
                       ${
                         isParentActive
-                          ? `${activeBg} ${textActive}`
-                          : ""
+                          ? activeBg
+                          : `${textMuted} ${hoverText} ${hoverBg}`
                       }
                     `}
                   >
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2.5 flex-1 text-[13px]">
                       {item.icon}
                       <span>{item.title}</span>
                     </div>
@@ -161,14 +135,14 @@ export function NavMain({
                         transition-transform
                         duration-200
                         group-data-[state=open]/collapsible:rotate-90
-                        opacity-40
+                        opacity-50
                       "
                     />
                   </div>
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
-                  <SidebarMenuSub className="mt-1 space-y-1 pl-6">
+                  <SidebarMenuSub className="mt-1 space-y-1 pl-4 border-l border-slate-200 dark:border-white/10 ml-3">
                     {item.items?.map((subItem) => {
                       const isActive =
                         subItem.url === "/"
@@ -176,24 +150,20 @@ export function NavMain({
                           : pathname.startsWith(subItem.url)
 
                       return (
-                        <SidebarMenuSubItem
-                          key={subItem.title}
-                        >
+                        <SidebarMenuSubItem key={subItem.title}>
                           <SidebarMenuSubButton
                             asChild
                             data-active={isActive}
                             className={`
                               flex items-center gap-2
-                              px-3 py-2 rounded-md
-                              transition-all
-                              ${menuStateClass}
+                              px-3 py-1.5 rounded-lg
+                              transition-all duration-200 text-[12px]
+                              ${isActive ? activeBg : `${textMuted} ${hoverText} ${hoverBg}`}
                             `}
                           >
                             <Link href={subItem.url}>
                               {subItem.icon}
-                              <span>
-                                {subItem.title}
-                              </span>
+                              <span>{subItem.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>

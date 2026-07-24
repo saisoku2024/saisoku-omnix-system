@@ -55,28 +55,40 @@ export default function DashboardHeader({
   onToggleTheme,
 }: Props) {
   return (
-    <header className="sticky top-0 z-30 flex h-[58px] items-center justify-between gap-3 border-b border-white/8 bg-slate-950/80 px-5 backdrop-blur-xl transition-all duration-300">
+    <header
+      className={`sticky top-0 z-30 flex h-[58px] items-center justify-between gap-3 border-b px-5 backdrop-blur-xl transition-colors duration-300 ${
+        isDark
+          ? "border-white/8 bg-slate-950/80 text-white"
+          : "border-slate-200 bg-white/90 text-slate-900 shadow-xs"
+      }`}
+    >
       {/* Brand & Live Badge */}
       <div className="flex flex-shrink-0 items-center gap-3">
         <InsightLogo />
         <div className="flex flex-col leading-tight">
           <div className="flex items-center gap-2">
-            <span className="font-heading text-[14px] font-black tracking-widest text-white">
+            <span className={`font-heading text-[14px] font-black tracking-widest ${isDark ? "text-white" : "text-slate-900"}`}>
               INSIGHT
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold tracking-wider text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 live-pulse" />
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold tracking-wider text-emerald-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 live-pulse" />
               LIVE
             </span>
           </div>
-          <span className="text-[10px] font-medium tracking-wider text-slate-400">
+          <span className={`text-[10px] font-medium tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
             Omnix System Dashboard
           </span>
         </div>
       </div>
 
       {/* Control Toolbar */}
-      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-slate-900/60 p-1.5 backdrop-blur-md shadow-inner">
+      <div
+        className={`flex flex-wrap items-center gap-1.5 rounded-xl border p-1.5 backdrop-blur-md transition-colors duration-300 ${
+          isDark
+            ? "border-white/10 bg-slate-900/60 shadow-inner"
+            : "border-slate-200 bg-slate-100/80 shadow-xs"
+        }`}
+      >
         <PeriodDropdown
           options={MODE_OPTIONS}
           value={modeLabel(mode)}

@@ -25,12 +25,12 @@ export function AppSidebar(
   const { toggleSidebar, state } = useSidebar()
 
   const bgClass = isDark
-    ? "bg-[#0d1117]"
-    : "bg-white"
+    ? "bg-[#030712] text-slate-100"
+    : "bg-white text-slate-900 shadow-lg shadow-slate-200/50"
 
   const borderClass = isDark
     ? "border-white/10"
-    : "border-black/5"
+    : "border-slate-200"
 
   return (
     <Sidebar
@@ -44,7 +44,7 @@ export function AppSidebar(
       </SidebarHeader>
 
       <SidebarContent>
-        <div className="px-2 py-1">
+        <div className="px-2 py-2">
           <NavMain
             items={sidebarMenu}
             isDark={isDark}
@@ -60,11 +60,15 @@ export function AppSidebar(
 
       <button
         onClick={toggleSidebar}
-        className={`absolute -right-4 top-1/2 z-50 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border ${borderClass} ${bgClass} shadow-md hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-all duration-200 cursor-pointer`}
+        className={`absolute -right-4 top-1/2 z-50 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border ${borderClass} ${bgClass} shadow-md transition-all duration-200 cursor-pointer ${
+          isDark
+            ? "text-slate-400 hover:bg-white/10 hover:text-white"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        }`}
         title="Toggle Sidebar"
       >
         <ChevronLeft 
-          className={`w-5 h-5 transition-transform duration-200 ${state === "collapsed" ? "rotate-180" : ""}`} 
+          className={`w-4 h-4 transition-transform duration-200 ${state === "collapsed" ? "rotate-180" : ""}`} 
         />
       </button>
 

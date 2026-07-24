@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 
 type Theme = "light" | "dark"
 
@@ -18,6 +18,25 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark")
+
+  useEffect(() => {
+    const saved = localStorage.getItem("saisoku_theme") as Theme | null
+    if (saved === "light" || saved === "dark") {
+      setTheme(saved)
+    }
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === "dark") {
+      root.classList.add("dark")
+      root.classList.remove("light")
+    } else {
+      root.classList.add("light")
+      root.classList.remove("dark")
+    }
+    localStorage.setItem("saisoku_theme", theme)
+  }, [theme])
 
   const value = useMemo(
     () => ({
