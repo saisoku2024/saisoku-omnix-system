@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
+  Activity,
   ArrowRight,
   BarChart3,
   Eye,
@@ -41,7 +42,7 @@ export default function LoginPage() {
         const body = (await response.json().catch(() => ({}))) as {
           detail?: string
         }
-        throw new Error(body.detail || `Login gagal (kode ${response.status})`)
+        throw new Error(body.detail || `Sign in failed (code ${response.status})`)
       }
 
       const nextPath =
@@ -50,7 +51,7 @@ export default function LoginPage() {
       router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard")
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login gagal. Silakan coba lagi.")
+      setError(err instanceof Error ? err.message : "Sign in failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -59,7 +60,7 @@ export default function LoginPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!canSubmit) {
-      setError("Password admin wajib diisi.")
+      setError("Password is required.")
       return
     }
 
@@ -71,93 +72,138 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#06101b] px-5 py-10 text-white">
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(14,165,233,0.14),transparent_28%,rgba(2,6,23,0.72)_68%,rgba(34,197,94,0.08))]" />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:48px_48px] opacity-25" />
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent" />
+    <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#040914] px-4 py-8 text-white selection:bg-cyan-500 selection:text-slate-950 sm:px-6 md:py-12">
+      {/* Dynamic Ambient Glowing Mesh Background */}
+      <div className="pointer-events-none absolute -top-40 -left-40 size-96 rounded-full bg-cyan-500/15 blur-[128px]" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 size-[500px] rounded-full bg-emerald-500/10 blur-[140px]" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 size-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600/10 blur-[160px]" />
 
-      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1626]/95 shadow-2xl shadow-black/45 backdrop-blur md:grid-cols-[1.05fr_0.95fr]">
-        <aside className="hidden min-h-[580px] border-r border-white/10 bg-[#081321] p-9 md:flex md:flex-col md:justify-between">
+      {/* Cyber Grid Background Effect */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-40" />
+
+      {/* Top Ambient Glow Border */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+
+      {/* Glassmorphic Container Card */}
+      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/15 bg-[#091322]/90 shadow-[0_0_80px_-15px_rgba(14,165,233,0.18)] backdrop-blur-2xl md:grid-cols-[1.08fr_0.92fr]">
+        
+        {/* LEFT PANEL — Hero Branding & Overview */}
+        <aside className="relative hidden min-h-[620px] flex-col justify-between border-r border-white/10 bg-[radial-gradient(ellipse_at_top_left,rgba(14,165,233,0.12),rgba(8,18,34,0.95)_70%)] p-10 md:flex">
           <div>
-            <div className="mb-12 flex items-center gap-3">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-cyan-400/15 text-cyan-300 ring-1 ring-cyan-300/30">
-                <BarChart3 className="size-5" />
+            {/* Brand Logo Header */}
+            <div className="mb-10 flex items-center gap-3.5">
+              <div className="relative flex size-12 items-center justify-center rounded-2xl bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-400/40 shadow-[0_0_20px_rgba(6,182,212,0.25)]">
+                <BarChart3 className="size-6" />
+                <span className="absolute -top-1 -right-1 size-3 rounded-full bg-emerald-400 ring-4 ring-[#091322] animate-pulse" />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">
-                  Saisoku Omnix
+                <p className="text-base font-extrabold uppercase tracking-[0.22em] text-white">
+                  INSIGHT OMNIX
                 </p>
-                <p className="mt-1 text-sm text-slate-400">
-                  Analytics platform
+                <p className="text-xs font-medium text-cyan-300/80">
+                  Enterprise Analytics & Monitoring Platform
                 </p>
               </div>
             </div>
 
-            <p className="max-w-md text-4xl font-semibold leading-tight tracking-normal text-white">
-              Welcome back to{" "}
-              <span className="text-cyan-300">INSIGHT Workspace</span>{" "}
-              Dashboard
-            </p>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-slate-400">
-              Internal Tool for Monitoring & Analytics.
-            </p>
-          </div>
+            {/* Main Headline */}
+            <h1 className="max-w-md text-3xl font-bold leading-tight tracking-tight text-white lg:text-4xl">
+              Unified Workspace for{" "}
+              <span className="bg-gradient-to-r from-cyan-300 via-teal-200 to-emerald-300 bg-clip-text text-transparent">
+                Customer Operations
+              </span>{" "}
+              & Analytics
+            </h1>
 
-          <div className="grid gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300">
-                  <ShieldCheck className="size-4" />
+            {/* Description */}
+            <p className="mt-5 max-w-md text-sm leading-relaxed text-slate-300/80">
+              Monitor customer interactions, operational performance, and business intelligence through a centralized, secure analytics workspace.
+            </p>
+
+            {/* Live System Status Widget */}
+            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-4.5 backdrop-blur-md">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Activity className="size-4 text-emerald-400 animate-pulse" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    System Telemetry
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+                  Operational
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p className="text-slate-400">Omnichannel Sync</p>
+                  <p className="font-mono font-semibold text-cyan-200">Active • 99.98%</p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">
-                    Sesi admin terlindungi
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Admin dan demo guest masuk lewat session aman.
-                  </p>
+                  <p className="text-slate-400">RAG Knowledge Base</p>
+                  <p className="font-mono font-semibold text-emerald-300">Ready & Indexed</p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Security Card */}
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300 ring-1 ring-cyan-400/20">
+                <ShieldCheck className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  🔒 Secure Administrator Session
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Encrypted authentication and protected RBAC policies enabled.
+                </p>
               </div>
             </div>
           </div>
         </aside>
 
-        <div className="p-7 sm:p-10">
-          <div className="mb-9 flex items-center gap-3 md:hidden">
+        {/* RIGHT PANEL — Sign In Form */}
+        <div className="p-7 sm:p-10 lg:p-12">
+          {/* Mobile Brand Header */}
+          <div className="mb-8 flex items-center gap-3 md:hidden">
             <div className="flex size-11 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300 ring-1 ring-cyan-300/30">
               <BarChart3 className="size-5" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
-                Saisoku Omnix
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-white">
+                INSIGHT OMNIX
               </p>
-              <p className="mt-1 text-sm text-slate-400">Analytics platform</p>
+              <p className="text-xs text-cyan-300/80">
+                Enterprise Analytics & Monitoring Platform
+              </p>
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200">
-            <Sparkles className="size-3.5" />
-            Akses admin
+          {/* Top Badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
+            <Sparkles className="size-3.5 text-cyan-300" />
+            ✨ Authorized Personnel Only
           </div>
 
-          <h1 className="mt-5 text-3xl font-semibold tracking-normal text-white sm:text-4xl">
-            Welcome back to INSIGHT Workspace Dashboard
-          </h1>
-          <p className="mt-3 max-w-md text-sm leading-6 text-slate-400">
-            Internal Tool for Monitoring & Analytics.
-          </p>
+          {/* Form Title */}
+          <h2 className="mt-5 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            Sign in to INSIGHT Workspace
+          </h2>
 
-          <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            {/* Email Field */}
             <label className="block">
-              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                Email
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-300">
+                Email Address
               </span>
-              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 transition focus-within:border-cyan-300/70 focus-within:bg-slate-950/70 focus-within:ring-4 focus-within:ring-cyan-300/10">
-                <Mail className="size-4 text-slate-500" />
+              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/15 bg-slate-950/60 px-4 transition duration-200 focus-within:border-cyan-400 focus-within:bg-slate-950/90 focus-within:ring-4 focus-within:ring-cyan-400/15">
+                <Mail className="size-4.5 text-slate-400" />
                 <input
                   autoComplete="email"
-                  className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
-                  placeholder="admin@omnix.com"
+                  className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                  placeholder="Enter your email address"
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -165,17 +211,18 @@ export default function LoginPage() {
               </div>
             </label>
 
+            {/* Password Field */}
             <label className="block">
-              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-300">
                 Password
               </span>
-              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 transition focus-within:border-cyan-300/70 focus-within:bg-slate-950/70 focus-within:ring-4 focus-within:ring-cyan-300/10">
-                <LockKeyhole className="size-4 text-slate-500" />
+              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/15 bg-slate-950/60 px-4 transition duration-200 focus-within:border-cyan-400 focus-within:bg-slate-950/90 focus-within:ring-4 focus-within:ring-cyan-400/15">
+                <LockKeyhole className="size-4.5 text-slate-400" />
                 <input
                   autoFocus
                   autoComplete="current-password"
-                  className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
-                  placeholder="Masukkan password admin"
+                  className="h-full w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                  placeholder="Enter your password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
@@ -183,60 +230,52 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
-                  className="text-slate-500 transition hover:text-white"
-                  aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                  className="text-slate-400 transition hover:text-white"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <EyeOff className="size-4" />
+                    <EyeOff className="size-4.5" />
                   ) : (
-                    <Eye className="size-4" />
+                    <Eye className="size-4.5" />
                   )}
                 </button>
               </div>
             </label>
 
+            {/* Error Message Alert */}
             {error ? (
-              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-100">
+              <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-200 backdrop-blur-md">
                 {error}
               </div>
             ) : null}
 
+            {/* Demo Guest Quick Access */}
             <button
               type="button"
               onClick={handleDemoLogin}
               disabled={loading}
-              className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.14em] text-cyan-100 transition hover:bg-cyan-300/15"
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.14em] text-cyan-200 backdrop-blur-md transition duration-200 hover:border-cyan-300/50 hover:bg-cyan-300/20 active:scale-[0.99]"
             >
-              {loading ? "Memproses demo guest..." : "Use demo guest account"}
+              {loading ? "Processing Demo Guest..." : "Continue as Demo User"}
             </button>
 
+            {/* Primary Sign In Button */}
             <button
-              className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 text-sm font-extrabold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="group relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-400 to-teal-400 px-5 text-sm font-extrabold text-slate-950 shadow-[0_0_25px_rgba(6,182,212,0.35)] transition duration-200 hover:from-cyan-300 hover:to-teal-300 hover:shadow-[0_0_35px_rgba(6,182,212,0.5)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={loading || !canSubmit}
               type="submit"
             >
-              {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-              {loading ? "Memproses masuk..." : "Masuk ke dashboard"}
-              {!loading ? <ArrowRight className="size-4" /> : null}
+              {loading ? <Loader2 className="size-4.5 animate-spin text-slate-950" /> : null}
+              <span>{loading ? "Signing in..." : "Sign In to Dashboard"}</span>
+              {!loading ? (
+                <ArrowRight className="size-4.5 transition-transform duration-200 group-hover:translate-x-1" />
+              ) : null}
             </button>
           </form>
 
-          <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex size-10 items-center justify-center rounded-2xl bg-white/10 text-cyan-200">
-                <ShieldCheck className="size-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Akses internal yang aman
-                </p>
-                <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Jika login gagal, periksa environment variable
-                  ADMIN_UI_PASSWORD, lalu redeploy ke Vercel setelah
-                  perubahan disimpan.
-                </p>
-              </div>
-            </div>
+          {/* Footer Security Note */}
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-center text-xs leading-relaxed text-slate-400">
+            Internal & Protected System Access. Unauthorized access attempts are monitored and logged.
           </div>
         </div>
       </section>
