@@ -31,21 +31,18 @@ export function NavMain({
 }) {
   const pathname = usePathname()
   const [role, setRole] = useState<string | null>(null)
-  const { setOpenMobile, setOpen, isMobile } = useSidebar()
+  const { setOpenMobile, isMobile } = useSidebar()
 
-  const closeSidebar = useCallback(() => {
-    setOpenMobile(false)
+  const closeMobileSidebar = useCallback(() => {
     if (isMobile) {
       setOpenMobile(false)
-    } else {
-      setOpen(false)
     }
-  }, [isMobile, setOpen, setOpenMobile])
+  }, [isMobile, setOpenMobile])
 
-  // Auto-close sidebar on page navigation
+  // Auto-close sidebar mobile drawer ONLY on mobile screens
   useEffect(() => {
-    closeSidebar()
-  }, [pathname, closeSidebar])
+    closeMobileSidebar()
+  }, [pathname, closeMobileSidebar])
 
   useEffect(() => {
     let active = true
@@ -78,7 +75,7 @@ export function NavMain({
   })
 
   const handleLinkClick = () => {
-    closeSidebar()
+    closeMobileSidebar()
   }
 
   return (
