@@ -7,6 +7,10 @@ export async function GET() {
 
   return NextResponse.json({
     authenticated: Boolean(session),
-    role: session?.sub ?? null,
+    role: session?.role || session?.sub || null,
+    email: session?.email || null,
+    fullName: session?.fullName || null,
+    sub: session?.sub || null,
   })
 }
+

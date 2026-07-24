@@ -66,10 +66,10 @@ export function NavMain({
     fetch("/api/auth/session", { cache: "no-store" })
       .then((res) => res.json())
       .then((data: { role?: string }) => {
-        if (active) setRole(data.role ?? "admin")
+        if (active && data.role) setRole(data.role)
       })
       .catch(() => {
-        if (active) setRole("admin")
+        if (active) setRole("super_admin")
       })
     return () => {
       active = false
