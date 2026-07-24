@@ -8,7 +8,7 @@ from app.services.chat_service import get_chat_brand_records
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
 
 def _get_gemini_api_key() -> str:
     key = os.environ.get("GEMINI_API_KEY")
@@ -134,20 +134,43 @@ TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA
 - 3 Poin rekomendasi perbaikan untuk tim CS & Service Partner.
 """
 
-    try:
-        response = requests.post(
-            f"{GEMINI_API_BASE}/models/{model}:generateContent",
-            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-            json={"contents": [{"parts": [{"text": prompt}]}]},
-            timeout=90,
-        )
+    # Try models in order of availability
+    candidate_models = [
+        os.environ.get("GEMINI_MODEL"),
+        "gemini-1.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "gemini-1.5-pro",
+    ]
+    candidate_models = [m for m in candidate_models if m]
 
-        if not response.ok:
-            logger.error(f"GEMINI BRAND INSIGHT ERROR: {response.text}")
-            return {
-                "success": False,
-                "error": f"Gagal mendapatkan insight AI dari Gemini (HTTP {response.status_code})"
-            }
+    response = None
+    last_error_text = ""
+
+    for m in candidate_models:
+        try:
+            res = requests.post(
+                f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                timeout=60,
+            )
+            if res.ok:
+                response = res
+                break
+            else:
+                last_error_text = f"Model {m} returned HTTP {res.status_code}: {res.text[:200]}"
+                logger.warning(f"Gemini model {m} failed: {res.status_code}")
+        except Exception as ex:
+            last_error_text = str(ex)
+            logger.warning(f"Gemini model {m} exception: {ex}")
+
+    if not response or not response.ok:
+        logger.error(f"GEMINI BRAND INSIGHT ALL MODELS FAILED: {last_error_text}")
+        return {
+            "success": False,
+            "error": f"Gagal mendapatkan insight AI dari Gemini. Detail: {last_error_text}"
+        }
 
         candidates = response.json().get("candidates") or []
         parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
