@@ -32,7 +32,6 @@ TABLE_COLUMNS = {
         "principal_category",
         "subject",
         "subject_normalized",
-        "mapping_status",
     },
     "voice_interactions": {
         "upload_id",
