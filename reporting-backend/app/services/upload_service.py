@@ -30,8 +30,6 @@ TABLE_COLUMNS = {
         "product",
         "principal_group",
         "principal_category",
-        "subject",
-        "subject_normalized",
     },
     "voice_interactions": {
         "upload_id",
