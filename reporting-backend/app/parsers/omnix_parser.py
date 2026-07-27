@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 
 def safe_str(val):
@@ -48,7 +49,7 @@ def infer_brand(row):
 
     for brand_name, keywords in BRAND_KEYWORD_MAP:
         for kw in keywords:
-            if kw in haystack:
+            if re.search(r"\b" + re.escape(kw) + r"\b", haystack):
                 return brand_name
 
     return raw_brand or "Lainnya / Unassigned"

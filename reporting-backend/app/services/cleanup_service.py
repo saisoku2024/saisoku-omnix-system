@@ -141,6 +141,10 @@ def _contains_text(row, needle: str) -> bool:
     return any(normalized_needle in _as_lower(row.get(column)) for column in TEXT_COLUMNS)
 
 
+SCAN_PAGE_SIZE = 1000
+MAX_CLEANUP_SCAN_ROWS = 20000
+
+
 def _fetch_period_rows(table: str, columns: str, start_iso: str, end_iso: str) -> list[dict]:
     col_list = [c.strip() for c in columns.split(",") if c.strip()]
 
@@ -164,7 +168,7 @@ def _fetch_period_rows(table: str, columns: str, start_iso: str, end_iso: str) -
                 batch = response.data or []
                 rows.extend(batch)
 
-                if len(batch) < SCAN_PAGE_SIZE:
+                if len(batch) < SCAN_PAGE_SIZE or len(rows) >= MAX_CLEANUP_SCAN_ROWS:
                     break
 
                 offset += SCAN_PAGE_SIZE

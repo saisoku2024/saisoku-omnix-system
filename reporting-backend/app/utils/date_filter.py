@@ -1,6 +1,9 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from calendar import monthrange
 from typing import Tuple
+
+JAKARTA_TZ = ZoneInfo("Asia/Jakarta")
 
 
 def get_date_range(granularity: str, period: str, year: int) -> Tuple[str, str]:
@@ -13,12 +16,11 @@ def get_date_range(granularity: str, period: str, year: int) -> Tuple[str, str]:
         granularity = "year"
 
     def to_iso(d: date, end=False) -> str:
-        """Convert date ke ISO 8601 UTC string untuk Supabase filter"""
+        """Convert date ke ISO 8601 string dengan timezone Asia/Jakarta (WIB) untuk Supabase filter"""
         if end:
             # End = hari berikutnya jam 00:00 (exclusive upper bound)
-            from datetime import timedelta
             d = d + timedelta(days=1)
-        return datetime(d.year, d.month, d.day, tzinfo=timezone.utc).isoformat()
+        return datetime(d.year, d.month, d.day, tzinfo=JAKARTA_TZ).isoformat()
 
     # ── MONTH ──────────────────────────────────────────────────────────────
     if granularity == "month":

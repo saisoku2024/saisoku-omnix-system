@@ -13,7 +13,13 @@ class AdminUserService:
         Mengambil seluruh user terdaftar dari tabel public.profiles.
         """
         try:
-            response = supabase.table("profiles").select("*").order("created_at", desc=True).execute()
+            response = (
+                supabase.table("profiles")
+                .select("id, email, full_name, role, brand_access, created_at")
+                .order("created_at", desc=True)
+                .limit(100)
+                .execute()
+            )
             users = response.data or []
             return {
                 "total": len(users),

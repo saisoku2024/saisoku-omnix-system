@@ -29,8 +29,10 @@ def _get_brand_fallback(start, end):
     total = 0
     page_size = 1000
     offset = 0
+    max_pages = 10
+    page_count = 0
 
-    while True:
+    while page_count < max_pages:
         try:
             res = (
                 supabase
@@ -55,6 +57,7 @@ def _get_brand_fallback(start, end):
             if len(rows) < page_size:
                 break
             offset += page_size
+            page_count += 1
         except Exception as e:
             logger.error(f"ERROR BRAND FALLBACK QUERY: {e}", exc_info=True)
             break

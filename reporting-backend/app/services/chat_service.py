@@ -21,6 +21,7 @@ def ingest_chat_transcripts_bytes(content_bytes: bytes) -> Dict[str, Any]:
     # Batch insert in chunks of 500
     chunk_size = 500
     inserted_count = 0
+    failed_count = 0
 
     for i in range(0, len(records), chunk_size):
         chunk = records[i:i + chunk_size]
@@ -38,11 +39,13 @@ def ingest_chat_transcripts_bytes(content_bytes: bytes) -> Dict[str, Any]:
                     supabase.table("chat_transcripts").insert(row).execute()
                     inserted_count += 1
                 except Exception as inner_e:
+                    failed_count += 1
                     logger.error(f"ERROR SINGLE CHAT INSERT: {inner_e}")
 
     return {
         "success": True,
         "inserted_count": inserted_count,
+        "failed_count": failed_count,
         "summary": summary
     }
 

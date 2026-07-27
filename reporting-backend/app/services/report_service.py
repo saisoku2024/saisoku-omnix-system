@@ -21,6 +21,7 @@ DIGITAL_REPORT_DEFAULTS = {
 DIGITAL_CHANNELS = ["Whatsapp", "DM Instagram", "Email"]
 DIGITAL_AGENT_TARGET = 12
 SCAN_PAGE_SIZE = 1000
+MAX_EXPORT_ROWS = 50000
 
 
 def _as_date(value) -> date:
@@ -61,21 +62,22 @@ def _normalize_channel(value: str | None) -> str | None:
 
 
 def _weekday_label(value: date) -> str:
-    return value.strftime("%a")
+    return value.strftime("%A")
 
 
 def _month_label(value: date) -> str:
-    return value.strftime("%Y - %m")
+    return value.strftime("%B %Y")
 
 
-def _duration_label(seconds_value) -> str:
-    try:
-        seconds = int(round(float(seconds_value or 0)))
-    except (TypeError, ValueError):
-        seconds = 0
+def _duration_label(total_seconds: int | float | None) -> str:
+    seconds = int(total_seconds or 0)
+    minutes, remaining_seconds = divmod(max(0, seconds), 60)
+    hours, remaining_minutes = divmod(minutes, 60)
 
-    minutes, seconds = divmod(max(seconds, 0), 60)
-    return f"{minutes}:{seconds:02d}"
+    if hours > 0:
+        return f"{hours}h {remaining_minutes}m {remaining_seconds}s"
+
+    return f"{remaining_minutes}m {remaining_seconds}s"
 
 
 def _with_report_defaults(payload: dict, sub_segment: str = "") -> dict:
@@ -123,7 +125,7 @@ def _fetch_omnix_digital_rows(start_date, end_date, payload: dict) -> list[dict]
         batch = response.data or []
         rows.extend(batch)
 
-        if len(batch) < SCAN_PAGE_SIZE:
+        if len(batch) < SCAN_PAGE_SIZE or len(rows) >= MAX_EXPORT_ROWS:
             break
 
         offset += SCAN_PAGE_SIZE

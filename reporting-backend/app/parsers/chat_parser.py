@@ -60,15 +60,13 @@ def safe_parse_int(val: Any) -> int:
     except Exception:
         return 0
 
+from app.utils.converters import safe_datetime
+
 def parse_date(date_str: str) -> str:
     cleaned = clean_val(date_str)
     if not cleaned or cleaned == "-":
         return None
-    try:
-        dt = datetime.strptime(cleaned, "%Y-%m-%d %H:%M:%S")
-        return dt.isoformat()
-    except Exception:
-        return cleaned
+    return safe_datetime(cleaned)
 
 def parse_chat_csv_content(content_bytes: bytes) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
