@@ -7,6 +7,7 @@ import os
 from app.routes import (
     dashboard,
     upload,
+    upload_sessions,
     voice,
     csat,
     omnix,
@@ -59,6 +60,7 @@ app.add_middleware(
 
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
+app.include_router(upload_sessions.router, prefix="/api")
 app.include_router(voice.router, prefix="/api")
 app.include_router(csat.router, prefix="/api")
 app.include_router(omnix.router, prefix="/api")

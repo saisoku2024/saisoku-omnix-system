@@ -37,6 +37,7 @@ const ALLOWED_READ_ROUTES = new Set([
   "POST reports/preview",
   "POST cleanup/preview",
   "POST cleanup/diagnostics/phone-format",
+  "GET upload-sessions",
   "GET principal-report/summary",
   "POST chat/upload",
   "POST chat/storage-ingest",
@@ -50,8 +51,39 @@ const SENSITIVE_PROXY_ROUTES = new Set([
   "POST cleanup/diagnostics/phone-format",
 ])
 
+const ALLOWED_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> = [
+  (method, path) =>
+    method === "POST" &&
+    path.startsWith("upload-sessions/") &&
+    path.endsWith("/delete-preview"),
+  (method, path) =>
+    method === "POST" &&
+    path.startsWith("upload-sessions/") &&
+    path.endsWith("/delete"),
+]
+
+const SENSITIVE_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> = [
+  (method, path) =>
+    method === "POST" &&
+    path.startsWith("upload-sessions/") &&
+    path.endsWith("/delete"),
+]
+
 function isAllowedBackendRead(method: string, path: string) {
-  return ALLOWED_READ_ROUTES.has(`${method.toUpperCase()} ${path}`)
+  const normalizedMethod = method.toUpperCase()
+  return (
+    ALLOWED_READ_ROUTES.has(`${normalizedMethod} ${path}`) ||
+    ALLOWED_ROUTE_MATCHERS.some((matcher) => matcher(normalizedMethod, path))
+  )
+}
+
+function isSensitiveBackendRoute(method: string, path: string) {
+  const normalizedMethod = method.toUpperCase()
+  const routeKey = `${normalizedMethod} ${path}`
+  return (
+    SENSITIVE_PROXY_ROUTES.has(routeKey) ||
+    SENSITIVE_ROUTE_MATCHERS.some((matcher) => matcher(normalizedMethod, path))
+  )
 }
 
 function responseHeadersFromBackend(response: Response) {
@@ -76,7 +108,6 @@ async function proxyBackendRequest(
 
   const { path: pathSegments } = await params
   const path = pathSegments.join("/")
-  const routeKey = `${request.method.toUpperCase()} ${path}`
 
   if (!isAllowedBackendRead(request.method, path)) {
     return NextResponse.json({ detail: "Forbidden" }, { status: 403 })
@@ -84,7 +115,7 @@ async function proxyBackendRequest(
 
   // Restrict sensitive proxy routes for guest role
   const role = session.role || session.sub
-  if (SENSITIVE_PROXY_ROUTES.has(routeKey) && role === "guest") {
+  if (isSensitiveBackendRoute(request.method, path) && role === "guest") {
     return NextResponse.json(
       { detail: "Forbidden: Guest role cannot execute sensitive management operations" },
       { status: 403 }

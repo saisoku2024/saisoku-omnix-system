@@ -3,6 +3,7 @@ import {
   AudioLinesIcon,
   BotIcon,
   BookOpenIcon,
+  DatabaseIcon,
   FileSpreadsheetIcon,
   PieChartIcon,
   ShieldCheckIcon,
@@ -95,6 +96,11 @@ export const sidebarMenu: SidebarMenuItem[] = [
         title: "Upload Data",
         url: "/upload",
         icon: <UploadIcon />,
+      },
+      {
+        title: "Upload Sessions",
+        url: "/data-management/upload-sessions",
+        icon: <DatabaseIcon />,
       },
       {
         title: "Data Cleanup",
