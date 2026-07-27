@@ -50,8 +50,14 @@ function fallbackArray<T>(value: T[] | undefined) {
 }
 
 function normalizeDayLabel(value: string | number | undefined): string {
-  const day = Number(String(value ?? "").replace(/\D/g, ""))
-  return Number.isFinite(day) && day > 0 ? String(day).padStart(2, "0") : ""
+  const str = String(value ?? "").trim()
+  if (!str) return ""
+  const isoDay = str.match(/^\d{4}[-/.]\d{1,2}[-/.](\d{1,2})/)
+  if (isoDay) return String(Number(isoDay[1])).padStart(2, "0")
+  const dmyDay = str.match(/^(\d{1,2})[-/.]\d{1,2}[-/.]\d{4}/)
+  if (dmyDay) return String(Number(dmyDay[1])).padStart(2, "0")
+  const day = Number(str)
+  return Number.isFinite(day) && day > 0 && day <= 31 ? String(day).padStart(2, "0") : ""
 }
 
 function normalizeHourLabel(value: string | number | undefined): string {

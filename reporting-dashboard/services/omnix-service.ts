@@ -51,8 +51,14 @@ function sanitizeSummary(raw: Partial<SummaryData> | undefined): SummaryData {
 }
 
 function normalizeDayLabel(value: string | number | undefined): string {
-  const day = Number(String(value ?? "").replace(/\D/g, ""))
-  return Number.isFinite(day) && day > 0 ? String(day).padStart(2, "0") : ""
+  const str = String(value ?? "").trim()
+  if (!str) return ""
+  const isoDay = str.match(/^\d{4}[-/.]\d{1,2}[-/.](\d{1,2})/)
+  if (isoDay) return String(Number(isoDay[1])).padStart(2, "0")
+  const dmyDay = str.match(/^(\d{1,2})[-/.]\d{1,2}[-/.]\d{4}/)
+  if (dmyDay) return String(Number(dmyDay[1])).padStart(2, "0")
+  const day = Number(str)
+  return Number.isFinite(day) && day > 0 && day <= 31 ? String(day).padStart(2, "0") : ""
 }
 
 function getMonthDays(period: string, year: number): string[] {
@@ -96,6 +102,28 @@ function sanitizeTrend(raw: unknown): TrendData[] {
     .filter((entry) => entry.label !== "")
 }
 
+const MONTH_MAP_INDEX: Record<string, number> = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, mei: 4, jun: 5,
+  jul: 6, aug: 7, agu: 7, sep: 8, oct: 9, okt: 9, nov: 10, dec: 11, des: 11,
+  january: 0, february: 1, march: 2, april: 3, june: 5, july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
+  januari: 0, februari: 1, maret: 2, juni: 5, juli: 6, agustus: 7, oktober: 9, desember: 11,
+  "1": 0, "01": 0, "2": 1, "02": 1, "3": 2, "03": 2, "4": 3, "04": 3,
+  "5": 4, "05": 4, "6": 5, "06": 5, "7": 6, "07": 6, "8": 7, "08": 7,
+  "9": 8, "09": 8, "10": 9, "11": 10, "12": 11,
+}
+
+function parseMonthIdx(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined
+  const str = String(raw).trim().toLowerCase()
+  if (!str) return undefined
+  const isoMatch = str.match(/^\d{4}-(\d{2})/)
+  if (isoMatch) {
+    const m = parseInt(isoMatch[1], 10)
+    if (m >= 1 && m <= 12) return m - 1
+  }
+  return MONTH_MAP_INDEX[str]
+}
+
 function normalizeTrendData(
   raw: unknown,
   mode: ModeType,
@@ -105,15 +133,19 @@ function normalizeTrendData(
   const trend = sanitizeTrend(raw)
 
   if (mode !== "monthly") {
-    const monthMap = new Map(
-      trend.map((row) => [String(row.label ?? "").trim(), row.count] as const)
-    )
+    const monthCounts = new Map<number, number>()
+    trend.forEach((row) => {
+      const idx = parseMonthIdx(row.label)
+      if (idx !== undefined) {
+        monthCounts.set(idx, (monthCounts.get(idx) ?? 0) + row.count)
+      }
+    })
     const cutoffIndex =
       mode === "quarterly" ? getQuarterCutoffIndex(period) : MONTHS.length - 1
 
     return MONTHS.map((label, index) => ({
       label,
-      count: index <= cutoffIndex ? monthMap.get(label) ?? 0 : 0,
+      count: index <= cutoffIndex ? monthCounts.get(index) ?? 0 : 0,
     }))
   }
 

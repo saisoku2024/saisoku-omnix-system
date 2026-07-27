@@ -13,6 +13,7 @@ const MONTH_INDEX_MAP = new Map<string, number>([
   ["july", 6], ["august", 7], ["september", 8], ["october", 9], ["november", 10], ["december", 11],
   ["januari", 0], ["februari", 1], ["maret", 2], ["mei", 4], ["juni", 5],
   ["juli", 6], ["agustus", 7], ["oktober", 9], ["desember", 11],
+  ["agu", 7], ["okt", 9], ["des", 11],
   ["1", 0], ["01", 0], ["2", 1], ["02", 1], ["3", 2], ["03", 2], ["4", 3], ["04", 3],
   ["5", 4], ["05", 4], ["6", 5], ["06", 5], ["7", 6], ["07", 6], ["8", 7], ["08", 7],
   ["9", 8], ["09", 8], ["10", 9], ["11", 10], ["12", 11]
@@ -49,8 +50,11 @@ function getMonthlyDayLabel(item: TrendItem) {
   const value = String(raw).trim()
   if (!value) return null
 
-  const isoDay = value.match(/^\d{4}-\d{2}-(\d{2})/)
-  if (isoDay) return isoDay[1]
+  const isoDay = value.match(/^\d{4}[-/.]\d{1,2}[-/.](\d{1,2})/)
+  if (isoDay) return padDay(Number(isoDay[1]))
+
+  const dmyDay = value.match(/^(\d{1,2})[-/.]\d{1,2}[-/.]\d{4}/)
+  if (dmyDay) return padDay(Number(dmyDay[1]))
 
   const numericDay = Number(value)
   if (Number.isFinite(numericDay) && numericDay >= 1 && numericDay <= 31) {
