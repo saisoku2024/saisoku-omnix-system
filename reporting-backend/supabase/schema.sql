@@ -110,6 +110,10 @@ create table if not exists public.csat_responses (
   created_at_source timestamptz,
   created_at timestamptz,
   updated_at_source timestamptz,
+  deleted_at timestamptz,
+  deleted_reason text,
+  deleted_by text,
+  cleanup_batch_id uuid,
   ingested_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -137,6 +141,7 @@ create index if not exists idx_csat_responses_created_at on public.csat_response
 create index if not exists idx_csat_responses_created_at_source on public.csat_responses(created_at_source);
 create index if not exists idx_csat_responses_unique_id on public.csat_responses(unique_id);
 create index if not exists idx_csat_responses_channel on public.csat_responses(channel);
+create index if not exists idx_csat_responses_deleted_at on public.csat_responses(deleted_at);
 
 drop trigger if exists set_uploads_updated_at on public.uploads;
 create trigger set_uploads_updated_at
@@ -163,6 +168,32 @@ alter table public.omnix_cases enable row level security;
 alter table public.voice_interactions enable row level security;
 alter table public.csat_responses enable row level security;
 
+create or replace view public.csat_clean as
+select
+  id,
+  created_at,
+  unique_id as customer_phone,
+  (rating_csat::double precision)::integer as rating,
+  channel
+from public.csat_responses
+where unique_id is not null
+  and deleted_at is null;
+
+create or replace view public.omnix_clean as
+select
+  id,
+  interaction_at as created_at,
+  nullif(customer_hp, '') as customer_phone,
+  agent_name,
+  lower(channel) as channel,
+  main_category,
+  category,
+  handling_time_sec,
+  response_time_sec,
+  waiting_time_sec
+from public.omnix_cases
+where deleted_at is null;
+
 -- ============================================================
 -- Master dashboard RPCs
 -- ============================================================
@@ -185,6 +216,10 @@ alter table public.voice_interactions add column if not exists deleted_at timest
 alter table public.voice_interactions add column if not exists deleted_reason text;
 alter table public.voice_interactions add column if not exists deleted_by text;
 alter table public.voice_interactions add column if not exists cleanup_batch_id uuid;
+alter table public.csat_responses add column if not exists deleted_at timestamptz;
+alter table public.csat_responses add column if not exists deleted_reason text;
+alter table public.csat_responses add column if not exists deleted_by text;
+alter table public.csat_responses add column if not exists cleanup_batch_id uuid;
 
 create table if not exists public.cleanup_deleted_omnix_cases (
   id uuid primary key default gen_random_uuid(),
@@ -210,6 +245,7 @@ create table if not exists public.cleanup_deleted_voice_interactions (
 
 create index if not exists idx_omnix_cases_deleted_at on public.omnix_cases(deleted_at);
 create index if not exists idx_voice_interactions_deleted_at on public.voice_interactions(deleted_at);
+create index if not exists idx_csat_responses_deleted_at on public.csat_responses(deleted_at);
 create index if not exists idx_cleanup_deleted_omnix_cases_batch on public.cleanup_deleted_omnix_cases(cleanup_batch_id);
 create index if not exists idx_cleanup_deleted_voice_interactions_batch on public.cleanup_deleted_voice_interactions(cleanup_batch_id);
 
@@ -789,6 +825,7 @@ csat_filtered as (
   from public.csat_responses
   where coalesce(created_at_source, created_at) >= p_start
     and coalesce(created_at_source, created_at) < p_end
+    and deleted_at is null
 ),
 summary_data as (
   select

@@ -112,11 +112,24 @@ def test_delete_upload_session_soft_deletes_omnix(monkeypatch):
     assert fake.deletes == []
 
 
-def test_delete_upload_session_hard_deletes_csat(monkeypatch):
+def test_delete_upload_session_soft_deletes_csat(monkeypatch):
     fake = _FakeSupabase()
     monkeypatch.setattr(upload_session_service, "supabase", fake)
 
     result = UploadSessionService.delete_session("csat-upload", deleted_by="admin")
+
+    assert result["delete_mode"] == "soft"
+    assert result["deleted_rows"] == 1
+    assert fake.updates[0][0] == "csat_responses"
+    assert fake.updates[0][2]["deleted_reason"] == "upload_session_deleted"
+    assert fake.deletes == []
+
+
+def test_delete_upload_session_hard_deletes_csat_when_requested(monkeypatch):
+    fake = _FakeSupabase()
+    monkeypatch.setattr(upload_session_service, "supabase", fake)
+
+    result = UploadSessionService.delete_session("csat-upload", deleted_by="admin", delete_mode="hard")
 
     assert result["delete_mode"] == "hard"
     assert result["deleted_rows"] == 1

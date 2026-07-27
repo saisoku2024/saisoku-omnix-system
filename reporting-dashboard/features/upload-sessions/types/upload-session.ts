@@ -17,7 +17,9 @@ export interface UploadSessionItem {
   storage_path: string | null
   target_table: string | null
   delete_mode: UploadSessionDeleteMode
+  delete_modes: UploadSessionDeleteMode[]
   detail_rows: number
+  total_detail_rows: number
 }
 
 export interface UploadSessionListResponse {

@@ -15,10 +15,12 @@ router = APIRouter(
 
 UploadTypeFilter = Literal["all", "omnix", "voice", "csat"]
 UploadStatusFilter = Literal["all", "processing", "success", "failed"]
+UploadSessionDeleteMode = Literal["soft", "hard"]
 
 
 class UploadSessionDeleteRequest(BaseModel):
     deleted_by: str = Field(default="admin", max_length=120)
+    delete_mode: UploadSessionDeleteMode = "soft"
 
 
 @router.get("")
@@ -42,9 +44,12 @@ def list_upload_sessions(
 
 
 @router.post("/{upload_id}/delete-preview")
-def preview_upload_session_delete(upload_id: str):
+def preview_upload_session_delete(
+    upload_id: str,
+    delete_mode: UploadSessionDeleteMode = Query(default="soft"),
+):
     try:
-        return UploadSessionService.preview_delete(upload_id)
+        return UploadSessionService.preview_delete(upload_id, delete_mode=delete_mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -57,6 +62,7 @@ def delete_upload_session(upload_id: str, payload: UploadSessionDeleteRequest):
         result = UploadSessionService.delete_session(
             upload_id=upload_id,
             deleted_by=payload.deleted_by,
+            delete_mode=payload.delete_mode,
         )
         from app.services.audit_log_service import AuditLogService
 

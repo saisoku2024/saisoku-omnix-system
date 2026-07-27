@@ -1,6 +1,7 @@
 import type {
   UploadSessionDeletePreview,
   UploadSessionDeleteResult,
+  UploadSessionDeleteMode,
   UploadSessionListResponse,
   UploadSessionStatus,
   UploadSessionType,
@@ -47,8 +48,12 @@ export async function listUploadSessions(params: {
   return handleJsonResponse<UploadSessionListResponse>(response)
 }
 
-export async function previewUploadSessionDelete(uploadId: string): Promise<UploadSessionDeletePreview> {
-  const response = await fetch(`${API}/${uploadId}/delete-preview`, {
+export async function previewUploadSessionDelete(
+  uploadId: string,
+  deleteMode: UploadSessionDeleteMode
+): Promise<UploadSessionDeletePreview> {
+  const search = new URLSearchParams({ delete_mode: deleteMode })
+  const response = await fetch(`${API}/${uploadId}/delete-preview?${search.toString()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   })
@@ -56,11 +61,15 @@ export async function previewUploadSessionDelete(uploadId: string): Promise<Uplo
   return handleJsonResponse<UploadSessionDeletePreview>(response)
 }
 
-export async function deleteUploadSession(uploadId: string, deletedBy = "admin"): Promise<UploadSessionDeleteResult> {
+export async function deleteUploadSession(
+  uploadId: string,
+  deletedBy = "admin",
+  deleteMode: UploadSessionDeleteMode = "soft"
+): Promise<UploadSessionDeleteResult> {
   const response = await fetch(`${API}/${uploadId}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deleted_by: deletedBy }),
+    body: JSON.stringify({ deleted_by: deletedBy, delete_mode: deleteMode }),
   })
 
   return handleJsonResponse<UploadSessionDeleteResult>(response)

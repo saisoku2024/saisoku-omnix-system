@@ -4,20 +4,19 @@ from uuid import uuid4
 from app.core.supabase import supabase
 
 
+DELETE_MODES = ("soft", "hard")
+
 DETAIL_TABLES = {
     "omnix": {
         "table": "omnix_cases",
-        "delete_mode": "soft",
         "label": "Omnix",
     },
     "voice": {
         "table": "voice_interactions",
-        "delete_mode": "soft",
         "label": "Voice",
     },
     "csat": {
         "table": "csat_responses",
-        "delete_mode": "hard",
         "label": "CSAT",
     },
 }
@@ -82,6 +81,13 @@ def _count_rows(table: str, upload_id: str, soft_delete: bool) -> int:
     return len(response.data or [])
 
 
+def _normalize_delete_mode(delete_mode: str) -> str:
+    normalized = (delete_mode or "soft").lower()
+    if normalized not in DELETE_MODES:
+        raise ValueError("delete_mode must be either soft or hard")
+    return normalized
+
+
 class UploadSessionService:
     @staticmethod
     def list_sessions(date_from: str, date_to: str, upload_type: str | None = None, status: str | None = None) -> dict:
@@ -95,13 +101,17 @@ class UploadSessionService:
             file_type = upload.get("file_type")
             config = DETAIL_TABLES.get(file_type)
             detail_count = 0
+            total_detail_count = 0
             delete_mode = "unsupported"
+            delete_modes = []
             table = None
 
             if config:
                 table = config["table"]
-                delete_mode = config["delete_mode"]
-                detail_count = _count_rows(table, upload["id"], delete_mode == "soft")
+                delete_mode = "soft"
+                delete_modes = list(DELETE_MODES)
+                detail_count = _count_rows(table, upload["id"], True)
+                total_detail_count = _count_rows(table, upload["id"], False)
 
             items.append(
                 {
@@ -119,7 +129,9 @@ class UploadSessionService:
                     "storage_path": upload.get("storage_path"),
                     "target_table": table,
                     "delete_mode": delete_mode,
+                    "delete_modes": delete_modes,
                     "detail_rows": detail_count,
+                    "total_detail_rows": total_detail_count,
                 }
             )
 
@@ -132,7 +144,8 @@ class UploadSessionService:
         }
 
     @staticmethod
-    def preview_delete(upload_id: str) -> dict:
+    def preview_delete(upload_id: str, delete_mode: str = "soft") -> dict:
+        delete_mode = _normalize_delete_mode(delete_mode)
         upload_res = supabase.table("uploads").select("*").eq("id", upload_id).limit(1).execute()
         upload = (upload_res.data or [None])[0]
         if not upload:
@@ -143,7 +156,6 @@ class UploadSessionService:
             raise ValueError(f"Unsupported upload type: {upload.get('file_type')}")
 
         table = config["table"]
-        delete_mode = config["delete_mode"]
         affected_rows = _count_rows(table, upload_id, delete_mode == "soft")
 
         return {
@@ -156,15 +168,15 @@ class UploadSessionService:
             "delete_mode": delete_mode,
             "affected_rows": affected_rows,
             "warning": (
-                "CSAT session uses hard delete because csat_responses has no soft-delete columns in live schema."
+                "Rows will be permanently removed from the detail table. Use this before re-upload if soft-deleted rows still trigger duplicate detection."
                 if delete_mode == "hard"
                 else "Rows will be soft-deleted and hidden from reports that filter deleted_at."
             ),
         }
 
     @staticmethod
-    def delete_session(upload_id: str, deleted_by: str = "admin") -> dict:
-        preview = UploadSessionService.preview_delete(upload_id)
+    def delete_session(upload_id: str, deleted_by: str = "admin", delete_mode: str = "soft") -> dict:
+        preview = UploadSessionService.preview_delete(upload_id, delete_mode=delete_mode)
         if preview["affected_rows"] <= 0:
             return {
                 **preview,

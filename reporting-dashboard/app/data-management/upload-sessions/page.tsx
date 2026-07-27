@@ -22,6 +22,7 @@ import {
 import type {
   UploadSessionDeletePreview,
   UploadSessionDeleteResult,
+  UploadSessionDeleteMode,
   UploadSessionItem,
   UploadSessionStatus,
   UploadSessionType,
@@ -80,6 +81,12 @@ function deleteModeLabel(item: UploadSessionItem | UploadSessionDeletePreview) {
   if (item.delete_mode === "soft") return "Soft delete"
   if (item.delete_mode === "hard") return "Hard delete"
   return "Unsupported"
+}
+
+function rowCountForDeleteMode(item: UploadSessionItem, deleteMode: UploadSessionDeleteMode) {
+  if (deleteMode === "hard") return item.total_detail_rows ?? item.detail_rows
+  if (deleteMode === "soft") return item.detail_rows
+  return 0
 }
 
 function Metric({
@@ -170,7 +177,7 @@ function PreviewPanel({
             className="inline-flex h-10 min-w-44 items-center justify-center gap-2 rounded-lg bg-red-500 px-4 text-xs font-bold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:bg-(--c-overlay-2) disabled:text-(--c-muted)"
           >
             {deleting ? <Loader2Icon size={15} className="animate-spin" /> : <Trash2Icon size={15} />}
-            {isAdmin ? "Delete This Session" : "Admin Only"}
+            {isAdmin ? `${deleteModeLabel(active)} Session` : "Admin Only"}
           </button>
         </div>
       ) : null}
@@ -188,7 +195,7 @@ export default function UploadSessionsPage() {
   const [preview, setPreview] = useState<UploadSessionDeletePreview | null>(null)
   const [result, setResult] = useState<UploadSessionDeleteResult | null>(null)
   const [loading, setLoading] = useState(true)
-  const [previewingId, setPreviewingId] = useState<string | null>(null)
+  const [previewingAction, setPreviewingAction] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
   const [sessionRole, setSessionRole] = useState<"admin" | "super_admin" | "guest" | null>(null)
@@ -258,17 +265,17 @@ export default function UploadSessionsPage() {
     setError("")
   }
 
-  const handlePreview = async (item: UploadSessionItem) => {
-    setPreviewingId(item.id)
+  const handlePreview = async (item: UploadSessionItem, deleteMode: UploadSessionDeleteMode) => {
+    setPreviewingAction(`${item.id}:${deleteMode}`)
     setError("")
     setResult(null)
     try {
-      const response = await previewUploadSessionDelete(item.id)
+      const response = await previewUploadSessionDelete(item.id, deleteMode)
       setPreview(response)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal preview delete session")
     } finally {
-      setPreviewingId(null)
+      setPreviewingAction(null)
     }
   }
 
@@ -277,7 +284,7 @@ export default function UploadSessionsPage() {
     setDeleting(true)
     setError("")
     try {
-      const response = await deleteUploadSession(preview.upload_id, "admin")
+      const response = await deleteUploadSession(preview.upload_id, "admin", preview.delete_mode)
       setResult(response)
       setPreview(null)
       await loadSessions()
@@ -433,8 +440,7 @@ export default function UploadSessionsPage() {
                   <th className="px-4 py-3">Uploaded</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Rows</th>
-                  <th className="px-4 py-3">Active Detail</th>
-                  <th className="px-4 py-3">Delete Mode</th>
+                  <th className="px-4 py-3">Detail Rows</th>
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -442,7 +448,7 @@ export default function UploadSessionsPage() {
                 {loading ? (
                   Array.from({ length: 6 }).map((_, index) => (
                     <tr key={index} className="animate-pulse">
-                      {Array.from({ length: 8 }).map((__, cell) => (
+                      {Array.from({ length: 7 }).map((__, cell) => (
                         <td key={cell} className="px-4 py-4">
                           <div className="h-3 w-full max-w-32 rounded bg-(--c-overlay-2)" />
                         </td>
@@ -451,7 +457,7 @@ export default function UploadSessionsPage() {
                   ))
                 ) : items.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-(--c-muted)">
+                    <td colSpan={7} className="px-4 py-12 text-center text-sm text-(--c-muted)">
                       Tidak ada upload session untuk filter ini.
                     </td>
                   </tr>
@@ -480,32 +486,45 @@ export default function UploadSessionsPage() {
                         <div>Duplicate: {formatNumber(item.duplicate_rows)}</div>
                         <div>Invalid: {formatNumber(item.invalid_rows)}</div>
                       </td>
-                      <td className="px-4 py-3 font-mono text-lg font-bold text-(--c-text)">
-                        {formatNumber(item.detail_rows)}
-                      </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
-                            item.delete_mode === "hard"
-                              ? "border-red-500/25 bg-red-500/10 text-red-400"
-                              : item.delete_mode === "soft"
-                                ? "border-cyan-500/25 bg-cyan-500/10 text-cyan-400"
-                                : "border-(--c-border) bg-(--c-overlay) text-(--c-muted)"
-                          }`}
-                        >
-                          {deleteModeLabel(item)}
-                        </span>
+                        <div className="font-mono text-lg font-bold text-(--c-text)">
+                          {formatNumber(item.detail_rows)}
+                        </div>
+                        <div className="mt-1 text-[10px] text-(--c-muted)">
+                          Total: {formatNumber(item.total_detail_rows ?? item.detail_rows)}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handlePreview(item)}
-                          disabled={previewingId === item.id || item.detail_rows === 0 || item.delete_mode === "unsupported"}
-                          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 text-xs font-bold text-red-400 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:border-(--c-border) disabled:bg-(--c-overlay) disabled:text-(--c-muted)"
-                        >
-                          {previewingId === item.id ? <Loader2Icon size={14} className="animate-spin" /> : <Trash2Icon size={14} />}
-                          Preview Delete
-                        </button>
+                        <div className="inline-flex items-center justify-end gap-2">
+                          {(["soft", "hard"] as const).map((deleteMode) => {
+                            const actionKey = `${item.id}:${deleteMode}`
+                            const affectedRows = rowCountForDeleteMode(item, deleteMode)
+                            const isLoading = previewingAction === actionKey
+                            const isHard = deleteMode === "hard"
+                            const deleteModes = item.delete_modes ?? [item.delete_mode]
+
+                            return (
+                              <button
+                                key={deleteMode}
+                                type="button"
+                                onClick={() => handlePreview(item, deleteMode)}
+                                disabled={
+                                  isLoading ||
+                                  affectedRows === 0 ||
+                                  !deleteModes.includes(deleteMode)
+                                }
+                                className={`inline-flex h-9 min-w-24 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:border-(--c-border) disabled:bg-(--c-overlay) disabled:text-(--c-muted) ${
+                                  isHard
+                                    ? "border-red-500/25 bg-red-500/10 text-red-400 hover:bg-red-500/15"
+                                    : "border-cyan-500/25 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/15"
+                                }`}
+                              >
+                                {isLoading ? <Loader2Icon size={14} className="animate-spin" /> : <Trash2Icon size={14} />}
+                                {isHard ? "Hard" : "Soft"}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </td>
                     </tr>
                   ))
