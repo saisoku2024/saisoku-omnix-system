@@ -21,11 +21,11 @@ saisoku-omnix-system/
 Stack utama:
 
 ```txt
-Frontend       : Next.js 16, React 19, TypeScript, Tailwind CSS, Recharts, lucide-react
-Backend        : FastAPI, Python, pandas, Supabase client, requests
+Frontend       : Next.js 16, React 19, TypeScript, Tailwind CSS v4, Recharts, lucide-react (port 9000)
+Backend        : FastAPI, Python 3.11, pandas, Supabase client, requests (port 8001)
 Database       : Supabase Postgres
-Vector Search  : pgvector di Supabase
-AI             : Google Gemini API
+Vector Search  : pgvector di Supabase (768 dimensions)
+AI             : Google Gemini API (gemini-2.5-flash)
 Frontend Host  : Vercel
 Backend Host   : Render
 ```

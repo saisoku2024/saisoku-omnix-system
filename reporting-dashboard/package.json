@@ -9,6 +9,7 @@
     "dev": "next dev -p 9000",
     "build": "next build",
     "start": "next start",
+    "generate-types": "python ../reporting-backend/scripts/generate_ts_client.py",
     "lint": "eslint",
     "test": "vitest run"
   },
