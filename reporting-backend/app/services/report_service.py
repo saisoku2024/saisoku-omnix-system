@@ -392,7 +392,7 @@ class ReportService:
 
             query = (
                 supabase.table("omnix_cases")
-                .select("customer_name,customer_hp,interaction_at,channel,source_name,main_category,category,subcategory,agent_name,subject")
+                .select("customer_name,customer_hp,interaction_at,channel,source_name,main_category,category,subcategory,agent_name,brand")
                 .gte("interaction_at", _iso_date(start_date))
                 .lt("interaction_at", end_exclusive)
                 .is_("deleted_at", "null")
@@ -424,10 +424,9 @@ class ReportService:
 
                 cat_lower = cat_raw.lower()
                 main_cat_lower = main_cat_raw.lower()
-                sub_lower = str(r.get("subject") or "").strip().lower()
 
                 # Exclusions
-                if any(ex in cat_lower or ex in main_cat_lower or ex in sub_lower for ex in EXCLUDED):
+                if any(ex in cat_lower or ex in main_cat_lower for ex in EXCLUDED):
                     continue
 
                 # Channel filter
