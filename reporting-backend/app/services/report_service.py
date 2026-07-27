@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from app.core.supabase import supabase
+from app.utils.normalizers import normalize_phone
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +415,7 @@ class ReportService:
             }
 
             seen_hp = set()
+            seen_name = set()
             filtered = []
             row_num = 1
             for r in rows:
@@ -421,6 +423,7 @@ class ReportService:
                 main_cat_raw = str(r.get("main_category") or "").strip()
                 brand_raw = str(r.get("brand") or "").strip()
                 ch_raw = str(r.get("source_name") or r.get("channel") or "").strip()
+                c_name_raw = str(r.get("customer_name") or "").strip()
 
                 cat_lower = cat_raw.lower()
                 main_cat_lower = main_cat_raw.lower()
@@ -446,12 +449,25 @@ class ReportService:
                     if main_cat_filter not in main_cat_lower:
                         continue
 
-                # Phone deduplication: keep only earliest interaction (awal contact) per phone number
+                # Phone extraction & fallback (Opsi A)
                 hp = str(r.get("customer_hp") or "").strip()
+                if not hp or hp in {"-", "null", "none", ""}:
+                    if c_name_raw and (c_name_raw.startswith("+62") or c_name_raw.startswith("62") or c_name_raw.startswith("08") or c_name_raw.startswith("'+62") or c_name_raw.startswith("'08")):
+                        extracted = normalize_phone(c_name_raw.strip("'\"`"))
+                        if extracted:
+                            hp = extracted
+
+                # Deduplication (Opsi B): keep only earliest interaction (awal contact)
                 if hp and hp not in {"-", "null", "none", ""}:
                     if hp in seen_hp:
                         continue
                     seen_hp.add(hp)
+                else:
+                    name_key = c_name_raw.strip("'\"`").lower()
+                    if name_key and name_key not in {"-", "null", "none", ""}:
+                        if name_key in seen_name:
+                            continue
+                        seen_name.add(name_key)
 
                 # Format interaction_at date nicely (DD-MM-YYYY HH:mm)
                 raw_at = r.get("interaction_at")
@@ -463,9 +479,10 @@ class ReportService:
                     except Exception:
                         pass
 
+                clean_name = c_name_raw.strip("'\"`")
                 filtered.append({
                     "No": row_num,
-                    "Nama Pelanggan": r.get("customer_name") or "-",
+                    "Nama Pelanggan": clean_name or "-",
                     "Nomor HP": hp or "-",
                     "Tanggal Interaksi": formatted_at,
                     "Channel": _normalize_channel(ch_raw) or ch_raw or "-",
