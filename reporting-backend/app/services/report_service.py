@@ -216,6 +216,16 @@ class ReportService:
                         "p_kota": "",
                     },
                 ).execute()
+                return res.data or []
+
+            elif report_type == "data_pelanggan":
+                return ReportService.export_customer({
+                    "start_date": start_str,
+                    "end_date": end_str,
+                    "brand": brand,
+                    "channel": channel,
+                    "main_category": main_category,
+                })
 
             else:
                 res = supabase.rpc(
@@ -234,8 +244,7 @@ class ReportService:
                         "p_kota": "",
                     },
                 ).execute()
-
-            return res.data or []
+                return res.data or []
 
         except Exception as e:
             logger.error(f"REPORT PREVIEW ERROR : {e}", exc_info=True)
@@ -391,13 +400,9 @@ class ReportService:
                 .limit(50000)
             )
 
-            brand = payload.get("brand")
-            if brand and str(brand).lower() != "all":
-                query = query.eq("brand", brand)
-
-            main_category = payload.get("main_category")
-            if main_category and str(main_category).lower() != "all":
-                query = query.eq("main_category", main_category)
+            channel_filter = str(payload.get("channel") or "").strip().lower()
+            brand_filter = str(payload.get("brand") or "").strip().lower()
+            main_cat_filter = str(payload.get("main_category") or "").strip().lower()
 
             response = query.execute()
             rows = response.data or []
@@ -410,14 +415,37 @@ class ReportService:
 
             seen_hp = set()
             filtered = []
+            row_num = 1
             for r in rows:
-                cat_lower = str(r.get("category") or "").strip().lower()
-                main_cat_lower = str(r.get("main_category") or "").strip().lower()
+                cat_raw = str(r.get("category") or "").strip()
+                main_cat_raw = str(r.get("main_category") or "").strip()
+                brand_raw = str(r.get("brand") or "").strip()
+                ch_raw = str(r.get("source_name") or r.get("channel") or "").strip()
+
+                cat_lower = cat_raw.lower()
+                main_cat_lower = main_cat_raw.lower()
                 sub_lower = str(r.get("subject") or "").strip().lower()
 
-                # Check if matches any excluded keyword
+                # Exclusions
                 if any(ex in cat_lower or ex in main_cat_lower or ex in sub_lower for ex in EXCLUDED):
                     continue
+
+                # Channel filter
+                if channel_filter and channel_filter != "all":
+                    normalized_ch = _normalize_channel(ch_raw)
+                    if normalized_ch and normalized_ch.lower() != channel_filter:
+                        if channel_filter not in ch_raw.lower():
+                            continue
+
+                # Brand Filter (matches brand column OR category column)
+                if brand_filter and brand_filter != "all":
+                    if brand_filter not in brand_raw.lower() and brand_filter not in cat_lower:
+                        continue
+
+                # Main Category Filter (matches main_category column)
+                if main_cat_filter and main_cat_filter != "all":
+                    if main_cat_filter not in main_cat_lower:
+                        continue
 
                 # Phone deduplication: keep only earliest interaction (awal contact) per phone number
                 hp = str(r.get("customer_hp") or "").strip()
@@ -437,15 +465,15 @@ class ReportService:
                         pass
 
                 filtered.append({
-                    "customer_name": r.get("customer_name") or "-",
-                    "customer_hp": hp or "-",
-                    "interaction_at": formatted_at,
-                    "channel": r.get("source_name") or r.get("channel") or "-",
-                    "main_category": r.get("main_category") or "-",
-                    "category": r.get("category") or "-",
-                    "subcategory": r.get("subcategory") or "-",
-                    "agent_name": r.get("agent_name") or "-",
+                    "No": row_num,
+                    "Nama Pelanggan": r.get("customer_name") or "-",
+                    "Nomor HP": hp or "-",
+                    "Tanggal Interaksi": formatted_at,
+                    "Channel": _normalize_channel(ch_raw) or ch_raw or "-",
+                    "Main Category": main_cat_raw or "-",
+                    "Category": cat_raw or "-",
                 })
+                row_num += 1
 
             return filtered
 

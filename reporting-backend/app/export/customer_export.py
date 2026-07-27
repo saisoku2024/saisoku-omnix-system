@@ -11,8 +11,6 @@ class CustomerExport:
         "Channel",
         "Main Category",
         "Category",
-        "Subcategory",
-        "Agent Name",
     ]
 
     @staticmethod
@@ -31,14 +29,12 @@ class CustomerExport:
         for idx, item in enumerate(data, 1):
             rows.append([
                 idx,
-                item.get("customer_name") or "-",
-                item.get("customer_hp") or "-",
-                item.get("interaction_at") or "-",
-                item.get("channel") or item.get("source_name") or "-",
-                item.get("main_category") or "-",
-                item.get("category") or "-",
-                item.get("subcategory") or "-",
-                item.get("agent_name") or "-",
+                item.get("Nama Pelanggan") or item.get("customer_name") or "-",
+                item.get("Nomor HP") or item.get("customer_hp") or "-",
+                item.get("Tanggal Interaksi") or item.get("interaction_at") or "-",
+                item.get("Channel") or item.get("channel") or "-",
+                item.get("Main Category") or item.get("main_category") or "-",
+                item.get("Category") or item.get("category") or "-",
             ])
 
         ExcelService.write_rows(
