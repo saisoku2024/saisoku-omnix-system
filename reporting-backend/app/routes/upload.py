@@ -52,7 +52,30 @@ def process_upload_content(
         if lower_filename.endswith(".csv"):
             df = pd.read_csv(file_bytes)
         else:
-            df = pd.read_excel(file_bytes)
+            xl = pd.ExcelFile(file_bytes)
+            target_sheet = 0
+            sheet_names_lower = [s.lower() for s in xl.sheet_names]
+            
+            if upload_type == "omnix":
+                for s in xl.sheet_names:
+                    s_low = s.lower().strip()
+                    if s_low in ["omnix", "db omnix 2025", "db omnix", "ticket"]:
+                        target_sheet = s
+                        break
+            elif upload_type == "voice":
+                for s in xl.sheet_names:
+                    s_low = s.lower().strip()
+                    if s_low in ["voice", "call"]:
+                        target_sheet = s
+                        break
+            elif upload_type == "csat":
+                for s in xl.sheet_names:
+                    s_low = s.lower().strip()
+                    if s_low in ["csat", "db csat"]:
+                        target_sheet = s
+                        break
+            df = xl.parse(target_sheet)
+
 
         total_rows = len(df)
         if total_rows == 0:
@@ -83,7 +106,8 @@ def process_upload_content(
             unique_key,
             duplicate_rows,
         )
-        inserted_rows = UploadService.bulk_insert(target_table, inserted_candidates)
+        inserted_rows, insert_duplicate_rows = UploadService.bulk_insert(target_table, inserted_candidates)
+        duplicate_rows += insert_duplicate_rows
 
         UploadService.update_upload_status(
             upload_id,

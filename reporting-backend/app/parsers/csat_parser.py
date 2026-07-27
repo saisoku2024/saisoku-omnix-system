@@ -4,11 +4,19 @@ def parse_csat_rows(df, upload_id):
     rows = []
 
     for _, row in df.iterrows():
-        created_at = safe_datetime(row.get("Update At"))  # ✅ FIX: "Create At" → "Update At"
+        created_at = safe_datetime(row.get("Update At") or row.get("Create At") or row.get("created_at") or row.get("date"))
+        source_id = safe_str(
+            row.get("source_id")
+            or row.get("ID")
+            or row.get("id")
+            or row.get("Unique ID")
+            or row.get("Sid")
+            or row.get("sid")
+        )
 
         rows.append({
             "upload_id":            upload_id,
-            "source_id":            safe_str(row.get("ID")),
+            "source_id":            source_id,
             "sid":                  safe_str(row.get("Sid")),
             "unique_id":            safe_str(row.get("Unique ID")),
             "channel":              safe_str(row.get("Channel")),

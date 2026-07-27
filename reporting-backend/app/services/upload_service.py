@@ -2,6 +2,95 @@ from app.core.supabase import supabase
 from app.services.upload_config import UPLOAD_CONFIG
 
 
+TABLE_COLUMNS = {
+    "omnix_cases": {
+        "upload_id",
+        "ticket_id",
+        "interaction_at",
+        "created_at",
+        "customer_name",
+        "customer_hp",
+        "channel",
+        "source_name",
+        "date_first_response_interaction",
+        "date_end_interaction",
+        "is_escalated",
+        "ticket_status_name",
+        "main_category",
+        "category",
+        "subcategory",
+        "detail_subcategory",
+        "detail_subcategory2",
+        "agent_name",
+        "handling_time_sec",
+        "response_time_sec",
+        "waiting_time_sec",
+        "feedback",
+        "brand",
+        "product",
+        "principal_group",
+        "principal_category",
+        "csat_dispatch_status",
+        "csat_response_status",
+        "rating_csat",
+        "subject",
+        "subject_normalized",
+        "mapping_status",
+    },
+    "voice_interactions": {
+        "upload_id",
+        "unique_id",
+        "interaction_at",
+        "created_at",
+        "connected_at",
+        "ended_at",
+        "queue_name",
+        "agent_name",
+        "call_event",
+        "clid_raw",
+        "clid_normalized",
+        "wait_time_sec",
+        "talk_time_sec",
+        "ring_time_sec",
+        "hold_time_sec",
+        "dst",
+        "recording_file",
+        "rec_ai",
+        "channel",
+        "call_status",
+    },
+    "csat_responses": {
+        "upload_id",
+        "source_id",
+        "sid",
+        "unique_id",
+        "channel",
+        "account",
+        "response_type",
+        "score",
+        "message",
+        "additional_message",
+        "feedback",
+        "flow_token",
+        "rating_csat",
+        "created_at_source",
+        "created_at",
+        "updated_at_source",
+    },
+}
+
+INTERNAL_METADATA_KEYS = {
+    "subject_original",
+    "mapping_source",
+    "mapping_version",
+}
+
+
+def _is_duplicate_key_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return "duplicate key value" in message or "23505" in message
+
+
 class UploadService:
 
     @staticmethod
@@ -94,26 +183,26 @@ class UploadService:
         return inserted_candidates, duplicate_rows
 
     @staticmethod
-    def bulk_insert(table, rows, batch_size=100):
-        inserted_rows = 0
+    def clean_row_for_table(table, row):
+        allowed_columns = TABLE_COLUMNS.get(table)
+        if allowed_columns is None:
+            return {k: v for k, v in row.items() if k not in INTERNAL_METADATA_KEYS}
 
-        if not rows:
-            return inserted_rows
-
-        # Filter out internal audit fields if table schema does not include them
-        EXTRA_METADATA_KEYS = {
-            "subject",
-            "subject_original",
-            "subject_normalized",
-            "mapping_status",
-            "mapping_source",
-            "mapping_version",
+        return {
+            k: v
+            for k, v in row.items()
+            if k in allowed_columns and k not in INTERNAL_METADATA_KEYS
         }
 
-        clean_rows = []
-        for r in rows:
-            clean_r = {k: v for k, v in r.items() if k not in EXTRA_METADATA_KEYS}
-            clean_rows.append(clean_r)
+    @staticmethod
+    def bulk_insert(table, rows, batch_size=100):
+        inserted_rows = 0
+        duplicate_rows = 0
+
+        if not rows:
+            return inserted_rows, duplicate_rows
+
+        clean_rows = [UploadService.clean_row_for_table(table, r) for r in rows]
 
         # Chunked bulk insertion to prevent HTTP 413 Payload Too Large & Request Timeouts
         for i in range(0, len(clean_rows), batch_size):
@@ -125,12 +214,23 @@ class UploadService:
                 else:
                     inserted_rows += len(chunk)
             except Exception as e:
-                if "duplicate key value" in str(e):
-                    pass
-                else:
+                if not _is_duplicate_key_error(e):
                     raise e
 
-        return inserted_rows
+                for row in chunk:
+                    try:
+                        res = supabase.table(table).insert(row).execute()
+                        if res.data:
+                            inserted_rows += len(res.data)
+                        else:
+                            inserted_rows += 1
+                    except Exception as row_error:
+                        if _is_duplicate_key_error(row_error):
+                            duplicate_rows += 1
+                        else:
+                            raise row_error
+
+        return inserted_rows, duplicate_rows
 
     @staticmethod
     def update_upload_status(

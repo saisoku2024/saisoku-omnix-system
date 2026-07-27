@@ -5,8 +5,14 @@ def parse_voice_rows(df, upload_id):
     rows = []
 
     for _, row in df.iterrows():
-        created_at = safe_datetime(row.get("datetime"))
-        unique_id = safe_str(row.get("uniqueid"))
+        created_at = safe_datetime(row.get("datetime") or row.get("date") or row.get("created_at"))
+        unique_id = safe_str(
+            row.get("unique_id")
+            or row.get("uniqueid")
+            or row.get("id")
+            or row.get("call_id")
+            or row.get("session_id")
+        )
 
         rows.append({
             "upload_id": upload_id,

@@ -63,9 +63,25 @@ def parse_omnix_rows(df, upload_id):
     for _, row in df.iterrows():
         row_dict = row.to_dict()
 
-        created_raw = row.get("date_created_at")
+        ticket_id = safe_str(
+            row.get("ticket_id")
+            or row.get("ticket_number")
+            or row.get("ticket_no")
+            or row.get("id_interaction")
+            or row.get("session_id")
+            or row.get("id")
+        )
+
+        created_raw = row.get("date_created_at") or row.get("created_at") or row.get("date_open")
         created_at = safe_datetime(created_raw)
-        interaction_at = safe_datetime(row.get("date_origin_interaction"))
+        interaction_raw = (
+            row.get("date_origin_interaction")
+            or row.get("date_start_interaction")
+            or row.get("interaction_at")
+            or row.get("date_open")
+            or created_raw
+        )
+        interaction_at = safe_datetime(interaction_raw) or created_at
 
         # Automatic Subject Standardization
         subject_info = SubjectStandardizer.classify_row(row_dict)
@@ -74,45 +90,57 @@ def parse_omnix_rows(df, upload_id):
             "upload_id": upload_id,
 
             # Columns in omnix_cases schema
-            "ticket_number": safe_str(row.get("ticket_number")),
-            "channel": safe_str(row.get("channel_name")),
-            "account_name": safe_str(row.get("account_name")),
-            "customer_name": safe_str(row.get("customer_name")),
+            "ticket_id": ticket_id,
+            "channel": safe_str(row.get("channel_name") or row.get("channel")),
+            "source_name": safe_str(row.get("source_name") or row.get("channel_name") or row.get("source")),
+            "customer_name": safe_str(row.get("customer_name") or row.get("customer")),
 
             "brand": infer_brand(row_dict),
-            "main_category": safe_str(row.get("mainCategory")),
+            "product": safe_str(row.get("product") or row.get("product_name")),
+            "principal_group": safe_str(row.get("principal_group") or row.get("principal")),
+            "principal_category": safe_str(row.get("principal_category")),
+            "main_category": safe_str(row.get("mainCategory") or row.get("main_category")),
             "category": safe_str(row.get("category")),
-            "sub_category": safe_str(row.get("subCategory")),
-            "detail_sub_category": safe_str(row.get("detailSubCategory")),
+            "subcategory": safe_str(row.get("subCategory") or row.get("subcategory") or row.get("sub_category")),
+            "detail_subcategory": safe_str(row.get("detailSubCategory") or row.get("detail_subcategory") or row.get("detail_sub_category")),
+            "detail_subcategory2": safe_str(row.get("detailSubCategory2") or row.get("detail_subcategory2")),
 
             "subject": safe_str(row.get("subject")),
 
             # Automatic Subject Standardization Result
             "subject_normalized": subject_info["subject_normalized"],
+            "mapping_status": subject_info["mapping_status"],
 
-            "agent_name": safe_str(row.get("agent_name")),
-            "status": safe_str(row.get("status")),
+            "agent_name": safe_str(row.get("agent_name") or row.get("agent")),
+            "ticket_status_name": safe_str(row.get("status") or row.get("ticket_status_name")),
+            "is_escalated": safe_str(row.get("is_escalated") or row.get("escalation_status")),
 
-            "handling_time_sec": safe_int(row.get("handling_time")),
-            "response_time_sec": safe_int(row.get("first_response_time")),
+            "handling_time_sec": safe_int(row.get("handling_time") or row.get("handlingTime")),
+            "response_time_sec": safe_int(row.get("first_response_time") or row.get("responseTime")),
 
             # Flexible column lookup for waiting_time
             "waiting_time_sec": safe_int(
-                row.get("waiting_time") or row.get("customer_waiting_time") or row.get("waiting_time_sec")
+                row.get("waiting_time") or row.get("customer_waiting_time") or row.get("waiting_time_sec") or row.get("waitingTime")
             ),
 
-            "created_at_source": created_at,
-            "interaction_at": interaction_at or created_at,
+            "created_at": created_at,
+            "interaction_at": interaction_at,
+            "date_first_response_interaction": safe_datetime(row.get("date_first_response_interaction") or row.get("first_response_at")),
+            "date_end_interaction": safe_datetime(row.get("date_end_interaction") or row.get("resolved_at") or row.get("date_close")),
 
             "customer_hp": safe_str(row.get("customer_hp") or row.get("phone_number") or row.get("no_hp")),
-
-            # Keep full raw payload as JSONB for auditability
-            "raw_payload": row_dict,
+            "feedback": safe_str(row.get("feedback") or row.get("resolution")),
+            "csat_dispatch_status": safe_str(row.get("csat_dispatch_status")),
+            "csat_response_status": safe_str(row.get("csat_response_status")),
+            "rating_csat": safe_str(row.get("rating_csat") or row.get("csat_score")),
         }
 
         rows.append(record)
 
     return rows
+
+
+from app.utils.converters import safe_datetime
 
 
 def safe_int(val):
@@ -122,15 +150,3 @@ def safe_int(val):
         return int(float(val))
     except (ValueError, TypeError):
         return 0
-
-
-def safe_datetime(val):
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return None
-    try:
-        dt = pd.to_datetime(val)
-        if pd.isna(dt):
-            return None
-        return dt.isoformat()
-    except Exception:
-        return None
