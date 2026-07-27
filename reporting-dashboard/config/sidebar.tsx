@@ -60,7 +60,7 @@ export const sidebarMenu: SidebarMenuItem[] = [
       },
       {
         title: "Data Pelanggan (Customer Export)",
-        url: "/reports/infomedia?tab=customer",
+        url: "/reports/customer",
         icon: <UsersIcon />,
       },
       {

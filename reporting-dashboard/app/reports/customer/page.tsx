@@ -1,10 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { 
-  FileSpreadsheet, 
-  Smartphone, 
-  Headphones, 
+  Users, 
   History,
   RotateCcw,
   Search,
@@ -16,7 +14,6 @@ import Card from "@/components/ui/card"
 import CardHeader from "@/features/omnix/components/CardHeader"
 import ExportHistorySheet from "@/features/report/components/ExportHistorySheet"
 import DigitalFilter from "@/features/report/components/DigitalFilter"
-import VoiceFilter from "@/features/report/components/VoiceFilter"
 import { useReport } from "@/features/report/hooks/useReport"
 import type { ReportExportHistoryEntry } from "@/features/report/types/history"
 import type { ExportRequest, PreviewRow, ReportOptions } from "@/features/report/types/report"
@@ -47,8 +44,7 @@ function getCurrentMonthDateRange() {
 
 const currentMonthDateRange = getCurrentMonthDateRange()
 
-export default function InfomediaReportPage() {
-  const [module, setModule] = useState<"digital" | "voice">("digital")
+function CustomerReportContent() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyEntries, setHistoryEntries] = useState<ReportExportHistoryEntry[]>(() =>
     getReportHistory()
@@ -61,8 +57,8 @@ export default function InfomediaReportPage() {
     main_categories: [],
   })
 
-  const getDefaultForm = (selectedModule: "digital" | "voice") => ({
-    report_type: selectedModule === "digital" ? "traffic_digital" : "traffic_inbound",
+  const getDefaultForm = () => ({
+    report_type: "data_pelanggan",
     channel: "",
     brand: "",
     main_category: "",
@@ -79,7 +75,7 @@ export default function InfomediaReportPage() {
     kota: "",
   })
 
-  const [form, setForm] = useState(() => getDefaultForm("digital"))
+  const [form, setForm] = useState(getDefaultForm)
   const [previewData, setPreviewData] = useState<PreviewRow[]>([])
   const [sessionRole, setSessionRole] = useState<string | null>(null)
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin" || sessionRole === "manager"
@@ -106,8 +102,7 @@ export default function InfomediaReportPage() {
     loadingExport,
     loadOptions,
     preview,
-    exportDigitalExcel,
-    exportInboundExcel,
+    exportCustomerExcel,
   } = useReport()
 
   useEffect(() => {
@@ -145,7 +140,7 @@ export default function InfomediaReportPage() {
 
     try {
       const result = await preview({
-        report_type: module === "digital" ? "traffic_digital" : "traffic_inbound",
+        report_type: "data_pelanggan",
         channel: form.channel,
         brand: form.brand,
         main_category: form.main_category,
@@ -177,17 +172,12 @@ export default function InfomediaReportPage() {
 
     const exportPayload: ExportRequest = {
       ...form,
-      report_type: module === "digital" ? "traffic_digital" : "traffic_inbound",
+      report_type: "data_pelanggan",
     }
 
     toast.promise(
       async () => {
-        let file: Awaited<ReturnType<typeof exportDigitalExcel>>
-        if (module === "digital") {
-          file = await exportDigitalExcel(exportPayload)
-        } else {
-          file = await exportInboundExcel(exportPayload)
-        }
+        const file = await exportCustomerExcel(exportPayload)
         const url = window.URL.createObjectURL(file.blob)
         const a = document.createElement("a")
         a.href = url
@@ -198,8 +188,8 @@ export default function InfomediaReportPage() {
         window.URL.revokeObjectURL(url)
 
         addReportHistoryEntry({
-          id: `${module}-${Date.now()}`,
-          module,
+          id: `customer-${Date.now()}`,
+          module: "customer",
           filename: file.filename,
           startDate: form.start_date,
           endDate: form.end_date,
@@ -209,8 +199,8 @@ export default function InfomediaReportPage() {
         setHistoryEntries(getReportHistory())
       },
       {
-        loading: "Generating Excel report...",
-        success: "Report downloaded successfully!",
+        loading: "Generating Customer Excel report...",
+        success: "Customer report downloaded successfully!",
         error: (err: unknown) =>
           `Failed to export: ${err instanceof Error ? err.message : String(err)}`,
       }
@@ -218,7 +208,7 @@ export default function InfomediaReportPage() {
   }
 
   const handleReset = () => {
-    setForm(getDefaultForm(module))
+    setForm(getDefaultForm())
   }
 
   const handleClearHistory = () => {
@@ -233,12 +223,12 @@ export default function InfomediaReportPage() {
         <div>
           <h1 className="flex items-center gap-3 text-[17px] font-bold text-(--c-text)">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/12 text-sky-400">
-              <FileSpreadsheet className="h-4.5 w-4.5" />
+              <Users className="h-4.5 w-4.5" />
             </span>
-            Infomedia Reporting
+            Data Pelanggan (Customer Report)
           </h1>
           <p className="mt-1 text-xs text-(--c-muted)">
-            Generate digital & voice traffic report with current-month defaults.
+            Ekspor data kontak dan riwayat interaksi awal pelanggan unik ke format Excel.
           </p>
         </div>
         <button
@@ -249,47 +239,15 @@ export default function InfomediaReportPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {[
-          { id: "digital", label: "Digital Traffic", desc: "Omnichannel Report", icon: Smartphone },
-          { id: "voice", label: "Voice Traffic", desc: "Call Center Report", icon: Headphones },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              const selected = item.id as "digital" | "voice"
-              setModule(selected)
-              setForm((prev) => ({
-                ...prev,
-                report_type: selected === "digital" ? "traffic_digital" : "traffic_inbound",
-              }))
-            }}
-            className={`group rounded-xl border px-5 py-4 text-left transition-all ${module === item.id ? "border-sky-500 bg-sky-500/10 shadow-[0_0_0_1px_rgba(14,165,233,0.16)]" : "border-(--c-border) bg-(--c-surface) hover:border-sky-500/35"}`}
-          >
-            <div className="flex items-center gap-4">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${module === item.id ? "bg-sky-500/15" : "bg-(--c-control)"}`}>
-                <item.icon className="h-5 w-5 text-sky-500" />
-              </div>
-              <div>
-                <h2 className="text-[15px] font-semibold text-(--c-text)">{item.label}</h2>
-                <p className="text-[12px] text-(--c-muted)">{item.desc}</p>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-
       <Card>
-        <CardHeader title="Report Configuration" />
+        <CardHeader title="Filter & Configuration" />
         <div className="p-4.5">
           {loadingOptions ? (
             <div className="rounded-xl border border-dashed border-(--c-border) bg-(--c-control) px-4 py-6 text-sm text-(--c-muted)">
               Memuat opsi report...
             </div>
-          ) : module === "digital" ? (
-            <DigitalFilter form={form} setForm={setForm} options={options} />
           ) : (
-            <VoiceFilter form={form} setForm={setForm} options={options} />
+            <DigitalFilter form={form} setForm={setForm} options={options} />
           )}
         </div>
 
@@ -323,5 +281,13 @@ export default function InfomediaReportPage() {
         onClear={handleClearHistory}
       />
     </div>
+  )
+}
+
+export default function CustomerReportPage() {
+  return (
+    <Suspense fallback={<div className="p-5 text-sm text-(--c-muted)">Loading Data Pelanggan Report...</div>}>
+      <CustomerReportContent />
+    </Suspense>
   )
 }
