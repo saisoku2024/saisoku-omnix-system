@@ -385,16 +385,6 @@ export default function LoginPage() {
                 </div>
               ) : null}
 
-              {/* Demo Guest Quick Access */}
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                disabled={loading}
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.12em] text-cyan-200 backdrop-blur-md transition duration-200 hover:border-cyan-300/50 hover:bg-cyan-300/20 active:scale-[0.99]"
-              >
-                {loading ? "Processing Demo Guest..." : "Continue as Demo User"}
-              </button>
-
               {/* Primary Sign In Button */}
               <button
                 className="group relative inline-flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-cyan-400 to-teal-400 px-5 text-xs font-extrabold text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.3)] transition duration-200 hover:from-cyan-300 hover:to-teal-300 hover:shadow-[0_0_30px_rgba(6,182,212,0.45)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
@@ -406,6 +396,16 @@ export default function LoginPage() {
                 {!loading ? (
                   <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
                 ) : null}
+              </button>
+
+              {/* Demo Guest Quick Access */}
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={loading}
+                className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.12em] text-cyan-200 backdrop-blur-md transition duration-200 hover:border-cyan-300/50 hover:bg-cyan-300/20 active:scale-[0.99]"
+              >
+                {loading ? "Processing Demo Guest..." : "Continue as Demo User"}
               </button>
             </form>
           </div>
