@@ -28,6 +28,7 @@ def test_omnix_parser_payload_matches_known_schema_columns():
     assert "ticket_number" not in clean_row
     assert "account_name" not in clean_row
     assert "created_at_source" not in clean_row
+    assert "mapping_status" not in rows[0]
     assert "raw_payload" not in clean_row
 
 

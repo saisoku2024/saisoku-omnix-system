@@ -94,8 +94,8 @@ def process_upload_content(
         target_table = config["table"]
         rows = parser(df, upload_id)
 
-        mapped_subjects_count = sum(1 for r in rows if r.get("mapping_status") in ["exact", "rule_matched"])
-        needs_review_count = sum(1 for r in rows if r.get("mapping_status") == "needs_review")
+        mapped_subjects_count = sum(1 for r in rows if r.get("subject_normalized"))
+        needs_review_count = 0
 
         unique_key = config["unique_key"]
         valid_rows, invalid_rows = UploadService.validate_rows(rows, unique_key)
