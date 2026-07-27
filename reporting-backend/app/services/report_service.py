@@ -413,7 +413,7 @@ class ReportService:
                 response = query.execute()
                 chunk = response.data or []
                 rows.extend(chunk)
-                if len(chunk) < batch_size or offset >= 100000:
+                if len(chunk) < batch_size or offset >= 500000:
                     break
                 offset += batch_size
 
