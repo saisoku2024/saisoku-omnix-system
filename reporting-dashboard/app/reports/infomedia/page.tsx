@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { 
   FileSpreadsheet, 
   Smartphone, 
@@ -21,7 +22,7 @@ import VoiceFilter from "@/features/report/components/VoiceFilter"
 import { useReport } from "@/features/report/hooks/useReport"
 import type { ReportExportHistoryEntry } from "@/features/report/types/history"
 import type { ExportRequest, PreviewRow, ReportOptions } from "@/features/report/types/report"
-import PreviewTable  from "@/features/report/components/ReportPreviewTable";
+import PreviewTable from "@/features/report/components/ReportPreviewTable"
 import {
   addReportHistoryEntry,
   clearReportHistory,
@@ -48,7 +49,10 @@ function getCurrentMonthDateRange() {
 
 const currentMonthDateRange = getCurrentMonthDateRange()
 
-export default function ReportCenterPage() {
+function ReportCenterContent() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+
   const [module, setModule] = useState<"digital" | "voice" | "customer">("digital")
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyEntries, setHistoryEntries] = useState<ReportExportHistoryEntry[]>(() =>
@@ -82,6 +86,16 @@ export default function ReportCenterPage() {
 
   const [form, setForm] = useState(() => getDefaultForm("digital"))
 
+  useEffect(() => {
+    if (tabParam === "customer") {
+      setModule("customer")
+      setForm(getDefaultForm("customer"))
+    } else if (tabParam === "voice") {
+      setModule("voice")
+      setForm(getDefaultForm("voice"))
+    }
+  }, [tabParam])
+
   const [previewData, setPreviewData] = useState<PreviewRow[]>([])
   const [sessionRole, setSessionRole] = useState<string | null>(null)
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin" || sessionRole === "manager"
@@ -90,7 +104,7 @@ export default function ReportCenterPage() {
     let active = true
     fetch("/api/auth/session", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { role?: "admin" | "guest" }) => {
+      .then((data: { role?: string }) => {
         if (active) setSessionRole(data.role ?? null)
       })
       .catch(() => {
@@ -148,7 +162,7 @@ export default function ReportCenterPage() {
 
     try {
       const result = await preview({
-        report_type: form.report_type,
+        report_type: module === "digital" ? "traffic_digital" : module === "voice" ? "traffic_inbound" : "data_pelanggan",
         channel: form.channel,
         brand: form.brand,
         main_category: form.main_category,
@@ -292,7 +306,7 @@ export default function ReportCenterPage() {
             <div className="rounded-xl border border-dashed border-(--c-border) bg-(--c-control) px-4 py-6 text-sm text-(--c-muted)">
               Memuat opsi report...
             </div>
-          ) : module === "digital" ? (
+          ) : module === "digital" || module === "customer" ? (
             <DigitalFilter form={form} setForm={setForm} options={options} />
           ) : (
             <VoiceFilter form={form} setForm={setForm} options={options} />
@@ -329,5 +343,13 @@ export default function ReportCenterPage() {
         onClear={handleClearHistory}
       />
     </div>
+  )
+}
+
+export default function ReportCenterPage() {
+  return (
+    <Suspense fallback={<div className="p-5 text-sm text-(--c-muted)">Loading Report Center...</div>}>
+      <ReportCenterContent />
+    </Suspense>
   )
 }

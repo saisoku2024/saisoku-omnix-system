@@ -59,8 +59,8 @@ export const sidebarMenu: SidebarMenuItem[] = [
         icon: <FileSpreadsheetIcon />,
       },
       {
-        title: "Data Pelanggan (Export)",
-        url: "/reports/infomedia",
+        title: "Data Pelanggan (Customer Export)",
+        url: "/reports/infomedia?tab=customer",
         icon: <UsersIcon />,
       },
       {
