@@ -59,6 +59,11 @@ export const sidebarMenu: SidebarMenuItem[] = [
         icon: <FileSpreadsheetIcon />,
       },
       {
+        title: "Data Pelanggan (Export)",
+        url: "/reports/infomedia",
+        icon: <UsersIcon />,
+      },
+      {
         title: "Custom Report Builder",
         url: "/reports/custom_report_builder",
         icon: <FileSpreadsheetIcon />,
