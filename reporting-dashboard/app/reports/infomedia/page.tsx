@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Search,
   Download,
+  Users,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -48,7 +49,7 @@ function getCurrentMonthDateRange() {
 const currentMonthDateRange = getCurrentMonthDateRange()
 
 export default function ReportCenterPage() {
-  const [module, setModule] = useState<"digital" | "voice">("digital")
+  const [module, setModule] = useState<"digital" | "voice" | "customer">("digital")
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyEntries, setHistoryEntries] = useState<ReportExportHistoryEntry[]>(() =>
     getReportHistory()
@@ -61,8 +62,8 @@ export default function ReportCenterPage() {
     main_categories: [],
   })
 
-  const getDefaultForm = (selectedModule: "digital" | "voice") => ({
-    report_type: selectedModule === "digital" ? "traffic_digital" : "traffic_inbound",
+  const getDefaultForm = (selectedModule: "digital" | "voice" | "customer") => ({
+    report_type: selectedModule === "digital" ? "traffic_digital" : selectedModule === "voice" ? "traffic_inbound" : "data_pelanggan",
     channel: "",
     brand: "",
     main_category: "",
@@ -109,6 +110,7 @@ export default function ReportCenterPage() {
     preview,
     exportDigitalExcel,
     exportInboundExcel,
+    exportCustomerExcel,
   } = useReport()
 
   useEffect(() => {
@@ -178,7 +180,7 @@ export default function ReportCenterPage() {
 
     const exportPayload: ExportRequest = {
       ...form,
-      report_type: module === "digital" ? "traffic_digital" : "traffic_inbound",
+      report_type: module === "digital" ? "traffic_digital" : module === "voice" ? "traffic_inbound" : "data_pelanggan",
     }
 
     toast.promise(
@@ -186,8 +188,10 @@ export default function ReportCenterPage() {
         let file: Awaited<ReturnType<typeof exportDigitalExcel>>
         if (module === "digital") {
           file = await exportDigitalExcel(exportPayload)
-        } else {
+        } else if (module === "voice") {
           file = await exportInboundExcel(exportPayload)
+        } else {
+          file = await exportCustomerExcel(exportPayload)
         }
         const url = window.URL.createObjectURL(file.blob)
         const a = document.createElement("a")
@@ -250,19 +254,20 @@ export default function ReportCenterPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {[
           { id: "digital", label: "Digital Traffic", desc: "Omnichannel Report", icon: Smartphone },
           { id: "voice", label: "Voice Traffic", desc: "Call Center Report", icon: Headphones },
+          { id: "customer", label: "Data Pelanggan", desc: "Customer Report (Excel)", icon: Users },
         ].map((item) => (
           <button
             key={item.id}
             onClick={() => {
-              const selected = item.id as "digital" | "voice"
+              const selected = item.id as "digital" | "voice" | "customer"
               setModule(selected)
               setForm((prev) => ({
                 ...prev,
-                report_type: selected === "digital" ? "traffic_digital" : "traffic_inbound",
+                report_type: selected === "digital" ? "traffic_digital" : selected === "voice" ? "traffic_inbound" : "data_pelanggan",
               }))
             }}
             className={`group rounded-xl border px-5 py-4 text-left transition-all ${module === item.id ? "border-sky-500 bg-sky-500/10 shadow-[0_0_0_1px_rgba(14,165,233,0.16)]" : "border-(--c-border) bg-(--c-surface) hover:border-sky-500/35"}`}

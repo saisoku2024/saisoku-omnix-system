@@ -367,3 +367,88 @@ class ReportService:
         except Exception as e:
             logger.error(f"VOICE EXPORT ERROR : {e}", exc_info=True)
             return []
+
+    # ==========================================
+    # EXPORT CUSTOMER DATA
+    # ==========================================
+    @staticmethod
+    def export_customer(payload):
+        try:
+            start_date = payload.get("start_date")
+            end_date = payload.get("end_date")
+            if not start_date or not end_date:
+                return []
+
+            end_exclusive = (_as_date(end_date) + timedelta(days=1)).isoformat()
+
+            query = (
+                supabase.table("omnix_cases")
+                .select("customer_name,customer_hp,interaction_at,channel,source_name,main_category,category,subcategory,agent_name,subject")
+                .gte("interaction_at", _iso_date(start_date))
+                .lt("interaction_at", end_exclusive)
+                .is_("deleted_at", "null")
+                .order("interaction_at")
+                .limit(50000)
+            )
+
+            brand = payload.get("brand")
+            if brand and str(brand).lower() != "all":
+                query = query.eq("brand", brand)
+
+            main_category = payload.get("main_category")
+            if main_category and str(main_category).lower() != "all":
+                query = query.eq("main_category", main_category)
+
+            response = query.execute()
+            rows = response.data or []
+
+            # Excluded keywords
+            EXCLUDED = {
+                "test", "testing", "testing omnix", "other-testing omnix",
+                "other-internal email", "other-salah sambung", "internal email", "salah sambung"
+            }
+
+            seen_hp = set()
+            filtered = []
+            for r in rows:
+                cat_lower = str(r.get("category") or "").strip().lower()
+                main_cat_lower = str(r.get("main_category") or "").strip().lower()
+                sub_lower = str(r.get("subject") or "").strip().lower()
+
+                # Check if matches any excluded keyword
+                if any(ex in cat_lower or ex in main_cat_lower or ex in sub_lower for ex in EXCLUDED):
+                    continue
+
+                # Phone deduplication: keep only earliest interaction (awal contact) per phone number
+                hp = str(r.get("customer_hp") or "").strip()
+                if hp and hp not in {"-", "null", "none", ""}:
+                    if hp in seen_hp:
+                        continue
+                    seen_hp.add(hp)
+
+                # Format interaction_at date nicely (DD-MM-YYYY HH:mm)
+                raw_at = r.get("interaction_at")
+                formatted_at = str(raw_at)
+                if raw_at:
+                    try:
+                        dt = datetime.fromisoformat(str(raw_at).replace("Z", "+00:00"))
+                        formatted_at = dt.strftime("%d-%m-%Y %H:%M")
+                    except Exception:
+                        pass
+
+                filtered.append({
+                    "customer_name": r.get("customer_name") or "-",
+                    "customer_hp": hp or "-",
+                    "interaction_at": formatted_at,
+                    "channel": r.get("source_name") or r.get("channel") or "-",
+                    "main_category": r.get("main_category") or "-",
+                    "category": r.get("category") or "-",
+                    "subcategory": r.get("subcategory") or "-",
+                    "agent_name": r.get("agent_name") or "-",
+                })
+
+            return filtered
+
+        except Exception as e:
+            logger.error(f"CUSTOMER DATA EXPORT ERROR : {e}", exc_info=True)
+            return []

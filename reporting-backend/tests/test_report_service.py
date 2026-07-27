@@ -31,3 +31,8 @@ def test_get_options_fallback():
     options = ReportService.get_options()
     assert "report_types" in options
     assert isinstance(options["report_types"], list)
+
+
+def test_export_customer_empty_dates():
+    res = ReportService.export_customer({})
+    assert res == []

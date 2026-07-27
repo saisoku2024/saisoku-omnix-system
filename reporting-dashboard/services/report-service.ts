@@ -110,3 +110,21 @@ export async function exportInbound(
     filename: getFilenameFromResponse(response, "traffic_inbound.xlsx"),
   }
 }
+
+export async function exportCustomer(
+  payload: ExportRequest
+): Promise<ExportFileResponse> {
+  const response = await fetch(`${BFF_REPORT_EXPORT_API}/customer`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+
+  await handleResponse(response)
+  return {
+    blob: await response.blob(),
+    filename: getFilenameFromResponse(response, "data_pelanggan.xlsx"),
+  }
+}

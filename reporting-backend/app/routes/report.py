@@ -6,6 +6,7 @@ from app.core.security import require_admin_token
 from app.services.report_service import ReportService
 from app.export.digital_export import DigitalExport
 from app.export.inbound_export import InboundExport
+from app.export.customer_export import CustomerExport
 from app.schemas.report import PreviewRequest, ExportRequest
 
 router = APIRouter(
@@ -96,3 +97,29 @@ def export_inbound(
         raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail="Gagal melakukan ekspor laporan inbound")
+
+
+@router.post(
+    "/export/customer",
+    response_class=StreamingResponse,
+)
+def export_customer(
+    req: ExportRequest,
+):
+    try:
+        data = ReportService.export_customer(req.model_dump())
+        if not data:
+            raise HTTPException(status_code=404, detail="Tidak ada data pelanggan yang ditemukan untuk periode ini.")
+
+        excel = CustomerExport.generate(data)
+        filename = f"data_pelanggan_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
+
+        return StreamingResponse(
+            excel,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Gagal melakukan ekspor data pelanggan")

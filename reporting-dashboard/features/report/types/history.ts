@@ -1,4 +1,4 @@
-export type ReportModule = "digital" | "voice" | "principal"
+export type ReportModule = "digital" | "voice" | "principal" | "customer"
 
 export interface ReportExportHistoryEntry {
   id: string

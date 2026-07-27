@@ -5,6 +5,7 @@ import {
   previewReport,
   exportDigital,
   exportInbound,
+  exportCustomer,
 } from "../api";
 
 import {
@@ -62,6 +63,18 @@ export function useReport() {
     }
   }, []);
 
+  const exportCustomerExcel = useCallback(async (
+    payload: ExportRequest
+  ) => {
+    setLoadingExport(true);
+
+    try {
+      return await exportCustomer(payload);
+    } finally {
+      setLoadingExport(false);
+    }
+  }, []);
+
   const loading = useMemo(
     () => loadingOptions || loadingPreview || loadingExport,
     [loadingExport, loadingOptions, loadingPreview]
@@ -76,5 +89,6 @@ export function useReport() {
     preview,
     exportDigitalExcel,
     exportInboundExcel,
+    exportCustomerExcel,
   };
 }
