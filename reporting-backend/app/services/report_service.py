@@ -391,22 +391,31 @@ class ReportService:
 
             end_exclusive = (_as_date(end_date) + timedelta(days=1)).isoformat()
 
-            query = (
-                supabase.table("omnix_cases")
-                .select("customer_name,customer_hp,interaction_at,channel,source_name,main_category,category,subcategory,agent_name,brand")
-                .gte("interaction_at", _iso_date(start_date))
-                .lt("interaction_at", end_exclusive)
-                .is_("deleted_at", "null")
-                .order("interaction_at")
-                .limit(50000)
-            )
-
             channel_filter = str(payload.get("channel") or "").strip().lower()
             brand_filter = str(payload.get("brand") or "").strip().lower()
             main_cat_filter = str(payload.get("main_category") or "").strip().lower()
 
-            response = query.execute()
-            rows = response.data or []
+            rows = []
+            offset = 0
+            batch_size = 5000
+
+            while True:
+                query = (
+                    supabase.table("omnix_cases")
+                    .select("customer_name,customer_hp,interaction_at,channel,source_name,main_category,category,subcategory,agent_name,brand")
+                    .gte("interaction_at", _iso_date(start_date))
+                    .lt("interaction_at", end_exclusive)
+                    .is_("deleted_at", "null")
+                    .order("interaction_at")
+                    .range(offset, offset + batch_size - 1)
+                )
+
+                response = query.execute()
+                chunk = response.data or []
+                rows.extend(chunk)
+                if len(chunk) < batch_size or offset >= 100000:
+                    break
+                offset += batch_size
 
             # Excluded keywords
             EXCLUDED = {
