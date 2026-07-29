@@ -234,30 +234,42 @@ export default function LoginPage() {
         {/* LEFT PANEL */}
         <aside className="relative hidden flex-col justify-between border-r border-white/10 bg-[radial-gradient(ellipse_at_top_left,rgba(14,165,233,0.12),rgba(8,18,34,0.95)_70%)] p-8 lg:p-9 md:flex">
           <div>
-            {/* Desktop Brand Header */}
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300 ring-1 ring-cyan-300/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-                <BarChart3 className="size-5" />
+            {/* Top Corporate Logos Header (AKHLAK BUMN & INFOMEDIA) */}
+            <div className="mb-6 flex items-center justify-between gap-4 border-b border-white/10 pb-4">
+              {/* AKHLAK BUMN Logo */}
+              <div className="flex items-center gap-2">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-cyan-500/20 ring-1 ring-cyan-400/40">
+                  <span className="font-mono text-[10px] font-black text-cyan-300">BUMN</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-extrabold tracking-wider text-white">AKHLAK</span>
+                  <span className="text-[9px] font-medium tracking-tight text-slate-400">BUMN for Indonesia</span>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-white">
-                  INSIGHT OMNIX
-                </p>
-                <p className="text-[10px] font-mono text-cyan-300">
-                  Enterprise Analytics Platform
-                </p>
+
+              {/* INFOMEDIA Logo */}
+              <div className="flex items-center gap-2">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-red-500/20 ring-1 ring-red-400/40">
+                  <span className="font-mono text-[10px] font-black text-red-400">IFM</span>
+                </div>
+                <div className="flex flex-col text-right">
+                  <span className="text-xs font-extrabold tracking-wider text-white">INFOMEDIA</span>
+                  <span className="text-[9px] font-medium tracking-tight text-cyan-300">Telkom Group</span>
+                </div>
               </div>
             </div>
 
+            {/* Security Awareness Title & Subtitle */}
             <h1 className="bg-gradient-to-r from-cyan-300 via-teal-200 to-emerald-300 bg-clip-text text-2xl font-bold leading-snug tracking-tight text-transparent lg:text-3xl">
               Security Awareness
             </h1>
 
-            <p className="mt-3.5 text-xs leading-relaxed text-slate-300/80 lg:text-sm">
-              Jaga password anda aman dengan mengikuti tips praktis di bawah ini:
+            <p className="mt-2.5 text-xs leading-relaxed text-slate-300/80 lg:text-sm">
+              Jaga password anda aman dengan mengikuti tips berikut:
             </p>
 
-            <div className="mt-6 space-y-3.5">
+            {/* 5 Security Tips List */}
+            <div className="mt-5 space-y-3">
               {SECURITY_TIPS.map((tip, index) => (
                 <div
                   key={tip}
@@ -274,29 +286,20 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-xl border border-white/10 bg-slate-950/40 p-3.5 backdrop-blur-md">
-            <div className="flex items-start gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-cyan-400/10 text-cyan-300 ring-1 ring-cyan-400/20">
-                <Headphones className="size-4.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200">
-                  Support Center
-                </p>
-                <p className="mt-0.5 text-xs font-semibold text-white">
-                  Infomedia Operation Center
-                </p>
-                <div className="mt-2 space-y-1.5 text-[11px] text-slate-400">
-                  <p className="flex items-center gap-2">
-                    <Mail className="size-3.5 shrink-0 text-cyan-300" />
-                    <span>ioc@infomedia.co.id</span>
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <PhoneCall className="size-3.5 shrink-0 text-cyan-300" />
-                    <span>1500463</span>
-                  </p>
-                </div>
-              </div>
+          {/* Borderless Support Center (No Container Box) */}
+          <div className="mt-6 border-t border-white/10 pt-4">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-cyan-300">
+              SUPPORT CENTER — Infomedia Operation Center
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-300">
+              <a href="mailto:ioc@infomedia.co.id" className="flex items-center gap-2 hover:text-cyan-300 transition">
+                <Mail className="size-3.5 text-cyan-400" />
+                <span>ioc@infomedia.co.id</span>
+              </a>
+              <a href="tel:1500463" className="flex items-center gap-2 hover:text-cyan-300 transition">
+                <PhoneCall className="size-3.5 text-cyan-400" />
+                <span>1500463</span>
+              </a>
             </div>
           </div>
         </aside>
@@ -319,17 +322,14 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Top Badge */}
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.12)]">
-              <Sparkles className="size-3 text-cyan-300" />
+            {/* INSIGHT Main Title & Subtitle */}
+            <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
               INSIGHT
-            </div>
-
-            {/* Form Title */}
-            <h2 className="mt-3.5 text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Hi, Welcome Back!
+            </h1>
+            <h2 className="mt-1 text-base font-bold text-cyan-300 sm:text-lg">
+              Hi — Welcome Back!
             </h2>
-            <p className="mt-1.5 text-xs font-semibold leading-relaxed text-slate-300 sm:text-sm">
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-300/90 sm:text-sm">
               Sign in to INSIGHT — Your Unified Analytics &amp; Monitoring Workspace
             </p>
 
@@ -415,12 +415,9 @@ export default function LoginPage() {
             </form>
           </div>
 
-          {/* Right Panel Footer Alignment */}
+          {/* Right Panel Footer */}
           <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-3 text-[11px] font-mono text-slate-400">
             <span>© 2026 SAISOKU OMNIX</span>
-            <span className="flex items-center gap-1 text-slate-400">
-              <LockKeyhole className="size-3 text-emerald-400" /> Encrypted Access
-            </span>
           </div>
         </div>
       </section>
