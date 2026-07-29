@@ -84,16 +84,28 @@ export function buildDashboardTrendData(
 ) {
   if (mode === "monthly") {
     const countByDay = new Map<string, number>()
+    let maxDayNum = 0
 
     trend.forEach((item) => {
-      const day = getMonthlyDayLabel(item)
-      if (!day) return
+      const dayStr = getMonthlyDayLabel(item)
+      if (!dayStr) return
 
       const count = Number(item.count ?? item.total ?? 0)
-      countByDay.set(day, (countByDay.get(day) ?? 0) + count)
+      countByDay.set(dayStr, (countByDay.get(dayStr) ?? 0) + count)
+
+      const num = parseInt(dayStr, 10)
+      if (!isNaN(num) && num > maxDayNum) {
+        maxDayNum = num
+      }
     })
 
-    return Array.from({ length: getDaysInSelectedMonth(period, year) }, (_, index) => {
+    if (maxDayNum === 0) {
+      return []
+    }
+
+    const totalDays = Math.min(maxDayNum, getDaysInSelectedMonth(period, year))
+
+    return Array.from({ length: totalDays }, (_, index) => {
       const day = padDay(index + 1)
       return { day: day, count: countByDay.get(day) ?? 0 }
     })
