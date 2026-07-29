@@ -1,6 +1,9 @@
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 import re
 import pandas as pd
+
+JAKARTA_TZ = ZoneInfo("Asia/Jakarta")
 
 
 def safe_str(v):
@@ -30,6 +33,9 @@ def safe_datetime(v):
 
         if pd.isna(dt):
             return None
+
+        if dt.tzinfo is None:
+            dt = dt.tz_localize(JAKARTA_TZ)
 
         return dt.isoformat()
     except Exception:

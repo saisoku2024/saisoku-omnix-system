@@ -840,8 +840,8 @@ summary_data as (
 trend_data as (
   select
     case
-      when p_mode = 'monthly' then to_char(interaction_at, 'DD')
-      else to_char(interaction_at, 'Mon')
+      when p_mode = 'monthly' then to_char(interaction_at AT TIME ZONE 'Asia/Jakarta', 'DD')
+      else to_char(interaction_at AT TIME ZONE 'Asia/Jakarta', 'Mon')
     end as label,
     count(*)::int as total
   from omnix_filtered
