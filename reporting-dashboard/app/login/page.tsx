@@ -320,13 +320,16 @@ export default function LoginPage() {
             {/* Top Badge */}
             <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.12)]">
               <Sparkles className="size-3 text-cyan-300" />
-              ✨ Authorized Personnel Only
+              INSIGHT
             </div>
 
             {/* Form Title */}
             <h2 className="mt-3.5 text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Sign in to INSIGHT Workspace
+              Hi, Welcome Back!
             </h2>
+            <p className="mt-1.5 text-xs font-semibold leading-relaxed text-slate-300 sm:text-sm">
+              Sign in to INSIGHT — Your Unified Analytics &amp; Monitoring Workspace
+            </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               {/* Email Field */}
@@ -410,13 +413,8 @@ export default function LoginPage() {
             </form>
           </div>
 
-          {/* Footer Security Note */}
-          <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-[11px] leading-relaxed text-slate-400">
-            Internal & Protected System Access. Unauthorized access attempts are monitored and logged.
-          </div>
         </div>
       </section>
     </main>
   )
 }
-
