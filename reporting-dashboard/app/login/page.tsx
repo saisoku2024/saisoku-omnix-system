@@ -242,16 +242,16 @@ export default function LoginPage() {
               Jaga password anda aman dengan mengikuti tips praktis di bawah ini:
             </p>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 space-y-3.5">
               {SECURITY_TIPS.map((tip, index) => (
                 <div
                   key={tip}
-                  className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3.5 backdrop-blur-md"
+                  className="flex items-start gap-3"
                 >
-                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-[11px] font-black text-cyan-200 ring-1 ring-cyan-300/35">
+                  <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-cyan-400 text-[10px] font-black text-slate-950 shadow-[0_0_14px_rgba(34,211,238,0.35)]">
                     {index + 1}
                   </div>
-                  <p className="text-xs leading-relaxed text-slate-300">
+                  <p className="text-xs leading-relaxed text-slate-300/90">
                     {tip}
                   </p>
                 </div>
