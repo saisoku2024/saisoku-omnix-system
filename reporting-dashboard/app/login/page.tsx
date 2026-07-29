@@ -234,6 +234,21 @@ export default function LoginPage() {
         {/* LEFT PANEL */}
         <aside className="relative hidden flex-col justify-between border-r border-white/10 bg-[radial-gradient(ellipse_at_top_left,rgba(14,165,233,0.12),rgba(8,18,34,0.95)_70%)] p-8 lg:p-9 md:flex">
           <div>
+            {/* Desktop Brand Header */}
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-300 ring-1 ring-cyan-300/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                <BarChart3 className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-white">
+                  INSIGHT OMNIX
+                </p>
+                <p className="text-[10px] font-mono text-cyan-300">
+                  Enterprise Analytics Platform
+                </p>
+              </div>
+            </div>
+
             <h1 className="bg-gradient-to-r from-cyan-300 via-teal-200 to-emerald-300 bg-clip-text text-2xl font-bold leading-snug tracking-tight text-transparent lg:text-3xl">
               Security Awareness
             </h1>
@@ -327,6 +342,7 @@ export default function LoginPage() {
                 <div className="flex h-12 items-center gap-2.5 rounded-xl border border-white/15 bg-slate-950/60 px-3.5 transition duration-200 focus-within:border-cyan-400 focus-within:bg-slate-950/90 focus-within:ring-4 focus-within:ring-cyan-400/15">
                   <Mail className="size-4 text-slate-400" />
                   <input
+                    autoFocus
                     autoComplete="email"
                     className="h-full w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-500 sm:text-sm"
                     placeholder="Enter your email address"
@@ -345,7 +361,6 @@ export default function LoginPage() {
                 <div className="flex h-12 items-center gap-2.5 rounded-xl border border-white/15 bg-slate-950/60 px-3.5 transition duration-200 focus-within:border-cyan-400 focus-within:bg-slate-950/90 focus-within:ring-4 focus-within:ring-cyan-400/15">
                   <LockKeyhole className="size-4 text-slate-400" />
                   <input
-                    autoFocus
                     autoComplete="current-password"
                     className="h-full w-full bg-transparent text-xs text-white outline-none placeholder:text-slate-500 sm:text-sm"
                     placeholder="Enter your password"
@@ -393,13 +408,20 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleDemoLogin}
                 disabled={loading}
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.12em] text-cyan-200 backdrop-blur-md transition duration-200 hover:border-cyan-300/50 hover:bg-cyan-300/20 active:scale-[0.99]"
+                className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 px-4 text-xs font-bold uppercase tracking-[0.12em] text-cyan-200 backdrop-blur-md transition duration-200 hover:border-cyan-300/50 hover:bg-cyan-300/20 active:scale-[0.99]"
               >
                 {loading ? "Processing Demo Guest..." : "Continue as Demo User"}
               </button>
             </form>
           </div>
 
+          {/* Right Panel Footer Alignment */}
+          <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-3 text-[11px] font-mono text-slate-400">
+            <span>© 2026 SAISOKU OMNIX</span>
+            <span className="flex items-center gap-1 text-slate-400">
+              <LockKeyhole className="size-3 text-emerald-400" /> Encrypted Access
+            </span>
+          </div>
         </div>
       </section>
     </main>
