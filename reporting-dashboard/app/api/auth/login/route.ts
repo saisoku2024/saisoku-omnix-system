@@ -4,6 +4,7 @@ import {
   AUTH_COOKIE_NAME,
   AUTH_MAX_AGE_SECONDS,
   createSessionToken,
+  getSessionSecret,
   UserRole,
 } from "@/lib/auth-token"
 import { insertAuditLog } from "@/lib/supabase-audit"
@@ -111,7 +112,7 @@ async function authenticateWithSupabaseAuth(email: string, password: string) {
 
 export async function POST(request: Request) {
   const expectedPassword = process.env.ADMIN_UI_PASSWORD || "admin123"
-  const sessionSecret = process.env.AUTH_SESSION_SECRET || "saisoku-omnix-system-secret-key-2026"
+  const sessionSecret = getSessionSecret()
 
   const body = (await request.json().catch(() => ({}))) as {
     email?: unknown

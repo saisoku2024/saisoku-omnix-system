@@ -3,22 +3,19 @@ import logging
 from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel
-from fastapi import APIRouter, UploadFile, File, HTTPException, Header, Query, status
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, status
 
+from app.core.security import require_admin_token
 from app.services.chat_service import ingest_chat_transcripts_bytes
 from app.services.ai_brand_insight_service import generate_brand_ai_insight
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/chat", tags=["Chat Analytics & AI Insight"])
-
-def _verify_admin_token(token: Optional[str]):
-    expected = os.environ.get("ADMIN_API_TOKEN")
-    if expected and token != expected:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized admin token"
-        )
+router = APIRouter(
+    prefix="/chat",
+    tags=["Chat Analytics & AI Insight"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 class BrandInsightRequest(BaseModel):
     brand: str
@@ -33,12 +30,10 @@ class StorageIngestRequest(BaseModel):
 @router.post("/storage-ingest")
 async def ingest_chat_storage_upload(
     payload: StorageIngestRequest,
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")
 ):
     """
     Ingests chat transcript file directly uploaded to Supabase Storage, bypassing HTTP 413 payload limits.
     """
-    _verify_admin_token(x_admin_token)
     try:
         from app.services.storage_upload_service import download_storage_object, filename_from_path, validate_storage_upload
         filename = payload.filename or filename_from_path(payload.path)
@@ -56,13 +51,10 @@ async def ingest_chat_storage_upload(
 @router.post("/upload")
 async def upload_chat_transcript(
     file: UploadFile = File(...),
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")
 ):
     """
     Upload and parse chat transcript file (.csv / .xlsx) into Supabase `chat_transcripts`
     """
-    _verify_admin_token(x_admin_token)
-
     if not file.filename.endswith((".csv", ".txt")):
         raise HTTPException(
             status_code=400,
@@ -81,14 +73,10 @@ async def upload_chat_transcript(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ingest-sample-local")
-async def ingest_sample_local_chat(
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")
-):
+async def ingest_sample_local_chat():
     """
     Ingests the sample file 'contoh data/contoh percakapan.csv' directly into Supabase
     """
-    _verify_admin_token(x_admin_token)
-
     sample_path = Path(__file__).resolve().parent.parent.parent / "contoh data" / "contoh percakapan.csv"
     if not sample_path.exists():
         raise HTTPException(status_code=444, detail=f"File tidak ditemukan di {sample_path}")
@@ -110,13 +98,10 @@ async def ingest_sample_local_chat(
 @router.post("/brand-insight")
 async def get_brand_insight(
     req: BrandInsightRequest,
-    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")
 ):
     """
     Generates AI Brand Intelligence & Compliance Discrepancy report for Tineco, Ecovacs, Laifen, Tymo, Yoniev, etc.
     """
-    _verify_admin_token(x_admin_token)
-
     if not req.brand:
         raise HTTPException(status_code=400, detail="Nama brand wajib diisi (misal: Tineco, Ecovacs, Laifen)")
 

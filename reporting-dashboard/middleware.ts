@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { AUTH_COOKIE_NAME, getSessionPayload } from "@/lib/auth-token"
+import { AUTH_COOKIE_NAME, getSessionPayload, getSessionSecret } from "@/lib/auth-token"
 
 const PUBLIC_FILE = /\.(.*)$/
-const DEFAULT_SECRET = "saisoku-omnix-system-secret-key-2026"
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
@@ -17,7 +16,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const sessionSecret = process.env.AUTH_SESSION_SECRET || DEFAULT_SECRET
+  let sessionSecret: string
+  try {
+    sessionSecret = getSessionSecret()
+  } catch {
+    return new NextResponse(
+      JSON.stringify({ detail: "Server Misconfiguration: AUTH_SESSION_SECRET environment variable is missing." }),
+      { status: 503, headers: { "content-type": "application/json" } }
+    )
+  }
+
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value
   const session = await getSessionPayload(token, sessionSecret)
   const isAuthenticated = session !== null

@@ -53,18 +53,11 @@ function ReportCenterContent() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
 
-  const [module, setModule] = useState<"digital" | "voice" | "customer">("digital")
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const [historyEntries, setHistoryEntries] = useState<ReportExportHistoryEntry[]>(() =>
-    getReportHistory()
-  )
-  
-  const [options, setOptions] = useState<ReportOptions>({
-    report_types: [],
-    channels: [],
-    brands: [],
-    main_categories: [],
-  })
+  const initialModule: "digital" | "voice" | "customer" =
+    tabParam === "customer" ? "customer" : tabParam === "voice" ? "voice" : "digital"
+
+  const [module, setModule] = useState<"digital" | "voice" | "customer">(initialModule)
+  const [prevTabParam, setPrevTabParam] = useState(tabParam)
 
   const getDefaultForm = (selectedModule: "digital" | "voice" | "customer") => ({
     report_type: selectedModule === "digital" ? "traffic_digital" : selectedModule === "voice" ? "traffic_inbound" : "data_pelanggan",
@@ -84,17 +77,26 @@ function ReportCenterContent() {
     kota: "",
   })
 
-  const [form, setForm] = useState(() => getDefaultForm("digital"))
+  const [form, setForm] = useState(() => getDefaultForm(initialModule))
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyEntries, setHistoryEntries] = useState<ReportExportHistoryEntry[]>(() =>
+    getReportHistory()
+  )
 
-  useEffect(() => {
-    if (tabParam === "customer") {
-      setModule("customer")
-      setForm(getDefaultForm("customer"))
-    } else if (tabParam === "voice") {
-      setModule("voice")
-      setForm(getDefaultForm("voice"))
-    }
-  }, [tabParam])
+  const [options, setOptions] = useState<ReportOptions>({
+    report_types: [],
+    channels: [],
+    brands: [],
+    main_categories: [],
+  })
+
+  if (prevTabParam !== tabParam) {
+    setPrevTabParam(tabParam)
+    const nextModule: "digital" | "voice" | "customer" =
+      tabParam === "customer" ? "customer" : tabParam === "voice" ? "voice" : "digital"
+    setModule(nextModule)
+    setForm(getDefaultForm(nextModule))
+  }
 
   const [previewData, setPreviewData] = useState<PreviewRow[]>([])
   const [sessionRole, setSessionRole] = useState<string | null>(null)

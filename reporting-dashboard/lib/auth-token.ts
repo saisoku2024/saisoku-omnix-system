@@ -4,6 +4,20 @@ export const AUTH_COOKIE_NAME = "saisoku_session"
 export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 12
 const DEFAULT_SECRET = "saisoku-omnix-system-secret-key-2026"
 
+export function getSessionSecret(): string {
+  const secret = process.env.AUTH_SESSION_SECRET
+  if (secret && secret.trim()) {
+    return secret.trim()
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    console.error("FATAL: AUTH_SESSION_SECRET environment variable is missing in production environment!")
+    throw new Error("AUTH_SESSION_SECRET is missing in production environment.")
+  }
+
+  return DEFAULT_SECRET
+}
+
 export type UserRole = "super_admin" | "manager" | "spv" | "agent" | "guest"
 
 export type SessionPayload = {
@@ -135,7 +149,7 @@ export async function verifySessionToken(token: string | undefined, secret: stri
 export async function requireAdminSession() {
   const cookieStore = await cookies()
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value
-  const sessionSecret = process.env.AUTH_SESSION_SECRET || DEFAULT_SECRET
+  const sessionSecret = getSessionSecret()
 
   const session = await getSessionPayload(token, sessionSecret)
   if (!isAdminSession(session)) return null
