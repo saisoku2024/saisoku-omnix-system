@@ -12,7 +12,8 @@ import {
   Loader2,
   LockKeyhole,
   Mail,
-  ShieldCheck,
+  Headphones,
+  PhoneCall,
   Sparkles,
 } from "lucide-react"
 
@@ -24,6 +25,14 @@ const INSIGHT_STEPS = [
   { letter: "G", title: "Gathering Omnichannel Telemetry" },
   { letter: "H", title: "Hyper-scale Data Engine Ready" },
   { letter: "T", title: "Transferring to INSIGHT Dashboard" },
+]
+
+const SECURITY_TIPS = [
+  "Jangan tulis password dan meninggalkan di tempat terlihat.",
+  "Jangan menggunakan password yang sama untuk pribadi dan pekerjaan.",
+  "Jangan menggunakan kembali password lama.",
+  "Jangan membagi password.",
+  "Jangan mengaktifkan save password option.",
 ]
 
 function InsightIntroOverlay({ onComplete }: { onComplete: () => void }) {
@@ -222,78 +231,56 @@ export default function LoginPage() {
       {/* Glassmorphic Container Card (Balanced 50/50 Grid Ratio) */}
       <section className="relative grid w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/15 bg-[#091322]/90 shadow-[0_0_80px_-15px_rgba(14,165,233,0.18)] backdrop-blur-2xl md:grid-cols-2">
         
-        {/* LEFT PANEL — Hero Branding & Overview */}
+        {/* LEFT PANEL */}
         <aside className="relative hidden flex-col justify-between border-r border-white/10 bg-[radial-gradient(ellipse_at_top_left,rgba(14,165,233,0.12),rgba(8,18,34,0.95)_70%)] p-8 lg:p-9 md:flex">
           <div>
-            {/* Brand Logo Header */}
-            <div className="mb-8 flex items-center gap-3">
-              <div className="relative flex size-11 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-400/40 shadow-[0_0_18px_rgba(6,182,212,0.22)]">
-                <BarChart3 className="size-5.5" />
-                <span className="absolute -top-1 -right-1 size-2.5 rounded-full bg-emerald-400 ring-4 ring-[#091322] animate-pulse" />
-              </div>
-              <div>
-                <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-white">
-                  INSIGHT OMNIX
-                </p>
-                <p className="text-[11px] font-medium text-cyan-300/80">
-                  Enterprise Analytics & Monitoring Platform
-                </p>
-              </div>
-            </div>
-
-            {/* Main Headline */}
-            <h1 className="text-2xl font-bold leading-snug tracking-tight text-white lg:text-3xl">
-              Unified Workspace for{" "}
-              <span className="bg-gradient-to-r from-cyan-300 via-teal-200 to-emerald-300 bg-clip-text text-transparent">
-                Customer Operations
-              </span>{" "}
-              & Analytics
+            <h1 className="bg-gradient-to-r from-cyan-300 via-teal-200 to-emerald-300 bg-clip-text text-2xl font-bold leading-snug tracking-tight text-transparent lg:text-3xl">
+              Security Awareness
             </h1>
 
-            {/* Description */}
             <p className="mt-3.5 text-xs leading-relaxed text-slate-300/80 lg:text-sm">
-              Monitor customer interactions, operational performance, and business intelligence through a centralized, secure analytics workspace.
+              Jaga password anda aman dengan mengikuti tips praktis di bawah ini:
             </p>
 
-            {/* Live System Status Widget */}
-            <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <Activity className="size-3.5 text-emerald-400 animate-pulse" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">
-                    System Telemetry
-                  </span>
+            <div className="mt-6 space-y-3">
+              {SECURITY_TIPS.map((tip, index) => (
+                <div
+                  key={tip}
+                  className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3.5 backdrop-blur-md"
+                >
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-[11px] font-black text-cyan-200 ring-1 ring-cyan-300/35">
+                    {index + 1}
+                  </div>
+                  <p className="text-xs leading-relaxed text-slate-300">
+                    {tip}
+                  </p>
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                  Operational
-                </span>
-              </div>
-              <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <p className="text-[11px] text-slate-400">Omnichannel Sync</p>
-                  <p className="font-mono text-xs font-semibold text-cyan-200">Active • 99.98%</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-slate-400">RAG Knowledge Base</p>
-                  <p className="font-mono text-xs font-semibold text-emerald-300">Ready & Indexed</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Bottom Security Card */}
           <div className="mt-6 rounded-xl border border-white/10 bg-slate-950/40 p-3.5 backdrop-blur-md">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-cyan-400/10 text-cyan-300 ring-1 ring-cyan-400/20">
-                <ShieldCheck className="size-4.5" />
+                <Headphones className="size-4.5" />
               </div>
-              <div>
-                <p className="text-xs font-semibold text-white">
-                  🔒 Secure Administrator Session
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200">
+                  Support Center
                 </p>
-                <p className="text-[11px] text-slate-400">
-                  Encrypted authentication and protected RBAC policies enabled.
+                <p className="mt-0.5 text-xs font-semibold text-white">
+                  Infomedia Operation Center
                 </p>
+                <div className="mt-2 space-y-1.5 text-[11px] text-slate-400">
+                  <p className="flex items-center gap-2">
+                    <Mail className="size-3.5 shrink-0 text-cyan-300" />
+                    <span>ioc@infomedia.co.id</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <PhoneCall className="size-3.5 shrink-0 text-cyan-300" />
+                    <span>1500463</span>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
