@@ -113,8 +113,10 @@ export default function KnowledgeBasePage() {
     [documents]
   )
 
-  const loadDocuments = async () => {
-    setLoadingDocuments(true)
+  const loadDocuments = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoadingDocuments(true)
+    }
     setError(null)
     try {
       const response = await fetch(DOCUMENT_API, { cache: "no-store" })
@@ -126,7 +128,9 @@ export default function KnowledgeBasePage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat dokumen knowledge base")
     } finally {
-      setLoadingDocuments(false)
+      if (!options?.silent) {
+        setLoadingDocuments(false)
+      }
     }
   }
 
@@ -172,7 +176,7 @@ export default function KnowledgeBasePage() {
     if (processingDocuments.length === 0) return
 
     const pollId = window.setInterval(() => {
-      void loadDocuments()
+      void loadDocuments({ silent: true })
     }, 5000)
 
     return () => window.clearInterval(pollId)
