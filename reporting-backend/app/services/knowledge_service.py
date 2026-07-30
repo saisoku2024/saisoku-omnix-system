@@ -476,32 +476,7 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
         f"KONTEKS:\n{context}\n\nPERTANYAAN:\n{question}"
     )
 
-    # 1. Try Groq API (Super fast & 100% Free) if GROQ_API_KEY is set
-    groq_key = os.getenv("GROQ_API_KEY", "").strip()
-    if groq_key:
-        try:
-            groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
-            g_res = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
-                json={
-                    "model": groq_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.2,
-                    "max_tokens": 1000,
-                },
-                timeout=30,
-            )
-            if g_res.ok:
-                ans_text = g_res.json()["choices"][0]["message"]["content"].strip()
-                if ans_text:
-                    return ans_text
-            else:
-                logger.warning(f"Groq API call failed (HTTP {g_res.status_code}): {g_res.text[:150]}")
-        except Exception as g_exc:
-            logger.warning(f"Groq API call exception: {g_exc}")
-
-    # 2. Try Gemini API Keys as fallback
+    # Try Gemini API Keys
     keys = _get_gemini_keys()
     if not keys:
         try:

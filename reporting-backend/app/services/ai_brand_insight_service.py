@@ -105,39 +105,12 @@ Format Laporan:
         os.environ.get("GEMINI_MODEL"),
         "gemini-2.0-flash",
         "gemini-2.0-flash-lite",
-        "gemini-2.5-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
     ]
     seen = set()
     candidate_models = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
 
-    # 1. Try Groq API (Super fast & 100% Free) if GROQ_API_KEY is set
-    groq_key = os.getenv("GROQ_API_KEY", "").strip()
-    if groq_key:
-        try:
-            groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
-            g_res = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
-                json={
-                    "model": groq_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "max_tokens": 1500,
-                },
-                timeout=45,
-            )
-            if g_res.ok:
-                report_text = g_res.json()["choices"][0]["message"]["content"].strip()
-                if report_text:
-                    return {
-                        "success": True,
-                        "brand": brand_name,
-                        "total_chat_records_analyzed": len(chats),
-                        "total_sessions_analyzed": len(session_map),
-                        "report": report_text
-                    }
-        except Exception as g_exc:
-            logger.warning(f"Groq API brand insight call exception: {g_exc}")
 
     response = None
     model_errors = []
