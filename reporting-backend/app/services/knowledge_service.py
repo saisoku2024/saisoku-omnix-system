@@ -849,48 +849,53 @@ class KnowledgeService:
 
         sources: List[Dict[str, Any]] = []
 
-        # 1. Vector Search (if Gemini Embedding API key is valid)
+        # 1. Vector Search (if Gemini Embedding API key is valid & non-zero)
         try:
             embedding = _embed_text(cleaned_question, is_query=True)
-            res = (
-                supabase.rpc(
-                    "match_knowledge_chunks",
-                    {
-                        "query_embedding": _vector_literal(embedding),
-                        "match_count": match_count,
-                    },
+            if any(v != 0.0 for v in embedding):
+                res = (
+                    supabase.rpc(
+                        "match_knowledge_chunks",
+                        {
+                            "query_embedding": _vector_literal(embedding),
+                            "match_count": match_count,
+                        },
+                    )
+                    .execute()
                 )
-                .execute()
-            )
-            raw_sources = res.data or []
-            sources = [s for s in raw_sources if float(s.get("similarity") or 0) >= 0.2]
+                raw_sources = res.data or []
+                sources = [s for s in raw_sources if float(s.get("similarity") or 0) >= 0.5]
         except Exception as exc:
             logger.warning(f"Vector search embedding failed or unconfigured: {exc}")
 
-        # 2. Keyword/ILIKE Fallback Search if vector search returns insufficient results
+        # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
-            # Extract meaningful keywords (words >= 3 chars, ignoring stop words)
-            stop_words = {"apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu", "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai", "sisi", "dokumen"}
+            stop_words = {"apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu", "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai", "sisi", "dokumen", "perbedaan"}
+            
+            # Find key phrases (e.g., "True Mapping", "True Mapping 2.0")
+            phrase_matches = re.findall(r'[A-Za-z0-9\.]+(?:\s+[A-Za-z0-9\.]+)+', cleaned_question)
+            search_terms = []
+            for p in phrase_matches:
+                if len(p) >= 4 and p.lower() not in stop_words:
+                    search_terms.append(p)
+
             words = [re.sub(r"[^\w\.]", "", w).strip() for w in cleaned_question.split()]
-            keywords = [w for w in words if len(w) >= 3 and w.lower() not in stop_words]
+            for w in words:
+                if len(w) >= 3 and w.lower() not in stop_words and w not in search_terms:
+                    search_terms.append(w)
 
-            if keywords:
-                existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
-                # Search by ILIKE for the top keywords
-                query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
-                
-                # If phrases like "True Mapping" exist, prioritize exact phrase match
-                phrase_matches = re.findall(r'[A-Za-z0-9\.]+(?:\s+[A-Za-z0-9\.]+)+', cleaned_question)
-                filter_term = keywords[0]
-                for p in phrase_matches:
-                    if len(p) >= 5 and p.lower() not in stop_words:
-                        filter_term = p
-                        break
-
-                kw_res = query_builder.ilike("content", f"%{filter_term}%").limit(match_count).execute()
-                kw_chunks = kw_res.data or []
-
-                for kc in kw_chunks:
+            existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
+            for term in search_terms:
+                if len(sources) >= match_count:
+                    break
+                kw_res = (
+                    supabase.table("knowledge_chunks")
+                    .select("id, document_id, title, content, chunk_index")
+                    .ilike("content", f"%{term}%")
+                    .limit(match_count)
+                    .execute()
+                )
+                for kc in (kw_res.data or []):
                     chunk_id = kc.get("id")
                     if chunk_id and chunk_id not in existing_ids:
                         sources.append({
@@ -899,9 +904,10 @@ class KnowledgeService:
                             "title": kc.get("title"),
                             "content": kc.get("content"),
                             "chunk_index": kc.get("chunk_index"),
-                            "similarity": 0.85,  # Keyword match score
+                            "similarity": 0.9,
                         })
                         existing_ids.add(chunk_id)
+
 
         if not sources:
             return {
