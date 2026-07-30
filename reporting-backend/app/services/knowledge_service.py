@@ -23,9 +23,9 @@ from app.services.storage_upload_service import MAX_STORAGE_UPLOAD_SIZE_BYTES
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
-DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2"
-LEGACY_GEMINI_MODELS = {"gemini-2.5-flash"}
+DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+DEFAULT_EMBEDDING_MODEL = "text-embedding-004"
+LEGACY_GEMINI_MODELS = {"gemini-2.5-flash", "gemini-3.5-flash"}
 EMBEDDING_DIMENSION = 768
 MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
@@ -508,26 +508,35 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
             keys = [_gemini_api_key()]
         except Exception:
             keys = []
-    model = _chat_model()
-    for key in keys:
-        try:
-            response = requests.post(
-                f"{GEMINI_API_BASE}/models/{model}:generateContent",
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json={"contents": [{"parts": [{"text": prompt}]}]},
-                timeout=60,
-            )
-            if response.ok:
-                candidates = response.json().get("candidates") or []
-                parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-                text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-                if text.strip():
-                    return text.strip()
-            elif response.status_code == 429:
-                logger.warning("Gemini API key hit rate limit (429). Trying next available key...")
-                continue
-        except Exception as exc:
-            logger.warning(f"Gemini LLM request failed: {exc}")
+    primary_model = _chat_model()
+    candidate_models = [primary_model, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    seen_models = set()
+
+    for m in candidate_models:
+        if m in seen_models:
+            continue
+        seen_models.add(m)
+        for key in keys:
+            try:
+                response = requests.post(
+                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json={"contents": [{"parts": [{"text": prompt}]}]},
+                    timeout=30,
+                )
+                if response.ok:
+                    candidates = response.json().get("candidates") or []
+                    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+                    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+                    if text.strip():
+                        return text.strip()
+                elif response.status_code == 429:
+                    logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
+                    continue
+                else:
+                    logger.warning(f"Gemini model {m} call failed HTTP {response.status_code}: {response.text[:150]}")
+            except Exception as exc:
+                logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
 
     # Fallback if LLM API key fails, returns 429, or unavailable
     return "Berikut informasi yang ditemukan di Knowledge Base SOP:\n\n" + context
