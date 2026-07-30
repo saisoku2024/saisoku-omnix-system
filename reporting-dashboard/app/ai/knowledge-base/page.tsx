@@ -177,7 +177,7 @@ export default function KnowledgeBasePage() {
 
     const pollId = window.setInterval(() => {
       void loadDocuments({ silent: true })
-    }, 5000)
+    }, 15000)
 
     return () => window.clearInterval(pollId)
   }, [processingDocuments.length])
