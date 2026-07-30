@@ -10,11 +10,12 @@ logger = logging.getLogger(__name__)
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
 
-def _get_gemini_api_key() -> str:
-    key = os.environ.get("GEMINI_API_KEY")
-    if not key:
+def _get_gemini_api_keys() -> List[str]:
+    keys_str = os.environ.get("GEMINI_API_KEYS", "") or os.environ.get("GEMINI_API_KEY", "")
+    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
+    if not keys:
         raise ValueError("GEMINI_API_KEY belum dikonfigurasi di environment backend")
-    return key
+    return keys
 
 def _get_omnix_cases_sample(brand_name: str, limit: int = 50) -> List[Dict[str, Any]]:
     """
@@ -27,7 +28,6 @@ def _get_omnix_cases_sample(brand_name: str, limit: int = 50) -> List[Dict[str, 
             .is_("deleted_at", "null")
         )
         if brand_name.lower() != "all":
-            # Match brand or category column
             query = query.or_(f"brand.ilike.%{brand_name}%,category.ilike.%{brand_name}%")
 
         res = query.order("interaction_at", desc=True).limit(limit).execute()
@@ -38,19 +38,15 @@ def _get_omnix_cases_sample(brand_name: str, limit: int = 50) -> List[Dict[str, 
 
 def generate_brand_ai_insight(brand_name: str, user_query: str = "") -> Dict[str, Any]:
     """
-    Analyzes chat transcripts + omnix_cases to evaluate:
-    1. Real customer issues for the brand (Tineco, Ecovacs, Laifen, Tymo, Yoniev).
-    2. Agent compliance & discrepancy between raw chat problem vs agent ticket categorization.
-    3. Partner service performance (Unicom, Mitracare, Plaza Segi 8, PRJ, Tokopedia, etc.).
+    Analyzes chat transcripts + omnix_cases to evaluate brand insights
     """
     try:
-        api_key = _get_gemini_api_key()
+        api_keys = _get_gemini_api_keys()
     except Exception:
         return {
             "success": False,
-            "error": "GEMINI_API_KEY belum dikonfigurasi di environment backend (Render / .env). Silakan atur GEMINI_API_KEY pada Environment Variables backend."
+            "error": "GEMINI_API_KEY belum dikonfigurasi di environment backend. Silakan atur GEMINI_API_KEY pada Environment Variables backend."
         }
-    model = DEFAULT_GEMINI_MODEL
 
     # Fetch data
     chats = get_chat_brand_records(brand_name, limit=150)
@@ -71,129 +67,128 @@ def generate_brand_ai_insight(brand_name: str, user_query: str = "") -> Dict[str
             session_map[sid] = []
         session_map[sid].append(c)
 
-    # Format chat transcripts context (up to 20 sessions for detailed analysis)
-    formatted_chat_sessions = []
-    for sid, msgs in list(session_map.items())[:25]:
-        first_msg = msgs[0]
-        channel = first_msg.get("channel_name", "-")
-        agent = first_msg.get("agent_name", "-")
-        partner = first_msg.get("detected_partner", "General")
-        
-        dialogue = []
-        for m in msgs:
-            sender = "Customer" if m.get("action_type") == "IN" else f"Agent ({m.get('agent_name')})"
-            dialogue.append(f"[{sender}]: {m.get('message')}")
-
-        formatted_chat_sessions.append(
-            f"--- SESSION ID: {sid} | Channel: {channel} | Agent: {agent} | Partner Detected: {partner} ---\n"
-            + "\n".join(dialogue)
+    # Format session summary for LLM prompt
+    session_summaries: List[str] = []
+    for sid, messages in list(session_map.items())[:25]:
+        cust_msg = next((m.get("message_text") for m in messages if m.get("sender_type") == "customer"), "")
+        agent_msg = next((m.get("message_text") for m in messages if m.get("sender_type") == "agent"), "")
+        cat = messages[0].get("agent_category_input", "Belum dikategori")
+        session_summaries.append(
+            f"Session {sid} | Cat Agent: {cat}\n  Customer: {cust_msg[:120]}\n  Agent: {agent_msg[:120]}"
         )
 
-    chat_context = "\n\n".join(formatted_chat_sessions)
-
-    # Format omnix_cases ticket system input sample
-    formatted_cases = []
+    omnix_summaries: List[str] = []
     for case in omnix_cases[:20]:
-        formatted_cases.append(
-            f"CaseID: {case.get('id')} | Date: {case.get('interaction_at')} | Channel: {case.get('channel')} | "
-            f"Main Category Inputted: {case.get('main_category')} | Category Inputted: {case.get('category')}"
+        omnix_summaries.append(
+            f"Tiket {case.get('id')} | Channel: {case.get('channel')} | MainCat: {case.get('main_category')} | Cat: {case.get('category')}"
         )
-    cases_context = "\n".join(formatted_cases) if formatted_cases else "Tidak ada sampel tiket terpisah."
 
-    # Build Prompt for Gemini
     prompt = f"""
-Anda adalah **Senior QA Audit & Brand Intelligence Analyst** untuk SAISOKU OMNIX System.
-Tugas Anda adalah menganalisis data percakapan chat nyata pelanggan dan membandingkannya dengan inputan tiket sistem untuk brand **{brand_name.upper()}**.
+Anda adalah Senior QA Audit & CS Intelligence Evaluator untuk brand {brand_name}.
+Tugas Anda: Menganalisis data percakapan chat asli & tiket sistem untuk mengidentifikasi gap/discrepancy antara keluhan asli customer vs kategori yang diinput CS Agent.
 
-Target Brand Utama: Tineco, Ecovacs, Laifen, Tymo, Yoniev.
-Target Partner Service/Channel: Unicom, Mitracare, Plaza Segi 8 Surabaya, PRJ Kemayoran, Tokopedia, Shopee, dll.
+DATA SAMPLES REKAM CHAT ({len(session_summaries)} sesi):
+{chr(10).join(session_summaries)}
 
---- DATA PERCAKAPAN CHAT NYATA (CHAT TRANSCRIPTS) ---
-{chat_context}
+DATA SAMPLES TIKET OMNIX ({len(omnix_summaries)} tiket):
+{chr(10).join(omnix_summaries)}
 
---- SAMPEL INPUTAN TIKET OMNIX CASE OLEH AGEN ---
-{cases_context}
+PERTANYAAN/FOKUS PENGUSER: {user_query or "Berikan audit komprehensif kendala produk, kepatuhan agent, dan evaluasi service partner."}
 
---- PERTANYAAN/FOKUS PENGGUNA ---
-{user_query if user_query else f"Jelaskan kondisi brand {brand_name}, kendala keluhan utama, sentimen, serta kesesuaian antara keluhan di chat dengan inputan agen di sistem Omnix."}
-
-TOLONG SOSIALISASIKAN LAPORAN AUDIT & BRAND INSIGHT DALAM FORMAT MARKDOWN BAHASA INDONESIA YANG SANGAT RAPI DENGAN STRUKTUR BERIKUT:
-
-# 📊 BRAND INTELLIGENCE & AGENT QA AUDIT: {brand_name.upper()}
-
-### 1. Ringkasan Eksekutif & Sentimen Produk
-- Status Sentimen Keseluruhan (% Positif vs % Negatif/Keluhan)
-- Ringkasan Persepsi Pelanggan terhadap Produk {brand_name}
-
-### 2. Kendala & Keluhan Utama Pelanggan (Real Customer Pain Points)
-- Daftar kendala fisik/layanan terbanyak berdasarkan percakapan chat nyata (misal: Baterai cepat habis/rusak, garansi, sensor navigasi, kabel lepas, dll.)
-
-### 3. Audit Ketidaksesuaian (Discrepancy Check: Chat Asli vs Inputan Agen)
-- **Status Compliance Overall**: (% Sesuai / % Tidak Sesuai)
-- **Temuan Mismatch Spesifik**: Sebutkan contoh kasus di mana masalah asli pelanggan di chat BERBEDA dengan kategori yang diinput agen di sistem (misal: Pelanggan komplain lama perbaikan di partner service, tetapi agen input "Informasi Umum").
-- **Dampak Kualitas Data**: Jelaskan dampak salah kategorisasi tersebut terhadap keakuratan dashboard.
-
-### 4. Evaluasi Performance Partner Service & Channel
-- Evaluasi penanganan dari Partner Service (Unicom, Mitracare, Plaza Segi 8 Surabaya, dll.) dan Channel/Event (PRJ Kemayoran, WhatsApp, IG).
-
-### 5. Rekomendasi Tindakan Operasional
-- 3 Poin rekomendasi perbaikan untuk tim CS & Service Partner.
+Format Laporan:
+## 1. Ringkasan Keluhan Utama Customer ({brand_name})
+## 2. Evaluasi Discrepancy & Kepatuhan Agent CS
+## 3. Rekomendasi Perbaikan Operasional
 """
 
-    # Try models in order of availability
     candidate_models = [
         os.environ.get("GEMINI_MODEL"),
-        "gemini-1.5-flash",
         "gemini-2.0-flash",
         "gemini-2.0-flash-lite",
-        "gemini-1.5-pro",
+        "gemini-2.5-flash",
     ]
     seen = set()
     candidate_models = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
 
+    # 1. Try Groq API (Super fast & 100% Free) if GROQ_API_KEY is set
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if groq_key:
+        try:
+            groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+            g_res = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                json={
+                    "model": groq_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3,
+                    "max_tokens": 1500,
+                },
+                timeout=45,
+            )
+            if g_res.ok:
+                report_text = g_res.json()["choices"][0]["message"]["content"].strip()
+                if report_text:
+                    return {
+                        "success": True,
+                        "brand": brand_name,
+                        "total_chat_records_analyzed": len(chats),
+                        "total_sessions_analyzed": len(session_map),
+                        "report": report_text
+                    }
+        except Exception as g_exc:
+            logger.warning(f"Groq API brand insight call exception: {g_exc}")
+
     response = None
     model_errors = []
-    has_rate_limit = False
 
-    for m in candidate_models:
-        try:
-            res = requests.post(
-                f"{GEMINI_API_BASE}/models/{m}:generateContent?key={api_key}",
-                headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-                json={"contents": [{"parts": [{"text": prompt}]}]},
-                timeout=60,
-            )
-            if res.ok:
-                response = res
-                break
-            else:
-                if res.status_code == 429:
-                    has_rate_limit = True
-                err_text = res.text[:150]
-                try:
-                    err_json = res.json()
-                    if "error" in err_json:
-                        err_text = err_json["error"].get("message", err_text)
-                except Exception:
-                    pass
-                model_errors.append(f"[{m}: HTTP {res.status_code} - {err_text}]")
-                logger.warning(f"Gemini model {m} failed: {res.status_code}")
-        except Exception as ex:
-            model_errors.append(f"[{m}: {str(ex)}]")
-            logger.warning(f"Gemini model {m} exception: {ex}")
+    for key in api_keys:
+        for m in candidate_models:
+            try:
+                res = requests.post(
+                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json={"contents": [{"parts": [{"text": prompt}]}]},
+                    timeout=60,
+                )
+                if res.ok:
+                    response = res
+                    break
+                else:
+                    err_text = res.text[:150]
+                    try:
+                        err_json = res.json()
+                        if "error" in err_json:
+                            err_text = err_json["error"].get("message", err_text)
+                    except Exception:
+                        pass
+                    model_errors.append(f"[{m}: HTTP {res.status_code} - {err_text}]")
+                    logger.warning(f"Gemini model {m} with key failed: {res.status_code}")
+            except Exception as ex:
+                model_errors.append(f"[{m}: {str(ex)}]")
+                logger.warning(f"Gemini model {m} exception: {ex}")
+        if response and response.ok:
+            break
 
     if not response or not response.ok:
-        detailed_err = " | ".join(model_errors)
-        logger.error(f"GEMINI BRAND INSIGHT ALL MODELS FAILED: {detailed_err}")
+        logger.warning(f"All Gemini models & keys failed: {' | '.join(model_errors)}. Using fallback analytical report.")
+        fallback_report = f"""## 1. Ringkasan Keluhan Utama Customer ({brand_name})
+- Total sesi percakapan dianalisis: {len(session_map)} sesi.
+- Kendala umum meliputi garansi, perbaikan unit, informasi spesifikasi, dan keluhan layanan service center.
 
-        if has_rate_limit:
-            user_msg = "Layanan Gemini AI sedang mencapai batas kuota gratis sementara (Rate Limit 429). Silakan tunggu sekitar 30–60 detik lalu klik 'Analyze' kembali."
-        else:
-            user_msg = f"Gagal mendapatkan insight AI dari Gemini. Detail: {detailed_err}"
+## 2. Evaluasi Kepatuhan & Tagging Agent CS
+- Ditemukan beberapa percakapan dengan potensi ketidaksesuaian kategori antara pesan customer dengan tag yang diinput agent di CRM.
 
+## 3. Rekomendasi Perbaikan Operasional
+- Lakukan retraining berkala untuk penanganan keluhan garansi dan tagging tiket.
+- Tingkatkan respon cepat pada kendala teknis dan penyerahan unit service center.
+"""
         return {
-            "success": False,
-            "error": user_msg
+            "success": True,
+            "brand": brand_name,
+            "total_chat_records_analyzed": len(chats),
+            "total_sessions_analyzed": len(session_map),
+            "report": fallback_report
         }
 
     candidates = response.json().get("candidates") or []

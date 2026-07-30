@@ -43,6 +43,11 @@ const ALLOWED_READ_ROUTES = new Set([
   "POST chat/storage-ingest",
   "POST chat/ingest-sample-local",
   "POST chat/brand-insight",
+  "GET knowledge/documents",
+  "POST knowledge/storage-ingest",
+  "POST knowledge/text",
+  "POST knowledge/url",
+  "POST knowledge/query",
 ])
 
 const SENSITIVE_PROXY_ROUTES = new Set([
@@ -60,6 +65,9 @@ const ALLOWED_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> =
     method === "POST" &&
     path.startsWith("upload-sessions/") &&
     path.endsWith("/delete"),
+  (method, path) =>
+    method === "DELETE" &&
+    path.startsWith("knowledge/documents/"),
 ]
 
 const SENSITIVE_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> = [
@@ -110,7 +118,7 @@ async function proxyBackendRequest(
   const path = pathSegments.join("/")
 
   if (!isAllowedBackendRead(request.method, path)) {
-    return NextResponse.json({ detail: "Forbidden" }, { status: 403 })
+    return NextResponse.json({ detail: `Forbidden: Route ${request.method} ${path} is not allowed` }, { status: 403 })
   }
 
   // Restrict sensitive proxy routes for guest role
@@ -147,8 +155,8 @@ async function proxyBackendRequest(
   })
 
   if (!response.ok) {
-    const contentType = response.headers.get("Content-Type") || ""
-    if (contentType.includes("application/json")) {
+    const contentTypeHeader = response.headers.get("Content-Type") || ""
+    if (contentTypeHeader.includes("application/json")) {
       const errorPayload = await response.json().catch(() => null)
       return NextResponse.json(
         errorPayload || { detail: `Backend request failed with HTTP ${response.status}` },
@@ -170,4 +178,4 @@ async function proxyBackendRequest(
 
 export const GET = proxyBackendRequest
 export const POST = proxyBackendRequest
-
+export const DELETE = proxyBackendRequest

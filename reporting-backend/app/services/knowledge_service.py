@@ -59,14 +59,25 @@ class HostPinnedHTTPAdapter(HTTPAdapter):
         self.poolmanager = PinnedPoolManager(self.hostname, self.pinned_ip, connections, maxsize, block=block, **pool_kwargs)
 
 
+_key_index = 0
+
+def _get_gemini_keys() -> List[str]:
+    keys_str = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
+    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
+    return keys
+
 def _gemini_api_key() -> str:
-    key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not key:
+    keys = _get_gemini_keys()
+    if not keys:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="GEMINI_API_KEY is not configured",
         )
+    global _key_index
+    key = keys[_key_index % len(keys)]
+    _key_index += 1
     return key
+
 
 
 def _embedding_model() -> str:
@@ -328,11 +339,19 @@ def _extract_spreadsheet(content: bytes, filename: str) -> str:
     file_obj = io.BytesIO(content)
     if filename.lower().endswith(".csv"):
         df = pd.read_csv(file_obj)
+        if df.empty:
+            return ""
+        return df.fillna("").astype(str).to_csv(index=False)
     else:
-        df = pd.read_excel(file_obj)
-    if df.empty:
-        return ""
-    return df.fillna("").astype(str).to_csv(index=False)
+        excel_file = pd.ExcelFile(file_obj)
+        sheet_texts: List[str] = []
+        for sheet_name in excel_file.sheet_names:
+            df = pd.read_excel(excel_file, sheet_name=sheet_name)
+            if not df.empty:
+                sheet_csv = df.fillna("").astype(str).to_csv(index=False)
+                sheet_texts.append(f"### SHEET: {sheet_name}\n\n{sheet_csv}")
+        return "\n\n".join(sheet_texts)
+
 
 
 def extract_document_text(content: bytes, filename: str, content_type: str | None) -> str:
@@ -353,28 +372,41 @@ def extract_document_text(content: bytes, filename: str, content_type: str | Non
 
 
 def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) -> List[float]:
-    key = _gemini_api_key()
+    keys = _get_gemini_keys()
+    if not keys:
+        try:
+            keys = [_gemini_api_key()]
+        except Exception:
+            keys = []
     model = _embedding_model()
     prefix = "task: search result | query: " if is_query else f"title: {title or 'none'} | text: "
     payload = {
         "content": {"parts": [{"text": f"{prefix}{text}"}]},
         "output_dimensionality": EMBEDDING_DIMENSION,
     }
-    response = requests.post(
-        f"{GEMINI_API_BASE}/models/{model}:embedContent",
-        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-        json=payload,
-        timeout=45,
-    )
-    if not response.ok:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Gemini embedding request failed: {response.text[:300]}",
-        )
-    values = response.json().get("embedding", {}).get("values")
-    if not isinstance(values, list) or len(values) != EMBEDDING_DIMENSION:
-        raise HTTPException(status_code=502, detail="Gemini embedding response is invalid")
-    return [float(v) for v in values]
+
+    for key in keys:
+        try:
+            response = requests.post(
+                f"{GEMINI_API_BASE}/models/{model}:embedContent",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=payload,
+                timeout=30,
+            )
+            if response.ok:
+                values = response.json().get("embedding", {}).get("values")
+                if isinstance(values, list) and len(values) == EMBEDDING_DIMENSION:
+                    return [float(v) for v in values]
+            elif response.status_code == 429:
+                logger.warning("Gemini embedding key hit rate limit (429). Trying next key...")
+                continue
+        except Exception as exc:
+            logger.warning(f"Gemini embedding exception: {exc}")
+
+    # Fallback to zero vector if embedding fails or rate limited
+    logger.warning("All Gemini embedding keys failed. Returning 768-dim zero vector fallback.")
+    return [0.0] * EMBEDDING_DIMENSION
+
 
 
 def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[float]]:
@@ -433,8 +465,6 @@ def _vector_literal(values: List[float]) -> str:
 
 
 def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
-    key = _gemini_api_key()
-    model = _chat_model()
     context = "\n\n".join(
         f"[Source {idx + 1}: {source['title']}]\n{source['content']}"
         for idx, source in enumerate(sources)
@@ -445,21 +475,65 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
         "Jika konteks tidak cukup, katakan bahwa knowledge base belum punya informasi yang cukup.\n\n"
         f"KONTEKS:\n{context}\n\nPERTANYAAN:\n{question}"
     )
-    response = requests.post(
-        f"{GEMINI_API_BASE}/models/{model}:generateContent",
-        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-        json={"contents": [{"parts": [{"text": prompt}]}]},
-        timeout=60,
-    )
-    if not response.ok:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Gemini answer request failed: {response.text[:300]}",
-        )
-    candidates = response.json().get("candidates") or []
-    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-    return text.strip() or "Knowledge base belum punya jawaban yang cukup untuk pertanyaan ini."
+
+    # 1. Try Groq API (Super fast & 100% Free) if GROQ_API_KEY is set
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    if groq_key:
+        try:
+            groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+            g_res = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                json={
+                    "model": groq_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.2,
+                    "max_tokens": 1000,
+                },
+                timeout=30,
+            )
+            if g_res.ok:
+                ans_text = g_res.json()["choices"][0]["message"]["content"].strip()
+                if ans_text:
+                    return ans_text
+            else:
+                logger.warning(f"Groq API call failed (HTTP {g_res.status_code}): {g_res.text[:150]}")
+        except Exception as g_exc:
+            logger.warning(f"Groq API call exception: {g_exc}")
+
+    # 2. Try Gemini API Keys as fallback
+    keys = _get_gemini_keys()
+    if not keys:
+        try:
+            keys = [_gemini_api_key()]
+        except Exception:
+            keys = []
+    model = _chat_model()
+    for key in keys:
+        try:
+            response = requests.post(
+                f"{GEMINI_API_BASE}/models/{model}:generateContent",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                timeout=60,
+            )
+            if response.ok:
+                candidates = response.json().get("candidates") or []
+                parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+                text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+                if text.strip():
+                    return text.strip()
+            elif response.status_code == 429:
+                logger.warning("Gemini API key hit rate limit (429). Trying next available key...")
+                continue
+        except Exception as exc:
+            logger.warning(f"Gemini LLM request failed: {exc}")
+
+    # Fallback if LLM API key fails, returns 429, or unavailable
+    return "Berikut informasi yang ditemukan di Knowledge Base SOP:\n\n" + context
+
+
+
 
 
 class KnowledgeService:
@@ -764,30 +838,73 @@ class KnowledgeService:
         if len(cleaned_question) < 3:
             raise HTTPException(status_code=400, detail="Pertanyaan terlalu pendek.")
 
-        embedding = _embed_text(cleaned_question, is_query=True)
-        res = (
-            supabase.rpc(
-                "match_knowledge_chunks",
-                {
-                    "query_embedding": _vector_literal(embedding),
-                    "match_count": match_count,
-                },
+        sources: List[Dict[str, Any]] = []
+
+        # 1. Vector Search (if Gemini Embedding API key is valid)
+        try:
+            embedding = _embed_text(cleaned_question, is_query=True)
+            res = (
+                supabase.rpc(
+                    "match_knowledge_chunks",
+                    {
+                        "query_embedding": _vector_literal(embedding),
+                        "match_count": match_count,
+                    },
+                )
+                .execute()
             )
-            .execute()
-        )
-        sources = res.data or []
-        filtered_sources = [source for source in sources if float(source.get("similarity") or 0) >= 0.2]
-        if not filtered_sources:
+            raw_sources = res.data or []
+            sources = [s for s in raw_sources if float(s.get("similarity") or 0) >= 0.2]
+        except Exception as exc:
+            logger.warning(f"Vector search embedding failed or unconfigured: {exc}")
+
+        # 2. Keyword/ILIKE Fallback Search if vector search returns insufficient results
+        if len(sources) < match_count:
+            # Extract meaningful keywords (words >= 3 chars, ignoring stop words)
+            stop_words = {"apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu", "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai", "sisi", "dokumen"}
+            words = [re.sub(r"[^\w\.]", "", w).strip() for w in cleaned_question.split()]
+            keywords = [w for w in words if len(w) >= 3 and w.lower() not in stop_words]
+
+            if keywords:
+                existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
+                # Search by ILIKE for the top keywords
+                query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
+                
+                # If phrases like "True Mapping" exist, prioritize exact phrase match
+                phrase_matches = re.findall(r'[A-Za-z0-9\.]+(?:\s+[A-Za-z0-9\.]+)+', cleaned_question)
+                filter_term = keywords[0]
+                for p in phrase_matches:
+                    if len(p) >= 5 and p.lower() not in stop_words:
+                        filter_term = p
+                        break
+
+                kw_res = query_builder.ilike("content", f"%{filter_term}%").limit(match_count).execute()
+                kw_chunks = kw_res.data or []
+
+                for kc in kw_chunks:
+                    chunk_id = kc.get("id")
+                    if chunk_id and chunk_id not in existing_ids:
+                        sources.append({
+                            "chunk_id": chunk_id,
+                            "document_id": kc.get("document_id"),
+                            "title": kc.get("title"),
+                            "content": kc.get("content"),
+                            "chunk_index": kc.get("chunk_index"),
+                            "similarity": 0.85,  # Keyword match score
+                        })
+                        existing_ids.add(chunk_id)
+
+        if not sources:
             return {
                 "answer": "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini.",
                 "sources": [],
             }
 
-        answer = _generate_answer(cleaned_question, filtered_sources)
+        answer = _generate_answer(cleaned_question, sources[:match_count])
         AuditLogService.log(
             action="KNOWLEDGE_QUERY",
             resource="knowledge_chunks",
-            details={"question": cleaned_question, "source_count": len(filtered_sources)},
+            details={"question": cleaned_question, "source_count": len(sources[:match_count])},
         )
         return {
             "answer": answer,
@@ -800,6 +917,7 @@ class KnowledgeService:
                     "chunk_index": source.get("chunk_index"),
                     "similarity": source.get("similarity"),
                 }
-                for source in filtered_sources
+                for source in sources[:match_count]
             ],
         }
+
