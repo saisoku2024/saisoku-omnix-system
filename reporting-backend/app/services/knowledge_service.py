@@ -871,31 +871,27 @@ class KnowledgeService:
         # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
             stop_words = {"apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu", "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai", "sisi", "dokumen", "perbedaan"}
-            
-            # Find key phrases (e.g., "True Mapping", "True Mapping 2.0")
-            phrase_matches = re.findall(r'[A-Za-z0-9\.]+(?:\s+[A-Za-z0-9\.]+)+', cleaned_question)
-            search_terms = []
-            for p in phrase_matches:
-                if len(p) >= 4 and p.lower() not in stop_words:
-                    search_terms.append(p)
-
             words = [re.sub(r"[^\w\.]", "", w).strip() for w in cleaned_question.split()]
-            for w in words:
-                if len(w) >= 3 and w.lower() not in stop_words and w not in search_terms:
-                    search_terms.append(w)
+            keywords = [w for w in words if len(w) >= 3 and w.lower() not in stop_words]
 
-            existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
-            for term in search_terms:
-                if len(sources) >= match_count:
-                    break
-                kw_res = (
-                    supabase.table("knowledge_chunks")
-                    .select("id, document_id, title, content, chunk_index")
-                    .ilike("content", f"%{term}%")
-                    .limit(match_count)
-                    .execute()
-                )
-                for kc in (kw_res.data or []):
+            if keywords:
+                existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
+                query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
+                
+                # Combine up to top 3 keywords into AND filters for exact topic matching
+                for kw in keywords[:3]:
+                    query_builder = query_builder.ilike("content", f"%{kw}%")
+
+                kw_res = query_builder.limit(match_count).execute()
+                kw_chunks = kw_res.data or []
+
+                # Fallback to single keyword if combined AND query returned no results
+                if not kw_chunks:
+                    query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
+                    kw_res = query_builder.ilike("content", f"%{keywords[0]}%").limit(match_count).execute()
+                    kw_chunks = kw_res.data or []
+
+                for kc in kw_chunks:
                     chunk_id = kc.get("id")
                     if chunk_id and chunk_id not in existing_ids:
                         sources.append({
@@ -904,9 +900,10 @@ class KnowledgeService:
                             "title": kc.get("title"),
                             "content": kc.get("content"),
                             "chunk_index": kc.get("chunk_index"),
-                            "similarity": 0.9,
+                            "similarity": 0.95,
                         })
                         existing_ids.add(chunk_id)
+
 
 
         if not sources:
