@@ -110,8 +110,22 @@ async function authenticateWithSupabaseAuth(email: string, password: string) {
   }
 }
 
+function getAdminUiPassword(): string | null {
+  const secret = process.env.ADMIN_UI_PASSWORD
+  if (secret && secret.trim()) {
+    return secret.trim()
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    console.warn("ADMIN_UI_PASSWORD is missing in production environment; legacy admin password fallback is disabled.")
+    return null
+  }
+
+  return "admin123"
+}
+
 export async function POST(request: Request) {
-  const expectedPassword = process.env.ADMIN_UI_PASSWORD || "admin123"
+  const expectedPassword = getAdminUiPassword()
   const sessionSecret = getSessionSecret()
 
   const body = (await request.json().catch(() => ({}))) as {
@@ -154,7 +168,7 @@ export async function POST(request: Request) {
   }
 
   // 3. Fallback Legacy Single Admin Password
-  if (!authenticatedUser && password && password === expectedPassword) {
+  if (!authenticatedUser && password && expectedPassword && password === expectedPassword) {
     authenticatedUser = {
       userId: "00000000-0000-0000-0000-000000000001",
       email: email || "admin@omnix.com",
