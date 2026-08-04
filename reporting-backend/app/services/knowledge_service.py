@@ -364,7 +364,7 @@ def _extract_pdf_with_gemini_ocr(content: bytes) -> str:
             keys = [_gemini_api_key()]
         except Exception:
             keys = []
-    model = _chat_model()
+    candidate_models = chat_fallback_chain()
     encoded_pdf = base64.b64encode(content).decode("ascii")
     prompt = (
         "Transkripsikan teks dari PDF ini untuk knowledge base RAG. "
@@ -372,37 +372,45 @@ def _extract_pdf_with_gemini_ocr(content: bytes) -> str:
         "Kembalikan hanya teks dokumen yang terbaca, pertahankan heading, tabel sederhana, "
         "nomor langkah, dan FAQ jika ada. Jangan membuat ringkasan atau menambah informasi."
     )
-    for key in keys:
-        try:
-            response = _HTTPX_CLIENT.post(
-                f"{GEMINI_API_BASE}/models/{model}:generateContent",
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json={
-                    "contents": [
-                        {
-                            "parts": [
-                                {"text": prompt},
-                                {
-                                    "inlineData": {
-                                        "mimeType": "application/pdf",
-                                        "data": encoded_pdf,
-                                    }
-                                },
-                            ]
-                        }
-                    ],
-                    "generationConfig": {"temperature": 0.1},
-                },
-            )
-            if response.status_code == 200:
-                candidates = response.json().get("candidates") or []
-                parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-                text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-                return _clean_text(text)
-        except Exception as exc:
-            logger.warning(f"Gemini PDF OCR request exception: {exc}")
+    last_err = ""
+    for m in candidate_models:
+        for key in keys:
+            try:
+                response = _HTTPX_CLIENT.post(
+                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json={
+                        "contents": [
+                            {
+                                "parts": [
+                                    {"text": prompt},
+                                    {
+                                        "inlineData": {
+                                            "mimeType": "application/pdf",
+                                            "data": encoded_pdf,
+                                        }
+                                    },
+                                ]
+                            }
+                        ],
+                        "generationConfig": {"temperature": 0.1},
+                    },
+                )
+                if response.status_code == 200:
+                    candidates = response.json().get("candidates") or []
+                    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+                    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+                    cleaned = _clean_text(text)
+                    if cleaned:
+                        return cleaned
+                else:
+                    last_err = f"Model {m} HTTP {response.status_code}: {response.text[:200]}"
+                    logger.warning(f"Gemini PDF OCR {last_err}")
+            except Exception as exc:
+                last_err = str(exc)
+                logger.warning(f"Gemini PDF OCR request exception: {exc}")
 
-    raise HTTPException(status_code=502, detail="Gagal mengekstrak teks dari PDF scan/OCR.")
+    raise HTTPException(status_code=502, detail=f"Gagal mengekstrak teks dari PDF scan/OCR: {last_err}")
 
 
 def _extract_docx(content: bytes) -> str:
@@ -470,44 +478,52 @@ def _extract_image_with_gemini_ocr(content: bytes, mime_type: str = "image/png")
             keys = [_gemini_api_key()]
         except Exception:
             keys = []
-    model = _chat_model()
+    candidate_models = chat_fallback_chain()
     encoded_img = base64.b64encode(content).decode("ascii")
     prompt = (
         "Transkripsikan seluruh teks, tabel, spesifikasi produk, dan informasi penting "
         "yang ada di dalam gambar/foto ini untuk Knowledge Base RAG. "
         "Kembalikan hanya teks dokumen yang terbaca secara rapi tanpa membuat ringkasan opini atau menambah informasi."
     )
-    for key in keys:
-        try:
-            response = _HTTPX_CLIENT.post(
-                f"{GEMINI_API_BASE}/models/{model}:generateContent",
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json={
-                    "contents": [
-                        {
-                            "parts": [
-                                {"text": prompt},
-                                {
-                                    "inlineData": {
-                                        "mimeType": mime_type,
-                                        "data": encoded_img,
-                                    }
-                                },
-                            ]
-                        }
-                    ],
-                    "generationConfig": {"temperature": 0.1},
-                },
-            )
-            if response.status_code == 200:
-                candidates = response.json().get("candidates") or []
-                parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-                text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-                return _clean_text(text)
-        except Exception as exc:
-            logger.warning(f"Gemini Image OCR exception: {exc}")
+    last_err = ""
+    for m in candidate_models:
+        for key in keys:
+            try:
+                response = _HTTPX_CLIENT.post(
+                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json={
+                        "contents": [
+                            {
+                                "parts": [
+                                    {"text": prompt},
+                                    {
+                                        "inlineData": {
+                                            "mimeType": mime_type,
+                                            "data": encoded_img,
+                                        }
+                                    },
+                                ]
+                            }
+                        ],
+                        "generationConfig": {"temperature": 0.1},
+                    },
+                )
+                if response.status_code == 200:
+                    candidates = response.json().get("candidates") or []
+                    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+                    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+                    cleaned = _clean_text(text)
+                    if cleaned:
+                        return cleaned
+                else:
+                    last_err = f"Model {m} HTTP {response.status_code}: {response.text[:200]}"
+                    logger.warning(f"Gemini Image OCR {last_err}")
+            except Exception as exc:
+                last_err = str(exc)
+                logger.warning(f"Gemini Image OCR exception: {exc}")
 
-    raise HTTPException(status_code=502, detail="Gagal mengekstrak teks dari gambar.")
+    raise HTTPException(status_code=502, detail=f"Gagal mengekstrak teks dari gambar: {last_err}")
 
 
 def extract_document_text(content: bytes, filename: str, content_type: str | None) -> str:
