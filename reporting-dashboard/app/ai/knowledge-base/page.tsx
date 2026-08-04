@@ -512,18 +512,29 @@ export default function KnowledgeBasePage() {
 
         {/* ── HEADER ── */}
         <header className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-6 sm:p-8">
-          {/* Ambient glow orbs */}
-          <div className="pointer-events-none absolute -left-20 -top-20 size-72 rounded-full bg-sky-500/8 blur-3xl" />
-          <div className="pointer-events-none absolute -right-20 -bottom-20 size-80 rounded-full bg-indigo-500/8 blur-3xl" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-500/5 via-transparent to-indigo-500/5" />
+          {/* Google 4-Color Signature Top Accent Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#EA4335] via-[#FBBC05] to-[#34A853]" />
+
+          {/* Google Ambient glow orbs (Blue, Red, Yellow, Green) */}
+          <div className="pointer-events-none absolute -left-20 -top-20 size-72 rounded-full bg-[#4285F4]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#EA4335]/8 blur-3xl" />
+          <div className="pointer-events-none absolute -left-20 -bottom-20 size-72 rounded-full bg-[#FBBC05]/6 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -bottom-20 size-80 rounded-full bg-[#34A853]/8 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-emerald-500/5" />
 
           <div className="relative flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex items-center gap-2.5">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/25 to-indigo-500/20 ring-1 ring-sky-500/30 text-sky-400">
-                  <SparklesIcon size={17} />
+                <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 via-red-500/10 to-emerald-500/20 ring-1 ring-white/10 text-sky-400 shadow-inner">
+                  <SparklesIcon size={17} className="text-[#4285F4]" />
                 </span>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-sky-400">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-sky-400 flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-[#4285F4]" />
+                    <span className="size-1.5 rounded-full bg-[#EA4335]" />
+                    <span className="size-1.5 rounded-full bg-[#FBBC05]" />
+                    <span className="size-1.5 rounded-full bg-[#34A853]" />
+                  </span>
                   AI Workspace · Knowledge Engine
                 </p>
               </div>
@@ -531,7 +542,7 @@ export default function KnowledgeBasePage() {
                 AI Knowledge Base
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-(--c-muted)">
-                Upload SOP, FAQ, product guide, dan policy CS. PDF scan kecil akan diproses dengan <span className="text-sky-400 font-semibold">OCR Gemini RAG</span>.
+                Upload SOP, FAQ, product guide, dan policy CS. PDF scan kecil akan diproses dengan <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#34A853]">OCR Gemini RAG</span>.
               </p>
 
               {/* KPI Stat Chips */}
@@ -977,20 +988,23 @@ export default function KnowledgeBasePage() {
 
           {/* ── RIGHT PANEL: ASK AI ── */}
           <section className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-5 shadow-sm">
+            {/* Top Google accent bar */}
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#4285F4] via-[#EA4335] via-[#FBBC05] to-[#34A853]" />
+
             {/* Ambient glow */}
-            <div className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-sky-500/6 blur-3xl" />
-            <div className="pointer-events-none absolute -left-16 -bottom-16 size-60 rounded-full bg-indigo-500/5 blur-3xl" />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-500/4 via-transparent to-indigo-500/4 rounded-2xl" />
+            <div className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-[#4285F4]/6 blur-3xl" />
+            <div className="pointer-events-none absolute -left-16 -bottom-16 size-60 rounded-full bg-[#34A853]/5 blur-3xl" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/4 via-transparent to-emerald-500/4 rounded-2xl" />
 
             <div className="relative">
               {/* Panel header */}
               <div className="mb-5 flex items-center gap-3 border-b border-(--c-border) pb-4">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/25 to-indigo-500/20 ring-1 ring-sky-500/30">
-                  <BotIcon size={19} className="text-sky-400" />
+                <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 via-red-500/10 to-emerald-500/20 ring-1 ring-white/10 shadow-inner">
+                  <BotIcon size={19} className="text-[#4285F4]" />
                 </div>
                 <div>
                   <h2 className="text-base font-bold">Ask Knowledge Base</h2>
-                  <p className="text-[11px] text-(--c-muted)">Powered by <span className="text-sky-400 font-semibold">Gemini RAG</span> · Vector Similarity Search</p>
+                  <p className="text-[11px] text-(--c-muted)">Powered by <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#34A853]">Gemini RAG</span> · Vector Similarity Search</p>
                 </div>
                 <div className="ml-auto flex items-center gap-1.5">
                   <span className="flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/8 px-3 py-1.5 text-[11px] font-bold text-sky-400">
@@ -1020,7 +1034,7 @@ export default function KnowledgeBasePage() {
                   <button
                     type="submit"
                     disabled={asking || !question.trim() || readyDocuments.length === 0}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-6 text-sm font-bold text-white shadow-md shadow-sky-500/25 transition-all hover:opacity-90 hover:shadow-sky-500/35 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#4285F4] via-[#4285F4] to-[#34A853] px-6 text-sm font-bold text-white shadow-md shadow-blue-500/25 transition-all hover:opacity-90 hover:shadow-blue-500/35 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {asking ? <Loader2Icon size={16} className="animate-spin" /> : <SendIcon size={16} />}
                     Tanya AI
