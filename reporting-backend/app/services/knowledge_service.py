@@ -490,7 +490,7 @@ _KB_SYSTEM_INSTRUCTION = (
     "1. Tabel Markdown perbandingan fitur yang berbeda. "
     "2. Poin-poin persamaan fitur. "
     "3. Ringkasan kesimpulan singkat. "
-    "Untuk pertanyaan biasa, gunakan format list/bullet poin yang rapi. "
+    "Untuk pertanyaan spesifikasi produk atau informasi umum, sajikan poin spesifikasi secara terstruktur lalu AKHIRI DENGAN '📌 Ringkasan Keunggulan / Kesimpulan' singkat di bagian bawah. "
     "Jika konteks tidak cukup untuk menjawab, katakan dengan jelas bahwa knowledge base belum punya "
     "informasi yang cukup, jangan menebak atau mengarang."
 )
