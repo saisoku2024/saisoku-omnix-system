@@ -355,7 +355,12 @@ def _extract_pdf(content: bytes) -> str:
 
 
 def _extract_pdf_with_gemini_ocr(content: bytes) -> str:
-    key = _gemini_api_key()
+    keys = _get_gemini_keys()
+    if not keys:
+        try:
+            keys = [_gemini_api_key()]
+        except Exception:
+            keys = []
     model = _chat_model()
     encoded_pdf = base64.b64encode(content).decode("ascii")
     prompt = (
@@ -364,38 +369,37 @@ def _extract_pdf_with_gemini_ocr(content: bytes) -> str:
         "Kembalikan hanya teks dokumen yang terbaca, pertahankan heading, tabel sederhana, "
         "nomor langkah, dan FAQ jika ada. Jangan membuat ringkasan atau menambah informasi."
     )
-    response = requests.post(
-        f"{GEMINI_API_BASE}/models/{model}:generateContent",
-        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-        json={
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt},
+    for key in keys:
+        try:
+            response = _HTTPX_CLIENT.post(
+                f"{GEMINI_API_BASE}/models/{model}:generateContent",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json={
+                    "contents": [
                         {
-                            "inlineData": {
-                                "mimeType": "application/pdf",
-                                "data": encoded_pdf,
-                            }
-                        },
-                    ]
-                }
-            ],
-            # Temperature rendah: ini tugas transkripsi, bukan generasi kreatif.
-            # Kita mau model setia ke teks asli, bukan "mengarang" ejaan/angka.
-            "generationConfig": {"temperature": 0.1},
-        },
-        timeout=120,
-    )
-    if not response.ok:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Gemini PDF OCR request failed: {response.text[:300]}",
-        )
-    candidates = response.json().get("candidates") or []
-    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-    return _clean_text(text)
+                            "parts": [
+                                {"text": prompt},
+                                {
+                                    "inlineData": {
+                                        "mimeType": "application/pdf",
+                                        "data": encoded_pdf,
+                                    }
+                                },
+                            ]
+                        }
+                    ],
+                    "generationConfig": {"temperature": 0.1},
+                },
+            )
+            if response.status_code == 200:
+                candidates = response.json().get("candidates") or []
+                parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+                text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+                return _clean_text(text)
+        except Exception as exc:
+            logger.warning(f"Gemini PDF OCR request exception: {exc}")
+
+    raise HTTPException(status_code=502, detail="Gagal mengekstrak teks dari PDF scan/OCR.")
 
 
 def _extract_docx(content: bytes) -> str:
@@ -456,6 +460,53 @@ def _extract_pptx(content: bytes) -> str:
     return "\n\n".join(slide_texts)
 
 
+def _extract_image_with_gemini_ocr(content: bytes, mime_type: str = "image/png") -> str:
+    keys = _get_gemini_keys()
+    if not keys:
+        try:
+            keys = [_gemini_api_key()]
+        except Exception:
+            keys = []
+    model = _chat_model()
+    encoded_img = base64.b64encode(content).decode("ascii")
+    prompt = (
+        "Transkripsikan seluruh teks, tabel, spesifikasi produk, dan informasi penting "
+        "yang ada di dalam gambar/foto ini untuk Knowledge Base RAG. "
+        "Kembalikan hanya teks dokumen yang terbaca secara rapi tanpa membuat ringkasan opini atau menambah informasi."
+    )
+    for key in keys:
+        try:
+            response = _HTTPX_CLIENT.post(
+                f"{GEMINI_API_BASE}/models/{model}:generateContent",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json={
+                    "contents": [
+                        {
+                            "parts": [
+                                {"text": prompt},
+                                {
+                                    "inlineData": {
+                                        "mimeType": mime_type,
+                                        "data": encoded_img,
+                                    }
+                                },
+                            ]
+                        }
+                    ],
+                    "generationConfig": {"temperature": 0.1},
+                },
+            )
+            if response.status_code == 200:
+                candidates = response.json().get("candidates") or []
+                parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
+                text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+                return _clean_text(text)
+        except Exception as exc:
+            logger.warning(f"Gemini Image OCR exception: {exc}")
+
+    raise HTTPException(status_code=502, detail="Gagal mengekstrak teks dari gambar.")
+
+
 def extract_document_text(content: bytes, filename: str, content_type: str | None) -> str:
     lower_name = filename.lower()
     if lower_name.endswith(".pdf") or content_type == "application/pdf":
@@ -469,6 +520,9 @@ def extract_document_text(content: bytes, filename: str, content_type: str | Non
         return _clean_text(_extract_pptx(content))
     if lower_name.endswith((".xlsx", ".xls", ".csv")):
         return _clean_text(_extract_spreadsheet(content, filename))
+    if lower_name.endswith((".jpg", ".jpeg", ".png", ".webp")) or (content_type and content_type.startswith("image/")):
+        mtype = content_type if (content_type and "/" in content_type) else ("image/png" if lower_name.endswith(".png") else "image/jpeg")
+        return _extract_image_with_gemini_ocr(content, mime_type=mtype)
     try:
         return _clean_text(content.decode("utf-8"))
     except UnicodeDecodeError:
