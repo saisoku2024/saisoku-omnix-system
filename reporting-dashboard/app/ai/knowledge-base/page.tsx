@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import {
   AlertTriangleIcon,
@@ -196,6 +196,7 @@ export default function KnowledgeBasePage() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [exportingBackup, setExportingBackup] = useState(false)
   const [restoringBackup, setRestoringBackup] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
   const readyDocuments = useMemo(
@@ -357,6 +358,8 @@ export default function KnowledgeBasePage() {
       setTitle("")
       setFiles([])
       setUploadProgress(0)
+      // Reset native file input DOM element so picker visually clears
+      if (fileInputRef.current) fileInputRef.current.value = ""
       await loadDocuments()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal upload batch knowledge document")
@@ -618,6 +621,7 @@ export default function KnowledgeBasePage() {
                           setError(null)
                         }
                       }}
+                      ref={fileInputRef}
                       accept=".txt,.md,.csv,.xlsx,.xls,.pdf,.docx,.pptx,.ppt,.jpg,.jpeg,.png,.webp"
                       className="mt-1 block w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs text-(--c-text) disabled:opacity-50"
                     />
