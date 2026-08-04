@@ -33,6 +33,8 @@ reporting-backend/supabase/.temp/
 reporting-backend/backfill_backups/
 contoh data/
 knowledge_text_exports/
+files.zip
+*.xlsx
 
 # Debug logs
 npm-debug.log*

@@ -3,12 +3,12 @@ import logging
 import requests
 from typing import Dict, Any, List
 from app.core.supabase import supabase
+from app.core.gemini_config import chat_fallback_chain
 from app.services.chat_service import get_chat_brand_records
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
 
 def _get_gemini_api_keys() -> List[str]:
     keys_str = os.environ.get("GEMINI_API_KEYS", "") or os.environ.get("GEMINI_API_KEY", "")
@@ -83,17 +83,21 @@ def generate_brand_ai_insight(brand_name: str, user_query: str = "") -> Dict[str
             f"Tiket {case.get('id')} | Channel: {case.get('channel')} | MainCat: {case.get('main_category')} | Cat: {case.get('category')}"
         )
 
-    prompt = f"""
-Anda adalah Senior QA Audit & CS Intelligence Evaluator untuk brand {brand_name}.
-Tugas Anda: Menganalisis data percakapan chat asli & tiket sistem untuk mengidentifikasi gap/discrepancy antara keluhan asli customer vs kategori yang diinput CS Agent.
+    system_instruction = (
+        f"Anda adalah Senior QA Audit & CS Intelligence Evaluator untuk brand {brand_name}. "
+        "Tugas Anda: menganalisis data percakapan chat asli & tiket sistem untuk mengidentifikasi "
+        "gap/discrepancy antara keluhan asli customer vs kategori yang diinput CS Agent. "
+        "Jawab dalam Bahasa Indonesia, berbasis data yang diberikan, jangan mengarang angka atau "
+        "fakta yang tidak ada di data. Ikuti format laporan yang diminta di prompt user."
+    )
 
-DATA SAMPLES REKAM CHAT ({len(session_summaries)} sesi):
+    prompt = f"""DATA SAMPLES REKAM CHAT ({len(session_summaries)} sesi):
 {chr(10).join(session_summaries)}
 
 DATA SAMPLES TIKET OMNIX ({len(omnix_summaries)} tiket):
 {chr(10).join(omnix_summaries)}
 
-PERTANYAAN/FOKUS PENGUSER: {user_query or "Berikan audit komprehensif kendala produk, kepatuhan agent, dan evaluasi service partner."}
+PERTANYAAN/FOKUS PENGGUNA: {user_query or "Berikan audit komprehensif kendala produk, kepatuhan agent, dan evaluasi service partner."}
 
 Format Laporan:
 ## 1. Ringkasan Keluhan Utama Customer ({brand_name})
@@ -101,16 +105,7 @@ Format Laporan:
 ## 3. Rekomendasi Perbaikan Operasional
 """
 
-    candidate_models = [
-        os.environ.get("GEMINI_MODEL"),
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-    ]
-    seen = set()
-    candidate_models = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
-
+    candidate_models = chat_fallback_chain()
 
     response = None
     model_errors = []
@@ -121,7 +116,12 @@ Format Laporan:
                 res = requests.post(
                     f"{GEMINI_API_BASE}/models/{m}:generateContent",
                     headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={"contents": [{"parts": [{"text": prompt}]}]},
+                    json={
+                        "systemInstruction": {"parts": [{"text": system_instruction}]},
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        # Temperature moderat: perlu narasi yang mengalir tapi tetap presisi ke data.
+                        "generationConfig": {"temperature": 0.35, "maxOutputTokens": 4096},
+                    },
                     timeout=60,
                 )
                 if res.ok:

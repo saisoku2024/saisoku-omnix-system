@@ -17,16 +17,18 @@ from urllib3.util import connection
 from fastapi import HTTPException, UploadFile, status
 
 from app.core.supabase import supabase
+from app.core.gemini_config import (
+    resolve_chat_model,
+    resolve_embedding_model,
+    chat_fallback_chain,
+    EMBEDDING_DIMENSION,
+)
 from app.services.audit_log_service import AuditLogService
 from app.services.storage_upload_service import MAX_STORAGE_UPLOAD_SIZE_BYTES
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
-DEFAULT_EMBEDDING_MODEL = "text-embedding-004"
-LEGACY_GEMINI_MODELS = {"gemini-2.5-flash", "gemini-3.5-flash"}
-EMBEDDING_DIMENSION = 768
 MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
@@ -81,12 +83,11 @@ def _gemini_api_key() -> str:
 
 
 def _embedding_model() -> str:
-    return os.getenv("GEMINI_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL).strip()
+    return resolve_embedding_model()
 
 
 def _chat_model() -> str:
-    model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip()
-    return DEFAULT_GEMINI_MODEL if model in LEGACY_GEMINI_MODELS else model
+    return resolve_chat_model()
 
 
 def _clean_text(value: str) -> str:
@@ -306,7 +307,10 @@ def _extract_pdf_with_gemini_ocr(content: bytes) -> str:
                         },
                     ]
                 }
-            ]
+            ],
+            # Temperature rendah: ini tugas transkripsi, bukan generasi kreatif.
+            # Kita mau model setia ke teks asli, bukan "mengarang" ejaan/angka.
+            "generationConfig": {"temperature": 0.1},
         },
         timeout=120,
     )
@@ -412,7 +416,9 @@ def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) 
 def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[float]]:
     if not texts:
         return []
-    key = _gemini_api_key()
+    keys = _get_gemini_keys()
+    if not keys:
+        keys = [_gemini_api_key()]
     model = _embedding_model()
     model_name = model if model.startswith("models/") else f"models/{model}"
     
@@ -432,16 +438,27 @@ def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[flo
             })
             
         payload = {"requests": requests_payload}
-        response = requests.post(
-            f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
-            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-            json=payload,
-            timeout=60,
-        )
-        if not response.ok:
+        response = None
+        last_error = ""
+        # Rotasi API key: satu key kena rate limit (429) jangan bikin seluruh ingest gagal.
+        for key in keys:
+            response = requests.post(
+                f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=payload,
+                timeout=60,
+            )
+            if response.ok:
+                break
+            last_error = response.text[:300]
+            if response.status_code == 429:
+                logger.warning("Gemini batch embedding key rate limited (429). Trying next key...")
+                continue
+            break  # non-429 error, no point retrying other keys with same bad payload
+        if not response or not response.ok:
             raise HTTPException(
                 status_code=502,
-                detail=f"Gemini batch embedding request failed: {response.text[:300]}",
+                detail=f"Gemini batch embedding request failed: {last_error}",
             )
         
         embeddings_data = response.json().get("embeddings") or []
@@ -464,17 +481,21 @@ def _vector_literal(values: List[float]) -> str:
     return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
 
 
+_KB_SYSTEM_INSTRUCTION = (
+    "Anda adalah AI Knowledge Base untuk SAISOKU OMNIX. "
+    "Jawab dalam Bahasa Indonesia yang ringkas, praktis, dan HANYA berdasarkan konteks yang diberikan. "
+    "Jangan menambahkan informasi di luar konteks. "
+    "Jika konteks tidak cukup untuk menjawab, katakan dengan jelas bahwa knowledge base belum punya "
+    "informasi yang cukup, jangan menebak atau mengarang."
+)
+
+
 def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
     context = "\n\n".join(
         f"[Source {idx + 1}: {source['title']}]\n{source['content']}"
         for idx, source in enumerate(sources)
     )
-    prompt = (
-        "Anda adalah AI Knowledge Base untuk SAISOKU OMNIX. "
-        "Jawab dalam Bahasa Indonesia yang ringkas, praktis, dan hanya berdasarkan konteks. "
-        "Jika konteks tidak cukup, katakan bahwa knowledge base belum punya informasi yang cukup.\n\n"
-        f"KONTEKS:\n{context}\n\nPERTANYAAN:\n{question}"
-    )
+    prompt = f"KONTEKS:\n{context}\n\nPERTANYAAN:\n{question}"
 
     # Try Gemini API Keys
     keys = _get_gemini_keys()
@@ -483,20 +504,20 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
             keys = [_gemini_api_key()]
         except Exception:
             keys = []
-    primary_model = _chat_model()
-    candidate_models = [primary_model, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
-    seen_models = set()
+    candidate_models = chat_fallback_chain()
 
     for m in candidate_models:
-        if m in seen_models:
-            continue
-        seen_models.add(m)
         for key in keys:
             try:
                 response = requests.post(
                     f"{GEMINI_API_BASE}/models/{m}:generateContent",
                     headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={"contents": [{"parts": [{"text": prompt}]}]},
+                    json={
+                        "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        # Temperature rendah: jawaban RAG harus setia ke sumber, bukan kreatif.
+                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
+                    },
                     timeout=30,
                 )
                 if response.ok:
@@ -845,22 +866,63 @@ class KnowledgeService:
 
         # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
-            stop_words = {"apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu", "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai", "sisi", "dokumen", "perbedaan"}
+            stop_words = {
+                "apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu",
+                "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai",
+                "sisi", "dokumen", "perbedaan",
+                # Bentuk kolokial yang tadinya lolos filter dan bikin pencarian jadi generik
+                "beda", "bedanya", "vs", "versus", "sama", "kayak", "gimana", "kenapa", "gak", "nggak",
+                "antara", "dibanding", "dibandingkan", "lebih",
+            }
             words = [re.sub(r"[^\w\.]", "", w).strip() for w in cleaned_question.split()]
-            keywords = [w for w in words if len(w) >= 3 and w.lower() not in stop_words]
+
+            def _is_meaningful_keyword(w: str) -> bool:
+                if not w or w.lower() in stop_words:
+                    return False
+                if len(w) >= 3:
+                    return True
+                # Kode produk pendek (mis. "Y1", "S9") jangan dibuang cuma karena pendek —
+                # justru ini biasanya istilah paling spesifik di pertanyaan.
+                return len(w) == 2 and any(c.isdigit() for c in w)
+
+            raw_keywords = [w for w in words if _is_meaningful_keyword(w)]
+            # Dedupe sambil pertahankan urutan
+            seen_kw: set = set()
+            keywords = []
+            for w in raw_keywords:
+                lw = w.lower()
+                if lw not in seen_kw:
+                    seen_kw.add(lw)
+                    keywords.append(w)
+            # Prioritaskan istilah spesifik (mengandung angka, mis. kode produk) di depan,
+            # supaya AND-filter dan fallback tidak jatuh ke kata paling umum di kalimat.
+            keywords.sort(key=lambda w: (not any(c.isdigit() for c in w), len(w)))
 
             if keywords:
                 existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
+
+                # Tier 1: AND semua top-3 keyword — presisi tinggi buat pertanyaan satu topik
                 query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
-                
-                # Combine up to top 3 keywords into AND filters for exact topic matching
                 for kw in keywords[:3]:
                     query_builder = query_builder.ilike("content", f"%{kw}%")
-
                 kw_res = query_builder.limit(match_count).execute()
                 kw_chunks = kw_res.data or []
 
-                # Fallback to single keyword if combined AND query returned no results
+                # Tier 2: OR top keyword-keyword spesifik — buat pertanyaan perbandingan
+                # ("Y1 vs Y1 Pro") di mana tiap istilah ada di chunk/dokumen berbeda,
+                # bukan nyampur di satu chunk yang sama.
+                if not kw_chunks and len(keywords) > 1:
+                    or_filter = ",".join(f"content.ilike.%{kw}%" for kw in keywords[:4])
+                    kw_res = (
+                        supabase.table("knowledge_chunks")
+                        .select("id, document_id, title, content, chunk_index")
+                        .or_(or_filter)
+                        .limit(match_count * 2)
+                        .execute()
+                    )
+                    kw_chunks = kw_res.data or []
+
+                # Tier 3: fallback ke keyword TERSPESIFIK (bukan kata pertama di kalimat)
                 if not kw_chunks:
                     query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
                     kw_res = query_builder.ilike("content", f"%{keywords[0]}%").limit(match_count).execute()
