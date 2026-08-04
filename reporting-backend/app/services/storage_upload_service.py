@@ -128,8 +128,23 @@ def ensure_storage_bucket(kind: str) -> None:
         json=payload,
         timeout=20,
     )
-    if create_response.ok or create_response.status_code in {400, 409}:
+    if create_response.ok:
         return
+
+    # Jika bucket sudah ada (HTTP 400/409), lakukan PUT untuk memperbarui allowed_mime_types & file_size_limit!
+    if create_response.status_code in {400, 409}:
+        update_response = requests.put(
+            f"{_supabase_url()}/storage/v1/bucket/{bucket}",
+            headers={**_headers(), "Content-Type": "application/json"},
+            json={
+                "public": False,
+                "file_size_limit": MAX_STORAGE_UPLOAD_SIZE_BYTES,
+                "allowed_mime_types": ALLOWED_MIME_TYPES[kind],
+            },
+            timeout=20,
+        )
+        if update_response.ok or update_response.status_code in {400, 409}:
+            return
 
     raise HTTPException(
         status_code=502,
