@@ -1,5 +1,6 @@
 from typing import List
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.core.security import require_admin_token
@@ -199,3 +200,21 @@ def add_web_knowledge_url(
 @router.post("/query")
 def query_knowledge(payload: KnowledgeQueryRequest):
     return KnowledgeService.query(payload.question, payload.match_count)
+
+
+@router.get("/backup/export")
+def export_knowledge_backup():
+    from app.services.knowledge_backup_service import KnowledgeBackupService
+    zip_bytes, filename = KnowledgeBackupService.export_backup()
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.post("/backup/restore")
+async def restore_knowledge_backup(file: UploadFile = File(...)):
+    from app.services.knowledge_backup_service import KnowledgeBackupService
+    content = await file.read()
+    return KnowledgeBackupService.restore_backup(content)
