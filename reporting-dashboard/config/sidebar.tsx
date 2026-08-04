@@ -7,6 +7,7 @@ import {
   FileSpreadsheetIcon,
   PieChartIcon,
   ShieldCheckIcon,
+  SparklesIcon,
   TerminalSquareIcon,
   Trash2Icon,
   UploadIcon,
@@ -72,9 +73,14 @@ export const sidebarMenu: SidebarMenuItem[] = [
   },
   {
     title: "AI Workspace",
-    url: "#",
+    url: "/ai/workspace",
     icon: <BotIcon />,
     items: [
+      {
+        title: "Workspace Hub",
+        url: "/ai/workspace",
+        icon: <SparklesIcon />,
+      },
       {
         title: "Knowledge Base",
         url: "/ai/knowledge-base",

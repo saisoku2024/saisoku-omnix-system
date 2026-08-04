@@ -173,8 +173,34 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+function isValidWebUrl(urlStr: string): { valid: boolean; error?: string } {
+  if (!/^https?:\/\/.+/i.test(urlStr)) {
+    return { valid: false, error: "URL web harus diawali http:// atau https://" }
+  }
+  try {
+    const parsed = new URL(urlStr)
+    const hostname = parsed.hostname.toLowerCase()
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname === "0.0.0.0" ||
+      hostname.startsWith("169.254.") ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname)
+    ) {
+      return { valid: false, error: "URL internal/private network (localhost/IP private) tidak diizinkan untuk keamanan." }
+    }
+    return { valid: true }
+  } catch {
+    return { valid: false, error: "Format URL tidak valid." }
+  }
+}
+
 export default function KnowledgeBasePage() {
   const [sessionRole, setSessionRole] = useState<SessionRole>(null)
+  const [loadingSession, setLoadingSession] = useState(true)
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
   const [inconsistencies, setInconsistencies] = useState<KnowledgeInconsistency[]>([])
   const [loadingDocuments, setLoadingDocuments] = useState(true)
@@ -314,7 +340,10 @@ export default function KnowledgeBasePage() {
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : "Gagal memuat dokumen knowledge base")
       } finally {
-        if (active) setLoadingDocuments(false)
+        if (active) {
+          setLoadingDocuments(false)
+          setLoadingSession(false)
+        }
       }
     }
     void loadInitialData()
@@ -323,7 +352,16 @@ export default function KnowledgeBasePage() {
 
   useEffect(() => {
     if (processingDocuments.length === 0) return
-    const pollId = window.setInterval(() => { void loadDocuments({ silent: true }) }, 15000)
+    let pollCount = 0
+    const MAX_POLL_RETRIES = 20 // Maksimal 20x polling (5 menit)
+    const pollId = window.setInterval(() => {
+      pollCount++
+      if (pollCount > MAX_POLL_RETRIES) {
+        window.clearInterval(pollId)
+        return
+      }
+      void loadDocuments({ silent: true })
+    }, 15000)
     return () => window.clearInterval(pollId)
   }, [processingDocuments.length])
 
@@ -402,7 +440,12 @@ export default function KnowledgeBasePage() {
     if (!isAdmin) return
     const cleanTitle = webTitle.trim()
     const cleanUrl = webUrl.trim()
-    if (!/^https?:\/\/.+/i.test(cleanUrl)) { setError("URL web harus diawali http:// atau https://."); setSuccess(null); return }
+    const urlValidation = isValidWebUrl(cleanUrl)
+    if (!urlValidation.valid) {
+      setError(urlValidation.error || "URL web tidak valid.")
+      setSuccess(null)
+      return
+    }
     setAddingUrl(true)
     setError(null)
     setSuccess(null)
@@ -528,8 +571,14 @@ export default function KnowledgeBasePage() {
                 </label>
               )}
 
-              <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${isAdmin ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-(--c-border) bg-(--c-overlay) text-(--c-muted)"}`}>
-                {isAdmin ? "⚡ Admin Mode" : "Guest: Read-only"}
+              <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${loadingSession ? "border-(--c-border) bg-(--c-overlay) text-(--c-muted)" : isAdmin ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-(--c-border) bg-(--c-overlay) text-(--c-muted)"}`}>
+                {loadingSession ? (
+                  <span className="flex items-center gap-1.5"><Loader2Icon size={12} className="animate-spin" /> Memeriksa Akses...</span>
+                ) : isAdmin ? (
+                  "⚡ Admin Mode"
+                ) : (
+                  "Guest: Read-only"
+                )}
               </div>
             </div>
           </div>
