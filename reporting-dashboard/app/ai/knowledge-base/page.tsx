@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useState } from "react"
 import {
   AlertTriangleIcon,
+  ArchiveIcon,
   BotIcon,
   BookOpenIcon,
+  DownloadIcon,
   FileTextIcon,
   LinkIcon,
   Loader2Icon,
+  RefreshCwIcon,
   SearchIcon,
   SendIcon,
   TypeIcon,
@@ -63,6 +66,8 @@ const STORAGE_INGEST_API = "/api/backend/knowledge/storage-ingest"
 const TEXT_API = "/api/backend/knowledge/text"
 const URL_API = "/api/backend/knowledge/url"
 const QUERY_API = "/api/backend/knowledge/query"
+const BACKUP_EXPORT_API = "/api/backend/knowledge/backup/export"
+const BACKUP_RESTORE_API = "/api/backend/knowledge/backup/restore"
 const MAX_UPLOAD_FILE_SIZE_BYTES = 50 * 1024 * 1024
 
 function formatFileSize(bytes: number) {
@@ -118,6 +123,8 @@ export default function KnowledgeBasePage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [inputMode, setInputMode] = useState<KnowledgeInputMode>("file")
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [exportingBackup, setExportingBackup] = useState(false)
+  const [restoringBackup, setRestoringBackup] = useState(false)
 
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
   const readyDocuments = useMemo(
@@ -128,6 +135,69 @@ export default function KnowledgeBasePage() {
     () => documents.filter((document) => document.status === "processing"),
     [documents]
   )
+
+  const handleExportBackup = async () => {
+    setExportingBackup(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const response = await fetch(BACKUP_EXPORT_API, { cache: "no-store" })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(readError(data, "Gagal mengunduh backup knowledge base"))
+      }
+      const blob = await response.blob()
+      const contentDisposition = response.headers.get("Content-Disposition")
+      let filename = `knowledge_backup_${new Date().toISOString().replace(/[:.]/g, "-")}.zip`
+      if (contentDisposition && contentDisposition.includes("filename=")) {
+        filename = contentDisposition.split("filename=")[1].replace(/"/g, "").trim()
+      }
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      setSuccess(`Backup berhasil diunduh: ${filename}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengunduh backup")
+    } finally {
+      setExportingBackup(false)
+    }
+  }
+
+  const handleRestoreBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0]
+    if (!selectedFile || !isAdmin) return
+
+    setRestoringBackup(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const formData = new FormData()
+      formData.append("file", selectedFile)
+
+      const response = await fetch(BACKUP_RESTORE_API, {
+        method: "POST",
+        body: formData,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(readError(data, "Gagal memulihkan backup knowledge base"))
+      }
+      setSuccess(
+        `Backup berhasil dipulihkan! (${data.restored_documents || 0} dokumen & ${data.restored_chunks || 0} chunk restored)`
+      )
+      await loadDocuments()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memulihkan backup knowledge base")
+    } finally {
+      setRestoringBackup(false)
+      event.target.value = ""
+    }
+  }
 
   const loadDocuments = async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
@@ -384,8 +454,35 @@ export default function KnowledgeBasePage() {
               Upload SOP, FAQ, product guide, dan policy CS untuk dipakai sebagai sumber jawaban RAG. PDF scan kecil akan dibaca dengan OCR Gemini.
             </p>
           </div>
-          <div className="rounded-xl border border-(--c-border) bg-(--c-surface) px-4 py-3 text-xs text-(--c-muted)">
-            {isAdmin ? "Admin mode: upload dan query aktif" : "Guest mode: query read-only"}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportBackup}
+              disabled={exportingBackup}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-(--c-border) bg-(--c-surface) px-3 text-xs font-semibold text-(--c-text) transition hover:border-(--c-accent) hover:text-(--c-accent) disabled:opacity-50"
+              title="Download backup lengkap Knowledge Base ke komputer (.zip)"
+            >
+              {exportingBackup ? <Loader2Icon size={14} className="animate-spin" /> : <ArchiveIcon size={14} className="text-(--c-accent)" />}
+              <span>Export Backup (.zip)</span>
+            </button>
+
+            {isAdmin && (
+              <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-xl border border-(--c-border) bg-(--c-surface) px-3 text-xs font-semibold text-(--c-text) transition hover:border-(--c-accent) hover:text-(--c-accent)">
+                {restoringBackup ? <Loader2Icon size={14} className="animate-spin" /> : <RefreshCwIcon size={14} className="text-emerald-400" />}
+                <span>Restore Backup</span>
+                <input
+                  type="file"
+                  accept=".zip"
+                  disabled={restoringBackup}
+                  onChange={handleRestoreBackup}
+                  className="hidden"
+                />
+              </label>
+            )}
+
+            <div className="rounded-xl border border-(--c-border) bg-(--c-surface) px-3 py-2 text-xs text-(--c-muted)">
+              {isAdmin ? "Admin mode: upload & backup aktif" : "Guest mode: read-only"}
+            </div>
           </div>
         </header>
 
