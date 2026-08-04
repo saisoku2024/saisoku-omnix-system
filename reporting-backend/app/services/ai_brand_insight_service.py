@@ -9,6 +9,7 @@ from app.services.chat_service import get_chat_brand_records
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+_HTTP_SESSION = requests.Session()
 
 def _get_gemini_api_keys() -> List[str]:
     keys_str = os.environ.get("GEMINI_API_KEYS", "") or os.environ.get("GEMINI_API_KEY", "")
@@ -113,7 +114,7 @@ Format Laporan:
     for key in api_keys:
         for m in candidate_models:
             try:
-                res = requests.post(
+                res = _HTTP_SESSION.post(
                     f"{GEMINI_API_BASE}/models/{m}:generateContent",
                     headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                     json={

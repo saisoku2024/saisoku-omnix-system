@@ -29,6 +29,7 @@ from app.services.storage_upload_service import MAX_STORAGE_UPLOAD_SIZE_BYTES
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+_HTTP_SESSION = requests.Session()
 MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
@@ -391,7 +392,7 @@ def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) 
 
     for key in keys:
         try:
-            response = requests.post(
+            response = _HTTP_SESSION.post(
                 f"{GEMINI_API_BASE}/models/{model}:embedContent",
                 headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                 json=payload,
@@ -442,7 +443,7 @@ def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[flo
         last_error = ""
         # Rotasi API key: satu key kena rate limit (429) jangan bikin seluruh ingest gagal.
         for key in keys:
-            response = requests.post(
+            response = _HTTP_SESSION.post(
                 f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
                 headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                 json=payload,
@@ -509,7 +510,7 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
     for m in candidate_models:
         for key in keys:
             try:
-                response = requests.post(
+                response = _HTTP_SESSION.post(
                     f"{GEMINI_API_BASE}/models/{m}:generateContent",
                     headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                     json={
