@@ -18,7 +18,10 @@ UPLOAD_BUCKETS = {
 }
 
 ALLOWED_EXTENSIONS = {
-    "knowledge": {".pdf", ".txt", ".md", ".docx", ".xlsx", ".xls", ".csv"},
+    "knowledge": {
+        ".pdf", ".txt", ".md", ".docx", ".xlsx", ".xls", ".csv",
+        ".pptx", ".ppt", ".jpg", ".jpeg", ".png", ".webp",
+    },
     "data": {".xlsx", ".xls", ".csv"},
 }
 
@@ -32,13 +35,18 @@ ALLOWED_MIME_TYPES = {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel",
         "text/csv",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.ms-powerpoint",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
     ],
     "data": [
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel",
         "application/octet-stream",
         "text/csv",
-    ],
+        ],
 }
 
 

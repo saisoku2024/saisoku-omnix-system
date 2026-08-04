@@ -28,7 +28,10 @@ from app.core.gemini_config import (
     EMBEDDING_DIMENSION,
 )
 from app.services.audit_log_service import AuditLogService
-from app.services.storage_upload_service import MAX_STORAGE_UPLOAD_SIZE_BYTES
+from app.services.storage_upload_service import (
+    MAX_STORAGE_UPLOAD_SIZE_BYTES,
+    validate_storage_upload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -748,8 +751,7 @@ class KnowledgeService:
     @staticmethod
     async def prepare_upload(file: UploadFile, title: str | None, user_email: str = "admin@omnix.com") -> Dict[str, Any]:
         content = await file.read()
-        if len(content) > MAX_KB_FILE_SIZE_BYTES:
-            raise HTTPException(status_code=413, detail="Ukuran dokumen knowledge base maksimal 10MB.")
+        validate_storage_upload("knowledge", file.filename or "", len(content))
 
         document_title = (title or file.filename or "Untitled Knowledge Document").strip()
         doc_res = (
