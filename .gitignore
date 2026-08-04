@@ -30,6 +30,9 @@ backend.txt
 folder.txt
 *.tsbuildinfo
 reporting-backend/supabase/.temp/
+reporting-backend/backfill_backups/
+contoh data/
+knowledge_text_exports/
 
 # Debug logs
 npm-debug.log*

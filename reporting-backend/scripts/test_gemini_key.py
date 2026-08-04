@@ -22,8 +22,10 @@ try:
 except Exception as e:
     print(f"List Models Exception: {e}")
 
-# 2. Test generateContent with gemini-2.0-flash
-chat_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+# 2. Test generateContent with configured GEMINI_MODEL
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+print(f"\nTesting generateContent with model: {MODEL_NAME}...")
+chat_url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent"
 try:
     resp = requests.post(
         chat_url,
