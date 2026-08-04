@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import {
+  AlertTriangleIcon,
   BotIcon,
   BookOpenIcon,
   FileTextIcon,
@@ -29,6 +30,19 @@ interface KnowledgeDocument {
   created_at: string
 }
 
+interface KnowledgeInconsistency {
+  id: string
+  entity_name: string
+  attribute_name: string
+  conflict_type: string
+  doc_a_title: string
+  value_a: string
+  doc_b_title: string
+  value_b: string
+  status: "unresolved" | "resolved" | "ignored"
+  created_at: string
+}
+
 interface KnowledgeSource {
   chunk_id: string
   document_id: string
@@ -44,6 +58,7 @@ interface KnowledgeAnswer {
 }
 
 const DOCUMENT_API = "/api/backend/knowledge/documents"
+const INCONSISTENCY_API = "/api/backend/knowledge/inconsistencies"
 const STORAGE_INGEST_API = "/api/backend/knowledge/storage-ingest"
 const TEXT_API = "/api/backend/knowledge/text"
 const URL_API = "/api/backend/knowledge/url"
@@ -85,6 +100,7 @@ function readError(payload: unknown, fallback: string) {
 export default function KnowledgeBasePage() {
   const [sessionRole, setSessionRole] = useState<SessionRole>(null)
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
+  const [inconsistencies, setInconsistencies] = useState<KnowledgeInconsistency[]>([])
   const [loadingDocuments, setLoadingDocuments] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [addingText, setAddingText] = useState(false)
@@ -119,12 +135,20 @@ export default function KnowledgeBasePage() {
     }
     setError(null)
     try {
-      const response = await fetch(DOCUMENT_API, { cache: "no-store" })
+      const [response, incResponse] = await Promise.all([
+        fetch(DOCUMENT_API, { cache: "no-store" }),
+        fetch(`${INCONSISTENCY_API}?limit=5`, { cache: "no-store" }),
+      ])
       const data = await response.json().catch(() => ({}))
+      const incData = await incResponse.json().catch(() => ({}))
+
       if (!response.ok) {
         throw new Error(readError(data, "Gagal memuat dokumen knowledge base"))
       }
       setDocuments(Array.isArray(data.documents) ? data.documents : [])
+      if (Array.isArray(incData.inconsistencies)) {
+        setInconsistencies(incData.inconsistencies)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat dokumen knowledge base")
     } finally {
@@ -139,12 +163,14 @@ export default function KnowledgeBasePage() {
 
     async function loadInitialData() {
       try {
-        const [sessionResponse, documentsResponse] = await Promise.all([
+        const [sessionResponse, documentsResponse, incResponse] = await Promise.all([
           fetch("/api/auth/session", { cache: "no-store" }),
           fetch(DOCUMENT_API, { cache: "no-store" }),
+          fetch(`${INCONSISTENCY_API}?limit=5`, { cache: "no-store" }),
         ])
         const sessionData = (await sessionResponse.json().catch(() => ({}))) as { role?: SessionRole }
         const documentsData = await documentsResponse.json().catch(() => ({}))
+        const incData = await incResponse.json().catch(() => ({}))
 
         if (!documentsResponse.ok) {
           throw new Error(readError(documentsData, "Gagal memuat dokumen knowledge base"))
@@ -153,6 +179,9 @@ export default function KnowledgeBasePage() {
         if (active) {
           setSessionRole(sessionData.role ?? null)
           setDocuments(Array.isArray(documentsData.documents) ? documentsData.documents : [])
+          if (Array.isArray(incData.inconsistencies)) {
+            setInconsistencies(incData.inconsistencies)
+          }
         }
       } catch (err) {
         if (active) {
@@ -541,7 +570,7 @@ export default function KnowledgeBasePage() {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <BookOpenIcon size={16} className="text-(--c-accent)" />
-                  <h2 className="text-base font-bold">Documents</h2>
+                  <h2 className="text-base font-bold">5 Dokumen Terbaru</h2>
                 </div>
                 <span className="text-xs text-(--c-muted)">
                   {readyDocuments.length} ready
@@ -559,7 +588,7 @@ export default function KnowledgeBasePage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {documents.map((document) => (
+                  {documents.slice(0, 5).map((document) => (
                     <div key={document.id} className="rounded-xl border border-(--c-border) bg-(--c-overlay) p-3">
                       <div className="flex items-start gap-2">
                         <FileTextIcon size={15} className="mt-0.5 shrink-0 text-(--c-accent)" />
@@ -571,6 +600,53 @@ export default function KnowledgeBasePage() {
                           {document.error_summary && (
                             <p className="mt-1 text-[11px] text-red-400">{document.error_summary}</p>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Card Temuan Inconsistency (5 Terbaru) */}
+            <section className="rounded-2xl border border-amber-500/20 bg-(--c-surface) p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangleIcon size={16} className="text-amber-400" />
+                  <h2 className="text-base font-bold text-amber-400">Temuan Inconsistency (5 Terbaru)</h2>
+                </div>
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-bold text-amber-400 border border-amber-500/20">
+                  {inconsistencies.length} Temuan
+                </span>
+              </div>
+              {inconsistencies.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-(--c-border) p-5 text-center text-xs text-(--c-muted)">
+                  ✅ Tidak ada ketidak-konsistenan data yang terdeteksi di Knowledge Base.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {inconsistencies.slice(0, 5).map((inc) => (
+                    <div key={inc.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-(--c-text)">
+                          {inc.entity_name} — <span className="text-amber-400">{inc.attribute_name}</span>
+                        </span>
+                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          inc.status === "resolved" 
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-amber-500/20 text-amber-400"
+                        }`}>
+                          {inc.status}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="rounded-lg border border-(--c-border) bg-(--c-overlay) p-2">
+                          <p className="font-semibold text-(--c-muted) truncate">📄 {inc.doc_a_title}</p>
+                          <p className="mt-1 font-bold text-red-400">{inc.value_a}</p>
+                        </div>
+                        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2">
+                          <p className="font-semibold text-emerald-300 truncate">✨ {inc.doc_b_title}</p>
+                          <p className="mt-1 font-bold text-emerald-400">{inc.value_b}</p>
                         </div>
                       </div>
                     </div>

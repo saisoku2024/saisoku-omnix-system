@@ -44,10 +44,14 @@ const ALLOWED_READ_ROUTES = new Set([
   "POST chat/ingest-sample-local",
   "POST chat/brand-insight",
   "GET knowledge/documents",
+  "POST knowledge/upload-multiple",
   "POST knowledge/storage-ingest",
   "POST knowledge/text",
   "POST knowledge/url",
   "POST knowledge/query",
+  "GET knowledge/inconsistencies",
+  "GET knowledge/backup/export",
+  "POST knowledge/backup/restore",
 ])
 
 const SENSITIVE_PROXY_ROUTES = new Set([
@@ -68,6 +72,9 @@ const ALLOWED_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> =
   (method, path) =>
     method === "DELETE" &&
     path.startsWith("knowledge/documents/"),
+  (method, path) =>
+    method === "PATCH" &&
+    path.startsWith("knowledge/inconsistencies/"),
 ]
 
 const SENSITIVE_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> = [
