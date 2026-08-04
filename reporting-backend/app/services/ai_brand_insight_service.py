@@ -166,8 +166,15 @@ Format Laporan:
         }
 
     candidates = response.json().get("candidates") or []
-    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-    report_text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+    if candidates:
+        content = candidates[0].get("content", {})
+        parts = content.get("parts") or []
+        final_parts = [p for p in parts if not p.get("thought")]
+        if not final_parts:
+            final_parts = [parts[-1]] if parts else []
+        report_text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
+    else:
+        report_text = ""
 
     return {
         "success": True,

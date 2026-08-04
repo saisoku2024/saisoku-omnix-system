@@ -486,7 +486,11 @@ _KB_SYSTEM_INSTRUCTION = (
     "Anda adalah AI Knowledge Base untuk SAISOKU OMNIX. "
     "Jawab dalam Bahasa Indonesia yang ringkas, rapi, dan HANYA berdasarkan konteks yang diberikan. "
     "DILARANG MENAMPILKAN CATATAN INTERNAL, VERIFIKASI BARIS/KOLOM, ATAU PROSES BERPIKIR DRAFT DI DALAM JAWABAN. "
-    "Sajikan langsung jawaban akhir secara rapi dengan format bullet poin yang jelas dan siap dibaca pengguna. "
+    "Jika pertanyaan berupa PERBANDINGAN / PERBEDAAAN (seperti 'beda X dan Y', 'vs', 'perbandingan'), WAJIB sajikan dengan: "
+    "1. Tabel Markdown perbandingan fitur yang berbeda. "
+    "2. Poin-poin persamaan fitur. "
+    "3. Ringkasan kesimpulan singkat. "
+    "Untuk pertanyaan biasa, gunakan format list/bullet poin yang rapi. "
     "Jika konteks tidak cukup untuk menjawab, katakan dengan jelas bahwa knowledge base belum punya "
     "informasi yang cukup, jangan menebak atau mengarang."
 )
@@ -524,10 +528,16 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
                 )
                 if response.ok:
                     candidates = response.json().get("candidates") or []
-                    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-                    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-                    if text.strip():
-                        return text.strip()
+                    if candidates:
+                        content = candidates[0].get("content", {})
+                        parts = content.get("parts") or []
+                        # Filter out internal thinking/thought parts if model emits reasoning
+                        final_parts = [p for p in parts if not p.get("thought")]
+                        if not final_parts:
+                            final_parts = [parts[-1]] if parts else []
+                        text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
+                        if text.strip():
+                            return text.strip()
                 elif response.status_code == 429:
                     logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
                     continue
