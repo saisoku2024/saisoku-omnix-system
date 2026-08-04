@@ -981,39 +981,53 @@ class KnowledgeService:
         except Exception as exc:
             logger.warning(f"Vector search embedding failed or unconfigured: {exc}")
 
+        stop_words = {
+            "apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu",
+            "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai",
+            "sisi", "dokumen", "perbedaan", "spek", "spesifikasi", "info", "informasi", "fitur",
+            "detail", "tolong", "minta", "kasih", "tahu", "jelaskan",
+            # Bentuk kolokial yang tadinya lolos filter dan bikin pencarian jadi generik
+            "beda", "bedanya", "vs", "versus", "sama", "kayak", "gimana", "kenapa", "gak", "nggak",
+            "antara", "dibanding", "dibandingkan", "lebih",
+        }
+        words = [re.sub(r"[^\w\.]", "", w).strip() for w in cleaned_question.split()]
+
+        def _is_meaningful_keyword(w: str) -> bool:
+            if not w or w.lower() in stop_words:
+                return False
+            if len(w) >= 3:
+                return True
+            return len(w) == 2 and any(c.isdigit() for c in w)
+
+        raw_keywords = [w for w in words if _is_meaningful_keyword(w)]
+        seen_kw: set = set()
+        keywords = []
+        for w in raw_keywords:
+            lw = w.lower()
+            if lw not in seen_kw:
+                seen_kw.add(lw)
+                keywords.append(w)
+        keywords.sort(key=lambda w: (not any(c.isdigit() for c in w), len(w)))
+
+        # Entitas produk spesifik (misal: "Y1", "S9", "T80")
+        product_code_keywords = [w for w in keywords if any(c.isdigit() for c in w)]
+
+        # Jika vector search menghasilkan sumber tetapi TIDAK SATUPUN sumber memuat kode produk spesifik
+        # yang ditanyakan user, maka vector search terjebak di dokumen generik (misal: Troubleshooting).
+        # Kita saring sumber yang tidak cocok agar keyword search mengambil dokumen produk yang tepat.
+        if sources and product_code_keywords:
+            matching_sources = [
+                s for s in sources
+                if any(pk.lower() in (s.get("content") or "").lower() or pk.lower() in (s.get("title") or "").lower() for pk in product_code_keywords)
+            ]
+            if matching_sources:
+                sources = matching_sources
+            else:
+                logger.info(f"Vector search returned generic chunks without product codes {product_code_keywords}. Falling back to keyword search.")
+                sources = []
+
         # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
-            stop_words = {
-                "apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu",
-                "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai",
-                "sisi", "dokumen", "perbedaan",
-                # Bentuk kolokial yang tadinya lolos filter dan bikin pencarian jadi generik
-                "beda", "bedanya", "vs", "versus", "sama", "kayak", "gimana", "kenapa", "gak", "nggak",
-                "antara", "dibanding", "dibandingkan", "lebih",
-            }
-            words = [re.sub(r"[^\w\.]", "", w).strip() for w in cleaned_question.split()]
-
-            def _is_meaningful_keyword(w: str) -> bool:
-                if not w or w.lower() in stop_words:
-                    return False
-                if len(w) >= 3:
-                    return True
-                # Kode produk pendek (mis. "Y1", "S9") jangan dibuang cuma karena pendek —
-                # justru ini biasanya istilah paling spesifik di pertanyaan.
-                return len(w) == 2 and any(c.isdigit() for c in w)
-
-            raw_keywords = [w for w in words if _is_meaningful_keyword(w)]
-            # Dedupe sambil pertahankan urutan
-            seen_kw: set = set()
-            keywords = []
-            for w in raw_keywords:
-                lw = w.lower()
-                if lw not in seen_kw:
-                    seen_kw.add(lw)
-                    keywords.append(w)
-            # Prioritaskan istilah spesifik (mengandung angka, mis. kode produk) di depan,
-            # supaya AND-filter dan fallback tidak jatuh ke kata paling umum di kalimat.
-            keywords.sort(key=lambda w: (not any(c.isdigit() for c in w), len(w)))
 
             if keywords:
                 existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
