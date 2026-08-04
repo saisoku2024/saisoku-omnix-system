@@ -23,6 +23,8 @@ from app.core.gemini_config import (
     resolve_chat_model,
     resolve_embedding_model,
     chat_fallback_chain,
+    check_embedding_reindex_needed,
+    DEFAULT_EMBEDDING_MODEL,
     EMBEDDING_DIMENSION,
 )
 from app.services.audit_log_service import AuditLogService
@@ -31,11 +33,25 @@ from app.services.storage_upload_service import MAX_STORAGE_UPLOAD_SIZE_BYTES
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-_HTTP_SESSION = requests.Session()
+_HTTPX_CLIENT = httpx.Client(
+    timeout=httpx.Timeout(60.0, connect=10.0),
+    limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+)
 MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
 IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
+
+
+def _check_and_flag_embedding_reindex_if_needed() -> None:
+    if check_embedding_reindex_needed():
+        logger.warning(
+            f"[EMBEDDING_MISMATCH_WARNING] Environment GEMINI_EMBEDDING_MODEL differs from DEFAULT_EMBEDDING_MODEL ({DEFAULT_EMBEDDING_MODEL}). Flagging knowledge_documents as needs_reindex=True."
+        )
+        try:
+            supabase.table("knowledge_documents").update({"needs_reindex": True}).eq("needs_reindex", False).execute()
+        except Exception as exc:
+            logger.warning(f"Failed to update knowledge_documents reindex flag: {exc}")
 
 import urllib3
 from requests.adapters import HTTPAdapter
@@ -483,23 +499,22 @@ def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) 
         "output_dimensionality": EMBEDDING_DIMENSION,
     }
 
-    with httpx.Client(timeout=30.0) as client:
-        for key in keys:
-            try:
-                response = client.post(
-                    f"{GEMINI_API_BASE}/models/{model}:embedContent",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json=payload,
-                )
-                if response.status_code == 200:
-                    values = response.json().get("embedding", {}).get("values")
-                    if isinstance(values, list) and len(values) == EMBEDDING_DIMENSION:
-                        return _normalize_l2([float(v) for v in values])
-                elif response.status_code == 429:
-                    logger.warning("Gemini embedding key hit rate limit (429). Trying next key...")
-                    continue
-            except Exception as exc:
-                logger.warning(f"Gemini embedding exception: {exc}")
+    for key in keys:
+        try:
+            response = _HTTPX_CLIENT.post(
+                f"{GEMINI_API_BASE}/models/{model}:embedContent",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=payload,
+            )
+            if response.status_code == 200:
+                values = response.json().get("embedding", {}).get("values")
+                if isinstance(values, list) and len(values) == EMBEDDING_DIMENSION:
+                    return _normalize_l2([float(v) for v in values])
+            elif response.status_code == 429:
+                logger.warning("Gemini embedding key hit rate limit (429). Trying next key...")
+                continue
+        except Exception as exc:
+            logger.warning(f"Gemini embedding exception: {exc}")
 
     # Fallback to zero vector if embedding fails or rate limited
     logger.warning("All Gemini embedding keys failed. Returning 768-dim zero vector fallback.")
@@ -535,20 +550,19 @@ def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[flo
         response = None
         last_error = ""
         # Rotasi API key: satu key kena rate limit (429) jangan bikin seluruh ingest gagal.
-        with httpx.Client(timeout=60.0) as client:
-            for key in keys:
-                response = client.post(
-                    f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json=payload,
-                )
-                if response.status_code == 200:
-                    break
-                last_error = response.text[:300]
-                if response.status_code == 429:
-                    logger.warning("Gemini batch embedding key rate limited (429). Trying next key...")
-                    continue
-                break  # non-429 error, no point retrying other keys with same bad payload
+        for key in keys:
+            response = _HTTPX_CLIENT.post(
+                f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                json=payload,
+            )
+            if response.status_code == 200:
+                break
+            last_error = response.text[:300]
+            if response.status_code == 429:
+                logger.warning("Gemini batch embedding key rate limited (429). Trying next key...")
+                continue
+            break  # non-429 error, no point retrying other keys with same bad payload
         if not response or response.status_code != 200:
             raise HTTPException(
                 status_code=502,
@@ -585,7 +599,7 @@ _KB_SYSTEM_INSTRUCTION = (
     "3. Ringkasan kesimpulan singkat. "
     "Untuk pertanyaan spesifikasi produk atau informasi umum, sajikan poin spesifikasi secara terstruktur lalu AKHIRI DENGAN '📌 Ringkasan Keunggulan / Kesimpulan' singkat di bagian bawah. "
     "Jika konteks tidak cukup untuk menjawab, katakan dengan jelas bahwa knowledge base belum punya "
-    "informasi yang cukup, jangan menebak atau mengarang."
+    "informasi mejelaskan yang cukup, jangan menebak atau mengarang."
 )
 
 
@@ -605,37 +619,36 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
             keys = []
     candidate_models = chat_fallback_chain()
 
-    with httpx.Client(timeout=30.0) as client:
-        for m in candidate_models:
-            for key in keys:
-                try:
-                    response = client.post(
-                        f"{GEMINI_API_BASE}/models/{m}:generateContent",
-                        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                        json={
-                            "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
-                            "contents": [{"parts": [{"text": prompt}]}],
-                            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
-                        },
-                    )
-                    if response.status_code == 200:
-                        candidates = response.json().get("candidates") or []
-                        if candidates:
-                            content = candidates[0].get("content", {})
-                            parts = content.get("parts") or []
-                            final_parts = [p for p in parts if not p.get("thought")]
-                            if not final_parts:
-                                final_parts = [parts[-1]] if parts else []
-                            text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
-                            if text.strip():
-                                return text.strip()
-                    elif response.status_code == 429:
-                        logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
-                        continue
-                    else:
-                        logger.warning(f"Gemini model {m} call failed HTTP {response.status_code}: {response.text[:150]}")
-                except Exception as exc:
-                    logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
+    for m in candidate_models:
+        for key in keys:
+            try:
+                response = _HTTPX_CLIENT.post(
+                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json={
+                        "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
+                    },
+                )
+                if response.status_code == 200:
+                    candidates = response.json().get("candidates") or []
+                    if candidates:
+                        content = candidates[0].get("content", {})
+                        parts = content.get("parts") or []
+                        final_parts = [p for p in parts if not p.get("thought")]
+                        if not final_parts:
+                            final_parts = [parts[-1]] if parts else []
+                        text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
+                        if text.strip():
+                            return text.strip()
+                elif response.status_code == 429:
+                    logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
+                    continue
+                else:
+                    logger.warning(f"Gemini model {m} call failed HTTP {response.status_code}: {response.text[:150]}")
+            except Exception as exc:
+                logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
 
     # Fallback if LLM API key fails, returns 429, or unavailable
     return "Berikut informasi yang ditemukan di Knowledge Base SOP:\n\n" + context
@@ -942,6 +955,7 @@ class KnowledgeService:
 
     @staticmethod
     def query(question: str, match_count: int = 6) -> Dict[str, Any]:
+        _check_and_flag_embedding_reindex_if_needed()
         cleaned_question = question.strip()
         if len(cleaned_question) < 3:
             raise HTTPException(status_code=400, detail="Pertanyaan terlalu pendek.")
