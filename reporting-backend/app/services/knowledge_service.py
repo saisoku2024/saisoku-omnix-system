@@ -128,6 +128,11 @@ def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) ->
             current_block.append(line)
         else:
             if in_table and current_block:
+                # Check table delimiter consistency
+                delims = [l.count("|") if "|" in l else l.count(",") for l in current_block if l.strip()]
+                if delims and len(set(delims)) > 1:
+                    logger.warning(f"[TABLE_GUARDRAIL_WARNING] Inconsistent delimiter count across table rows: {set(delims)}")
+                    current_block.insert(0, "[NEEDS_REVIEW: Struktur Baris/Kolom Tabel Tidak Konsisten]")
                 blocks.append("\n".join(current_block))
                 current_block = []
             in_table = False
@@ -139,6 +144,11 @@ def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) ->
                 current_block.append(line)
 
     if current_block:
+        if in_table:
+            delims = [l.count("|") if "|" in l else l.count(",") for l in current_block if l.strip()]
+            if delims and len(set(delims)) > 1:
+                logger.warning(f"[TABLE_GUARDRAIL_WARNING] Inconsistent delimiter count across table rows: {set(delims)}")
+                current_block.insert(0, "[NEEDS_REVIEW: Struktur Baris/Kolom Tabel Tidak Konsisten]")
         blocks.append("\n".join(current_block))
 
     chunks: List[str] = []
@@ -525,21 +535,21 @@ def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[flo
         response = None
         last_error = ""
         # Rotasi API key: satu key kena rate limit (429) jangan bikin seluruh ingest gagal.
-        for key in keys:
-            response = _HTTP_SESSION.post(
-                f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json=payload,
-                timeout=60,
-            )
-            if response.ok:
-                break
-            last_error = response.text[:300]
-            if response.status_code == 429:
-                logger.warning("Gemini batch embedding key rate limited (429). Trying next key...")
-                continue
-            break  # non-429 error, no point retrying other keys with same bad payload
-        if not response or not response.ok:
+        with httpx.Client(timeout=60.0) as client:
+            for key in keys:
+                response = client.post(
+                    f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json=payload,
+                )
+                if response.status_code == 200:
+                    break
+                last_error = response.text[:300]
+                if response.status_code == 429:
+                    logger.warning("Gemini batch embedding key rate limited (429). Trying next key...")
+                    continue
+                break  # non-429 error, no point retrying other keys with same bad payload
+        if not response or response.status_code != 200:
             raise HTTPException(
                 status_code=502,
                 detail=f"Gemini batch embedding request failed: {last_error}",
@@ -556,7 +566,7 @@ def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[flo
             values = emb.get("values")
             if not isinstance(values, list) or len(values) != EMBEDDING_DIMENSION:
                 raise HTTPException(status_code=502, detail="Gemini batch embedding response is invalid")
-            all_embeddings.append([float(v) for v in values])
+            all_embeddings.append(_normalize_l2([float(v) for v in values]))
             
     return all_embeddings
 
@@ -595,39 +605,37 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
             keys = []
     candidate_models = chat_fallback_chain()
 
-    for m in candidate_models:
-        for key in keys:
-            try:
-                response = _HTTP_SESSION.post(
-                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={
-                        "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        # Temperature rendah: jawaban RAG harus setia ke sumber, bukan kreatif.
-                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
-                    },
-                    timeout=30,
-                )
-                if response.ok:
-                    candidates = response.json().get("candidates") or []
-                    if candidates:
-                        content = candidates[0].get("content", {})
-                        parts = content.get("parts") or []
-                        # Filter out internal thinking/thought parts if model emits reasoning
-                        final_parts = [p for p in parts if not p.get("thought")]
-                        if not final_parts:
-                            final_parts = [parts[-1]] if parts else []
-                        text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
-                        if text.strip():
-                            return text.strip()
-                elif response.status_code == 429:
-                    logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
-                    continue
-                else:
-                    logger.warning(f"Gemini model {m} call failed HTTP {response.status_code}: {response.text[:150]}")
-            except Exception as exc:
-                logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
+    with httpx.Client(timeout=30.0) as client:
+        for m in candidate_models:
+            for key in keys:
+                try:
+                    response = client.post(
+                        f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                        json={
+                            "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
+                            "contents": [{"parts": [{"text": prompt}]}],
+                            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
+                        },
+                    )
+                    if response.status_code == 200:
+                        candidates = response.json().get("candidates") or []
+                        if candidates:
+                            content = candidates[0].get("content", {})
+                            parts = content.get("parts") or []
+                            final_parts = [p for p in parts if not p.get("thought")]
+                            if not final_parts:
+                                final_parts = [parts[-1]] if parts else []
+                            text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
+                            if text.strip():
+                                return text.strip()
+                    elif response.status_code == 429:
+                        logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
+                        continue
+                    else:
+                        logger.warning(f"Gemini model {m} call failed HTTP {response.status_code}: {response.text[:150]}")
+                except Exception as exc:
+                    logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
 
     # Fallback if LLM API key fails, returns 429, or unavailable
     return "Berikut informasi yang ditemukan di Knowledge Base SOP:\n\n" + context

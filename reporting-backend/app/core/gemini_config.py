@@ -62,11 +62,13 @@ def resolve_chat_model() -> str:
 
 def resolve_embedding_model() -> str:
     """Model embedding yang dipakai. HARD LOCKED: Dilarang silent auto-upgrade/change tanpa re-index."""
-    configured = os.getenv("GEMINI_EMBEDDING_MODEL", "").strip()
-    if configured and configured != DEFAULT_EMBEDDING_MODEL:
-        # Warning logger can be used by services to flag re-index requirement
-        pass
     return DEFAULT_EMBEDDING_MODEL
+
+
+def check_embedding_reindex_needed() -> bool:
+    """Mengembalikan True jika GEMINI_EMBEDDING_MODEL di env berbeda dari model baku DEFAULT_EMBEDDING_MODEL."""
+    configured = os.getenv("GEMINI_EMBEDDING_MODEL", "").strip()
+    return bool(configured and configured != DEFAULT_EMBEDDING_MODEL)
 
 
 def chat_fallback_chain() -> List[str]:

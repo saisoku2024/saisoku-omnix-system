@@ -1,6 +1,6 @@
 import os
 import logging
-import requests
+import httpx
 from typing import Dict, Any, List
 from app.core.supabase import supabase
 from app.core.gemini_config import chat_fallback_chain
@@ -111,38 +111,37 @@ Format Laporan:
     response = None
     model_errors = []
 
-    for key in api_keys:
-        for m in candidate_models:
-            try:
-                res = _HTTP_SESSION.post(
-                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={
-                        "systemInstruction": {"parts": [{"text": system_instruction}]},
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        # Temperature moderat: perlu narasi yang mengalir tapi tetap presisi ke data.
-                        "generationConfig": {"temperature": 0.35, "maxOutputTokens": 4096},
-                    },
-                    timeout=60,
-                )
-                if res.ok:
-                    response = res
-                    break
-                else:
-                    err_text = res.text[:150]
-                    try:
-                        err_json = res.json()
-                        if "error" in err_json:
-                            err_text = err_json["error"].get("message", err_text)
-                    except Exception:
-                        pass
-                    model_errors.append(f"[{m}: HTTP {res.status_code} - {err_text}]")
-                    logger.warning(f"Gemini model {m} with key failed: {res.status_code}")
-            except Exception as ex:
-                model_errors.append(f"[{m}: {str(ex)}]")
-                logger.warning(f"Gemini model {m} exception: {ex}")
-        if response and response.ok:
-            break
+    with httpx.Client(timeout=60.0) as client:
+        for key in api_keys:
+            for m in candidate_models:
+                try:
+                    res = client.post(
+                        f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                        json={
+                            "systemInstruction": {"parts": [{"text": system_instruction}]},
+                            "contents": [{"parts": [{"text": prompt}]}],
+                            "generationConfig": {"temperature": 0.35, "maxOutputTokens": 4096},
+                        },
+                    )
+                    if res.status_code == 200:
+                        response = res
+                        break
+                    else:
+                        err_text = res.text[:150]
+                        try:
+                            err_json = res.json()
+                            if "error" in err_json:
+                                err_text = err_json["error"].get("message", err_text)
+                        except Exception:
+                            pass
+                        model_errors.append(f"[{m}: HTTP {res.status_code} - {err_text}]")
+                        logger.warning(f"Gemini model {m} with key failed: {res.status_code}")
+                except Exception as ex:
+                    model_errors.append(f"[{m}: {str(ex)}]")
+                    logger.warning(f"Gemini model {m} exception: {ex}")
+            if response and response.status_code == 200:
+                break
 
     if not response or not response.ok:
         logger.warning(f"All Gemini models & keys failed: {' | '.join(model_errors)}. Using fallback analytical report.")
