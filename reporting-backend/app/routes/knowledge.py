@@ -218,3 +218,10 @@ async def restore_knowledge_backup(file: UploadFile = File(...)):
     from app.services.knowledge_backup_service import KnowledgeBackupService
     content = await file.read()
     return KnowledgeBackupService.restore_backup(content)
+
+
+@router.get("/inconsistencies")
+def get_knowledge_inconsistencies(limit: int = Query(10, ge=1, le=100), offset: int = Query(0, ge=0)):
+    from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
+    items = KnowledgeInconsistencyService.list_inconsistencies(limit=limit, offset=offset)
+    return {"inconsistencies": items, "count": len(items)}

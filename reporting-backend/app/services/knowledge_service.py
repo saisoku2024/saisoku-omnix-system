@@ -1160,6 +1160,13 @@ class KnowledgeService:
             }
 
         answer = _generate_answer(cleaned_question, sources[:match_count])
+
+        try:
+            from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
+            KnowledgeInconsistencyService.extract_and_log_from_answer(cleaned_question, answer)
+        except Exception as inc_exc:
+            logger.warning(f"Failed auto-logging inconsistency: {inc_exc}")
+
         AuditLogService.log(
             action="KNOWLEDGE_QUERY",
             resource="knowledge_chunks",
