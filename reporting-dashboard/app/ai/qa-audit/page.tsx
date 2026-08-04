@@ -228,31 +228,50 @@ export default function QaAuditPage() {
     <div style={cssVars} className="flex min-h-screen flex-col overflow-hidden bg-(--c-bg) font-[Plus_Jakarta_Sans,Inter,sans-serif] text-(--c-text) transition-colors">
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 overflow-y-auto p-4 md:p-6 pb-12">
         
-        {/* HEADER & FILTER BAR */}
-        <div className="shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500 shadow-md shadow-emerald-500/20">
-                <ShieldCheck className="h-4 w-4 text-white" />
+        {/* HEADER — AI Workspace Visual Model */}
+        <header className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-4 sm:p-5 shadow-sm shrink-0 mb-2">
+          {/* Google 4-Color Signature Top Accent Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#EA4335] via-[#FBBC05] to-[#34A853]" />
+
+          {/* Ambient Glow Orbs */}
+          <div className="pointer-events-none absolute -left-20 -top-20 size-72 rounded-full bg-[#34A853]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#4285F4]/8 blur-3xl" />
+
+          <div className="relative flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/20 via-blue-500/10 to-teal-500/20 ring-1 ring-white/10 text-emerald-400 shadow-inner">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                </span>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-emerald-400 flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-[#4285F4]" />
+                    <span className="size-1.5 rounded-full bg-[#EA4335]" />
+                    <span className="size-1.5 rounded-full bg-[#FBBC05]" />
+                    <span className="size-1.5 rounded-full bg-[#34A853]" />
+                  </span>
+                  AI Workspace · Audit Engine
+                </p>
               </div>
-              <div>
-                <h1 className="text-base font-bold tracking-tight text-(--c-text)">AI QA & Compliance Audit</h1>
-                <p className="text-[11px] text-(--c-muted)">100% Conversational Coverage · Discrepancy Detection · Low CSAT Deep-Dive</p>
-              </div>
+              <h1 className="mt-1.5 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl">
+                AI QA & Compliance Audit
+              </h1>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-(--c-muted) sm:text-sm">
+                100% Conversational Coverage · Discrepancy Detection · Low CSAT Deep-Dive
+              </p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2 text-[11px]">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-semibold text-emerald-400">Compliance Checker Active</span>
+            <div className="flex shrink-0 items-center gap-2 text-[11px] rounded-full border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-1.5 text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-bold">Compliance Checker Active</span>
               <span className="text-(--c-muted)">·</span>
-              <span className="tabular-nums text-(--c-muted)"><RealtimeClock /></span>
+              <span className="tabular-nums font-mono"><RealtimeClock /></span>
             </div>
           </div>
-
-          <div className="my-3 h-px w-full bg-(--c-border)" />
+        </header>
 
           {/* FILTER CONTROLS */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-(--c-border) bg-(--c-surface) p-3 shadow-sm shrink-0">
             {/* BRAND SELECTOR */}
             <div className="flex items-center gap-1 overflow-x-auto py-1">
               <span className="mr-1 text-[11px] font-semibold text-(--c-muted) uppercase tracking-wider">Brand:</span>
@@ -262,10 +281,10 @@ export default function QaAuditPage() {
                   <button
                     key={b}
                     onClick={() => setSelectedBrand(b)}
-                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-semibold transition-all duration-200 cursor-pointer ${
+                    className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-[12px] font-semibold transition-all duration-200 cursor-pointer ${
                       isSelected
-                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 border border-emerald-400"
-                        : "bg-(--c-surface) border border-(--c-border) text-(--c-muted) hover:text-(--c-text) hover:bg-(--c-offset)"
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 border border-emerald-400"
+                        : "bg-(--c-overlay) border border-(--c-border) text-(--c-muted) hover:text-(--c-text) hover:bg-(--c-offset)"
                     }`}
                   >
                     {b}
@@ -276,18 +295,18 @@ export default function QaAuditPage() {
 
             {/* PERIOD & MODE SELECTORS */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center overflow-hidden rounded-lg border border-(--c-border) bg-(--c-surface)">
-                <select value={mode} onChange={(e) => handleModeChange(e.target.value)} className="border-r border-(--c-border) bg-transparent px-2.5 py-1.5 text-[11px] font-semibold text-(--c-text) outline-none">
+              <div className="flex items-center overflow-hidden rounded-xl border border-(--c-border) bg-(--c-overlay) p-0.5">
+                <select value={mode} onChange={(e) => handleModeChange(e.target.value)} className="bg-transparent px-2.5 py-1 text-xs font-semibold text-(--c-text) outline-none cursor-pointer">
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
                   <option value="yearly">Yearly</option>
                 </select>
                 {mode !== "yearly" && (
-                  <select value={period} onChange={(e) => setPeriod(e.target.value)} className="border-r border-(--c-border) bg-transparent px-2.5 py-1.5 text-[11px] font-semibold text-(--c-text) outline-none">
+                  <select value={period} onChange={(e) => setPeriod(e.target.value)} className="border-l border-(--c-border) bg-transparent px-2.5 py-1 text-xs font-semibold text-(--c-text) outline-none cursor-pointer">
                     {periodOptions.map((p) => (<option key={p} value={p}>{p}</option>))}
                   </select>
                 )}
-                <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="bg-transparent px-2.5 py-1.5 text-[11px] font-semibold text-(--c-text) outline-none">
+                <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="border-l border-(--c-border) bg-transparent px-2.5 py-1 text-xs font-semibold text-(--c-text) outline-none cursor-pointer">
                   {REPORT_YEARS.map((y) => (<option key={y} value={y}>{y}</option>))}
                 </select>
               </div>
@@ -295,18 +314,17 @@ export default function QaAuditPage() {
               <button
                 onClick={runQaAudit}
                 disabled={loading}
-                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white shadow-md transition-all hover:bg-emerald-500 disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 transition-all hover:opacity-90 disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                Run Full AI Audit
+                Run AI Audit
               </button>
 
-              <button onClick={toggleTheme} aria-label="Toggle theme" className="flex h-8 w-8 items-center justify-center rounded-lg border border-(--c-border) bg-(--c-surface) text-(--c-muted)">
-                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <button onClick={toggleTheme} aria-label="Toggle theme" className="flex h-8 w-8 items-center justify-center rounded-xl border border-(--c-border) bg-(--c-overlay) text-(--c-muted) transition-all hover:border-emerald-500/40 hover:text-emerald-400">
+                {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
               </button>
             </div>
           </div>
-        </div>
 
         {/* TAB NAVIGATION BAR (3 AUDIT FOCUS MODES) */}
         <div className="flex items-center gap-2 rounded-xl border border-(--c-border) bg-(--c-surface) p-1 shrink-0">

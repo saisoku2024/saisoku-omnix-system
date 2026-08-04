@@ -1316,32 +1316,46 @@ export default function UploadPage() {
           animate="show"
           className="space-y-2"
         >
-          {/* Header */}
+          {/* Header — AI Workspace Visual Model */}
           <motion.div variants={ITEM_VARIANTS}>
-            <div className="flex flex-col gap-3 rounded-2xl border border-(--c-border) bg-(--c-surface) px-4 py-3 shadow-sm sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-(--c-accent-soft) text-(--c-accent)">
-                    <UploadCloud size={16} />
-                  </div>
+            <header className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-4 sm:p-5 shadow-sm">
+              {/* Google 4-Color Signature Top Accent Bar */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#EA4335] via-[#FBBC05] to-[#34A853]" />
 
-                  <div>
-                    <h1 className="text-lg font-semibold tracking-tight text-(--c-text)">
-                      Upload Data
-                    </h1>
+              {/* Ambient Glow Orbs */}
+              <div className="pointer-events-none absolute -left-20 -top-20 size-72 rounded-full bg-[#4285F4]/10 blur-3xl" />
+              <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#34A853]/8 blur-3xl" />
 
-                    <p className="mt-0.5 text-xs text-(--c-text-soft)">
-                      Import dataset ke monitoring system GUNDAM.
+              <div className="relative flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500/20 via-red-500/10 to-emerald-500/20 ring-1 ring-white/10 text-sky-400 shadow-inner">
+                      <UploadCloud size={14} className="text-[#4285F4]" />
+                    </span>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-sky-400 flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="size-1.5 rounded-full bg-[#4285F4]" />
+                        <span className="size-1.5 rounded-full bg-[#EA4335]" />
+                        <span className="size-1.5 rounded-full bg-[#FBBC05]" />
+                        <span className="size-1.5 rounded-full bg-[#34A853]" />
+                      </span>
+                      Data Engine · Upload Portal
                     </p>
                   </div>
+                  <h1 className="mt-1.5 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl">
+                    Upload Data
+                  </h1>
+                  <p className="mt-1 max-w-2xl text-xs leading-relaxed text-(--c-muted) sm:text-sm">
+                    Import dataset CSAT, Voice, Omnix, dan Chat ke monitoring system.
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2 text-[11px] rounded-full border border-sky-500/20 bg-sky-500/8 px-3.5 py-1.5 text-sky-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+                  <span className="font-bold">{isAdmin ? "Workspace Aktif (Admin)" : "Guest Read-only"}</span>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2 self-start rounded-full border border-(--c-border) bg-(--c-overlay) px-2.5 py-1 text-[11px] font-medium text-(--c-text-soft)">
-                <span className="h-2 w-2 rounded-full bg-(--c-accent)" />
-                {isAdmin ? "Workspace aktif" : "Guest read-only"}
-              </div>
-            </div>
+            </header>
           </motion.div>
 
           {/* Stepper */}

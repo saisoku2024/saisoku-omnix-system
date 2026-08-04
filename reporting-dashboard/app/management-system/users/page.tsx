@@ -295,39 +295,59 @@ export default function UserManagementPage() {
   return (
     <main className="min-h-screen bg-(--c-bg) px-4 py-8 text-(--c-text) sm:px-6 sm:py-10 lg:px-8 lg:py-12">
       <div className="mx-auto max-w-[1400px]">
-        {/* Header */}
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-(--c-accent)">
-              Management System
-            </p>
-            <h1 className="mt-2 bg-linear-to-br from-(--c-text) via-(--c-text) to-(--c-accent) bg-clip-text font-(family-name:--app-font-heading) text-3xl font-extrabold tracking-normal text-transparent sm:text-4xl">
-              User & Access Control
-            </h1>
-            <p className="mt-1 text-sm text-(--c-muted)">
-              Kelola kredensial pengguna dan hierarki role (Super Admin, Manager, SPV, Agent, Guest).
-            </p>
-          </div>
+        {/* Header — AI Workspace Visual Model */}
+        <header className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-4 sm:p-5 shadow-sm mb-6">
+          {/* Google 4-Color Signature Top Accent Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#EA4335] via-[#FBBC05] to-[#34A853]" />
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={fetchUsers}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-(--c-border) bg-(--c-surface) px-4 text-xs font-semibold text-(--c-text) transition hover:bg-(--c-overlay-2)"
-            >
-              <RefreshCcwIcon size={14} className={loading ? "animate-spin" : ""} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              disabled={!isAdmin}
-              title={!isAdmin ? "Aksi penambahan user khusus Super Admin" : undefined}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <UserPlusIcon size={15} />
-              {!isAdmin ? "Mode Guest (Read-Only)" : "+ Create New User"}
-            </button>
+          {/* Ambient Glow Orbs */}
+          <div className="pointer-events-none absolute -left-20 -top-20 size-72 rounded-full bg-[#4285F4]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-[#EA4335]/8 blur-3xl" />
+
+          <div className="relative flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500/20 via-blue-500/10 to-emerald-500/20 ring-1 ring-white/10 text-purple-400 shadow-inner">
+                  <UsersIcon size={14} className="text-[#4285F4]" />
+                </span>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-sky-400 flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-[#4285F4]" />
+                    <span className="size-1.5 rounded-full bg-[#EA4335]" />
+                    <span className="size-1.5 rounded-full bg-[#FBBC05]" />
+                    <span className="size-1.5 rounded-full bg-[#34A853]" />
+                  </span>
+                  Management System · Security Portal
+                </p>
+              </div>
+              <h1 className="mt-1.5 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl">
+                User & Access Control
+              </h1>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-(--c-muted) sm:text-sm">
+                Kelola kredensial pengguna dan hierarki role (Super Admin, Manager, SPV, Agent, Guest).
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchUsers}
+                className="inline-flex h-9 items-center gap-2 rounded-xl border border-(--c-border) bg-(--c-overlay) px-3.5 text-xs font-semibold text-(--c-text) transition-all hover:border-sky-500/40 hover:text-sky-400"
+              >
+                <RefreshCcwIcon size={13} className={loading ? "animate-spin text-sky-400" : "text-sky-400"} />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                disabled={!isAdmin}
+                title={!isAdmin ? "Aksi penambahan user khusus Super Admin" : undefined}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-sky-500/20 transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <UserPlusIcon size={14} />
+                {!isAdmin ? "Mode Guest (Read-Only)" : "+ Create New User"}
+              </button>
+            </div>
           </div>
         </header>
 
