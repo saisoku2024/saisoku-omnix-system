@@ -1,4 +1,5 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
+from typing import List
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.security import require_admin_token
@@ -10,6 +11,8 @@ router = APIRouter(
     tags=["AI Knowledge Base"],
     dependencies=[Depends(require_admin_token)],
 )
+
+MAX_BATCH_UPLOAD_FILES = 5
 
 
 class KnowledgeQueryRequest(BaseModel):
@@ -61,6 +64,78 @@ async def upload_knowledge_document(
         upload["title"],
     )
     return upload
+
+
+@router.post("/upload-multiple")
+async def upload_knowledge_documents(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+):
+    """
+    Upload beberapa dokumen sekaligus (maks MAX_BATCH_UPLOAD_FILES per batch).
+
+    Diproses SEKUENSIAL per file (bukan paralel) — keputusan sadar, bukan
+    keterbatasan: upload paralel bisa memicu rate-limit Gemini kalau beberapa
+    file besar di-embed bersamaan. Tiap file divalidasi & diproses secara
+    terisolasi lewat try/except — 1 file gagal (ekstensi tidak didukung,
+    ukuran kelebihan, dst) TIDAK menggagalkan file lain dalam batch yang sama.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="Tidak ada file yang diunggah.")
+    if len(files) > MAX_BATCH_UPLOAD_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maksimal {MAX_BATCH_UPLOAD_FILES} file per batch upload. Anda mengirim {len(files)} file.",
+        )
+
+    results = []
+    for file in files:
+        try:
+            upload = await KnowledgeService.prepare_upload(file=file, title=None)
+            content = upload.pop("content")
+            background_tasks.add_task(
+                KnowledgeService.process_upload,
+                upload["document_id"],
+                content,
+                upload.get("source_file"),
+                upload.get("content_type"),
+                upload["title"],
+            )
+            results.append(
+                {
+                    "filename": file.filename,
+                    "status": "processing",
+                    "document_id": upload["document_id"],
+                }
+            )
+        except HTTPException as exc:
+            # Gagal validasi (ekstensi tidak didukung / ukuran kelebihan / dsb) —
+            # dicatat sebagai rejected, TIDAK menghentikan file lain di batch ini.
+            results.append(
+                {
+                    "filename": file.filename,
+                    "status": "rejected",
+                    "error": exc.detail,
+                }
+            )
+        except Exception as exc:
+            # Error tak terduga di luar HTTPException — tetap diisolasi per file.
+            results.append(
+                {
+                    "filename": file.filename,
+                    "status": "rejected",
+                    "error": f"Gagal memproses file: {str(exc)[:200]}",
+                }
+            )
+
+    accepted = sum(1 for r in results if r["status"] == "processing")
+    return {
+        "success": True,
+        "total_files": len(files),
+        "accepted": accepted,
+        "rejected": len(files) - accepted,
+        "documents": results,
+    }
 
 
 @router.post("/storage-ingest")
