@@ -112,7 +112,7 @@ export default function KnowledgeBasePage() {
   const [addingUrl, setAddingUrl] = useState(false)
   const [asking, setAsking] = useState(false)
   const [title, setTitle] = useState("")
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [manualTitle, setManualTitle] = useState("")
   const [manualText, setManualText] = useState("")
   const [webTitle, setWebTitle] = useState("")
@@ -283,43 +283,50 @@ export default function KnowledgeBasePage() {
 
   const handleUpload = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!isAdmin || !file) return
-
-    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
-      setError(
-        `File ${formatFileSize(file.size)} terlalu besar untuk upload via dashboard. Batas aman sementara ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}. Pecah PDF atau upload dokumen yang lebih kecil dulu.`
-      )
-      setSuccess(null)
-      return
-    }
+    if (!isAdmin || files.length === 0) return
 
     setUploading(true)
     setError(null)
     setSuccess(null)
-    try {
-      const storageFile = await uploadFileToStorage("knowledge", file, (progress) => {
-        setUploadProgress(progress)
-      })
+    let successCount = 0
 
-      const response = await fetch(STORAGE_INGEST_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...storageFile,
-          title: title.trim() || undefined,
-        }),
-      })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(readError(data, "Gagal upload knowledge document"))
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const selectedFile = files[i]
+        if (selectedFile.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+          throw new Error(
+            `File ${selectedFile.name} (${formatFileSize(selectedFile.size)}) terlalu besar. Batas maksimum ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.`
+          )
+        }
+
+        const storageFile = await uploadFileToStorage("knowledge", selectedFile, (progress) => {
+          const overallProgress = Math.round(((i / files.length) * 100) + (progress / files.length))
+          setUploadProgress(overallProgress)
+        })
+
+        const fileTitle = files.length === 1 && title.trim() ? title.trim() : selectedFile.name
+        const response = await fetch(STORAGE_INGEST_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...storageFile,
+            title: fileTitle,
+          }),
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(readError(data, `Gagal upload ${selectedFile.name}`))
+        }
+        successCount++
       }
-      setSuccess(`Knowledge document diproses: ${data.title || file.name}`)
+
+      setSuccess(`Berhasil memproses ${successCount} file knowledge document!`)
       setTitle("")
-      setFile(null)
+      setFiles([])
       setUploadProgress(0)
       await loadDocuments()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal upload knowledge document")
+      setError(err instanceof Error ? err.message : "Gagal upload batch knowledge document")
     } finally {
       setUploading(false)
     }
@@ -544,33 +551,37 @@ export default function KnowledgeBasePage() {
                     />
                   </label>
                   <label className="block text-xs font-semibold text-(--c-muted)">
-                    File knowledge
+                    File knowledge (Dapat pilih banyak file sekaligus)
                     <input
                       type="file"
+                      multiple
                       disabled={!isAdmin || uploading}
                       onChange={(event) => {
-                        const selectedFile = event.target.files?.[0] || null
-                        setFile(selectedFile)
+                        const selectedFiles = Array.from(event.target.files || [])
+                        setFiles(selectedFiles)
                         setSuccess(null)
-                        if (selectedFile && selectedFile.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+                        const oversized = selectedFiles.find((f) => f.size > MAX_UPLOAD_FILE_SIZE_BYTES)
+                        if (oversized) {
                           setError(
-                            `File ${formatFileSize(selectedFile.size)} terlalu besar untuk upload via dashboard. Batas aman sementara ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.`
+                            `File ${oversized.name} (${formatFileSize(oversized.size)}) terlalu besar. Batas aman ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.`
                           )
                         } else {
                           setError(null)
                         }
                       }}
-                      accept=".txt,.md,.csv,.xlsx,.xls,.pdf,.docx"
+                      accept=".txt,.md,.csv,.xlsx,.xls,.pdf,.docx,.pptx,.ppt,.jpg,.jpeg,.png,.webp"
                       className="mt-1 block w-full rounded-xl border border-(--c-border) bg-(--c-overlay) px-3 py-2 text-xs text-(--c-text) disabled:opacity-50"
                     />
                     <span className="mt-1 block text-[11px] font-normal text-(--c-muted)">
-                      Batas aman upload via Supabase Storage: {formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)}.
+                      {files.length > 0
+                        ? `📌 ${files.length} file dipilih (Total ${formatFileSize(files.reduce((a, b) => a + b.size, 0))})`
+                        : `Dukungan format: PDF, DOCX, PPTX, XLSX, Gambar (.jpg/.png), TXT. Batas: ${formatFileSize(MAX_UPLOAD_FILE_SIZE_BYTES)} per file.`}
                     </span>
                   </label>
                   {uploading && (
                     <div className="rounded-xl border border-(--c-border) bg-(--c-overlay) p-3">
                       <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-(--c-muted)">
-                        <span>Upload ke Storage</span>
+                        <span>Memproses Ingest Bulk...</span>
                         <span>{uploadProgress}%</span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-(--c-overlay-2)">
@@ -583,11 +594,11 @@ export default function KnowledgeBasePage() {
                   )}
                   <button
                     type="submit"
-                    disabled={!isAdmin || !file || uploading}
+                    disabled={!isAdmin || files.length === 0 || uploading}
                     className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-(--c-accent) px-4 text-xs font-bold text-(--c-bg) transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {uploading ? <Loader2Icon size={14} className="animate-spin" /> : <UploadIcon size={14} />}
-                    {isAdmin ? "Ingest File" : "Guest read-only"}
+                    {isAdmin ? (files.length > 1 ? `Ingest ${files.length} Files` : "Ingest File") : "Guest read-only"}
                   </button>
                 </form>
               )}
