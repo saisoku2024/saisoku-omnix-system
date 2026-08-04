@@ -714,9 +714,11 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
                     if candidates:
                         content = candidates[0].get("content", {})
                         parts = content.get("parts") or []
-                        final_parts = [p for p in parts if not p.get("thought")]
+                        final_parts = [p for p in parts if not p.get("thought") and not p.get("thoughtSignature")]
                         if not final_parts:
-                            final_parts = [parts[-1]] if parts else []
+                            final_parts = [p for p in parts if not p.get("thought")]
+                        if not final_parts and parts:
+                            final_parts = [parts[-1]]
                         text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
                         if text.strip():
                             return text.strip()
