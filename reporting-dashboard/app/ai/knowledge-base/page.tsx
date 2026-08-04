@@ -511,7 +511,7 @@ export default function KnowledgeBasePage() {
       <div className="mx-auto max-w-[1400px] space-y-5">
 
         {/* ── HEADER ── */}
-        <header className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-6 sm:p-8">
+        <header className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-4 sm:p-5">
           {/* Google 4-Color Signature Top Accent Bar */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#4285F4] via-[#EA4335] via-[#FBBC05] to-[#34A853]" />
 
@@ -522,13 +522,13 @@ export default function KnowledgeBasePage() {
           <div className="pointer-events-none absolute -right-20 -bottom-20 size-80 rounded-full bg-[#34A853]/8 blur-3xl" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-emerald-500/5" />
 
-          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 via-red-500/10 to-emerald-500/20 ring-1 ring-white/10 text-sky-400 shadow-inner">
-                  <SparklesIcon size={17} className="text-[#4285F4]" />
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500/20 via-red-500/10 to-emerald-500/20 ring-1 ring-white/10 text-sky-400 shadow-inner">
+                  <SparklesIcon size={14} className="text-[#4285F4]" />
                 </span>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-sky-400 flex items-center gap-1.5">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-sky-400 flex items-center gap-1.5">
                   <span className="inline-flex items-center gap-1">
                     <span className="size-1.5 rounded-full bg-[#4285F4]" />
                     <span className="size-1.5 rounded-full bg-[#EA4335]" />
@@ -538,37 +538,37 @@ export default function KnowledgeBasePage() {
                   AI Workspace · Knowledge Engine
                 </p>
               </div>
-              <h1 className="mt-3 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl">
+              <h1 className="mt-1.5 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl">
                 AI Knowledge Base
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-(--c-muted)">
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-(--c-muted) sm:text-sm">
                 Upload SOP, FAQ, product guide, dan policy CS. PDF scan kecil akan diproses dengan <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#34A853]">OCR Gemini RAG</span>.
               </p>
 
               {/* KPI Stat Chips */}
-              <div className="mt-5 flex flex-wrap items-center gap-2.5">
-                <div className="flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/8 px-3.5 py-1.5">
-                  <DatabaseIcon size={12} className="text-sky-400" />
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/8 px-3 py-1">
+                  <DatabaseIcon size={11} className="text-sky-400" />
                   <span className="text-xs font-bold text-sky-300">{readyDocuments.length}</span>
-                  <span className="text-[11px] text-sky-400/70">dokumen ready</span>
+                  <span className="text-[10px] text-sky-400/70">dokumen ready</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/8 px-3.5 py-1.5">
-                  <LayersIcon size={12} className="text-indigo-400" />
+                <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/8 px-3 py-1">
+                  <LayersIcon size={11} className="text-indigo-400" />
                   <span className="text-xs font-bold text-indigo-300">{totalChunks}</span>
-                  <span className="text-[11px] text-indigo-400/70">total chunks</span>
+                  <span className="text-[10px] text-indigo-400/70">total chunks</span>
                 </div>
                 {processingDocuments.length > 0 && (
-                  <div className="flex items-center gap-2 rounded-full border border-blue-500/25 bg-blue-500/10 px-3.5 py-1.5">
-                    <Loader2Icon size={12} className="animate-spin text-blue-400" />
+                  <div className="flex items-center gap-1.5 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1">
+                    <Loader2Icon size={11} className="animate-spin text-blue-400" />
                     <span className="text-xs font-bold text-blue-300">{processingDocuments.length}</span>
-                    <span className="text-[11px] text-blue-400/70">diproses</span>
+                    <span className="text-[10px] text-blue-400/70">diproses</span>
                   </div>
                 )}
                 {failedDocuments.length > 0 && (
-                  <div className="flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-3.5 py-1.5">
-                    <AlertTriangleIcon size={12} className="text-red-400" />
+                  <div className="flex items-center gap-1.5 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1">
+                    <AlertTriangleIcon size={11} className="text-red-400" />
                     <span className="text-xs font-bold text-red-300">{failedDocuments.length}</span>
-                    <span className="text-[11px] text-red-400/70">gagal</span>
+                    <span className="text-[10px] text-red-400/70">gagal</span>
                   </div>
                 )}
               </div>
@@ -902,7 +902,7 @@ export default function KnowledgeBasePage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {documents.slice(0, 6).map((doc) => (
+                  {documents.slice(0, 3).map((doc) => (
                     <div key={doc.id} className="group flex items-start gap-3 rounded-xl border border-(--c-border) bg-(--c-overlay) p-3 transition-all duration-150 hover:border-indigo-500/30 hover:bg-indigo-500/4 hover:shadow-sm">
                       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-(--c-border) bg-(--c-surface)">
                         {getFileIcon(doc.title, doc.source_file)}
@@ -951,7 +951,7 @@ export default function KnowledgeBasePage() {
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {inconsistencies.slice(0, 5).map((inc) => (
+                  {inconsistencies.slice(0, 2).map((inc) => (
                     <div key={inc.id} className="rounded-xl border border-amber-500/15 bg-amber-500/4 p-3.5 space-y-2.5">
                       <div className="flex items-start justify-between gap-2 text-xs">
                         <div>
