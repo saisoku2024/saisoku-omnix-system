@@ -11,6 +11,8 @@ import socket
 from typing import Any, Dict, List
 from urllib.parse import urljoin, urlparse
 
+import httpx
+import numpy as np
 import pandas as pd
 import requests
 from urllib3.util import connection
@@ -102,38 +104,82 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
-def _chunk_text(text: str, max_chars: int = 1800, overlap: int = 220) -> List[str]:
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) -> List[str]:
+    """
+    Chunking Table-Aware & Token-Aware.
+    Mencegah pemotongan acak di tengah baris tabel/CSV dan menggunakan estimasi token (~4 karakter/token).
+    """
+    max_chars = max_tokens * 4
+    overlap_chars = overlap_tokens * 4
+
+    lines = text.splitlines()
+    blocks: List[str] = []
+    current_block: List[str] = []
+    in_table = False
+
+    for line in lines:
+        stripped = line.strip()
+        is_table_line = ("|" in stripped and stripped.count("|") >= 2) or ("," in stripped and stripped.count(",") >= 3 and not stripped.endswith("."))
+        if is_table_line:
+            if not in_table and current_block:
+                blocks.append("\n".join(current_block))
+                current_block = []
+            in_table = True
+            current_block.append(line)
+        else:
+            if in_table and current_block:
+                blocks.append("\n".join(current_block))
+                current_block = []
+            in_table = False
+            if not stripped:
+                if current_block:
+                    blocks.append("\n".join(current_block))
+                    current_block = []
+            else:
+                current_block.append(line)
+
+    if current_block:
+        blocks.append("\n".join(current_block))
+
     chunks: List[str] = []
-    current = ""
+    current_chunk = ""
 
-    for paragraph in paragraphs:
-        next_text = f"{current}\n\n{paragraph}".strip() if current else paragraph
-        if len(next_text) <= max_chars:
-            current = next_text
+    for block in blocks:
+        block_str = block.strip()
+        if not block_str:
             continue
-        if current:
-            chunks.append(current)
-        if len(paragraph) <= max_chars:
-            current = paragraph
-            continue
-        for start in range(0, len(paragraph), max_chars - overlap):
-            segment = paragraph[start : start + max_chars].strip()
-            if segment:
-                chunks.append(segment)
-        current = ""
+        next_chunk = f"{current_chunk}\n\n{block_str}".strip() if current_chunk else block_str
+        if len(next_chunk) <= max_chars:
+            current_chunk = next_chunk
+        else:
+            if current_chunk:
+                chunks.append(current_chunk)
+            if len(block_str) <= max_chars:
+                current_chunk = block_str
+            else:
+                sub_lines = block_str.splitlines()
+                sub_chunk = ""
+                for sub_line in sub_lines:
+                    next_sub = f"{sub_chunk}\n{sub_line}".strip() if sub_chunk else sub_line
+                    if len(next_sub) <= max_chars:
+                        sub_chunk = next_sub
+                    else:
+                        if sub_chunk:
+                            chunks.append(sub_chunk)
+                        sub_chunk = sub_line
+                current_chunk = sub_chunk
 
-    if current:
-        chunks.append(current)
+    if current_chunk:
+        chunks.append(current_chunk)
 
     if len(chunks) <= 1:
         return chunks
 
-    with_overlap = [chunks[0]]
+    with_overlap: List[str] = [chunks[0]]
     for index in range(1, len(chunks)):
-        prefix = chunks[index - 1][-overlap:].strip()
+        prefix = chunks[index - 1][-overlap_chars:].strip()
         merged = f"{prefix}\n\n{chunks[index]}".strip()
-        with_overlap.append(merged[: max_chars + overlap])
+        with_overlap.append(merged[: max_chars + overlap_chars])
     return with_overlap
 
 
@@ -359,6 +405,31 @@ def _extract_spreadsheet(content: bytes, filename: str) -> str:
 
 
 
+def _extract_pptx(content: bytes) -> str:
+    try:
+        from pptx import Presentation
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="PPTX support requires python-pptx to be installed",
+        ) from exc
+
+    prs = Presentation(io.BytesIO(content))
+    slide_texts: List[str] = []
+    for idx, slide in enumerate(prs.slides, start=1):
+        slide_lines = [f"### SLIDE {idx}"]
+        for shape in slide.shapes:
+            if hasattr(shape, "text") and shape.text and shape.text.strip():
+                slide_lines.append(shape.text.strip())
+        if hasattr(slide, "has_notes_slide") and slide.has_notes_slide and slide.notes_slide:
+            notes_frame = getattr(slide.notes_slide, "notes_text_frame", None)
+            if notes_frame and notes_frame.text and notes_frame.text.strip():
+                slide_lines.append(f"[Catatan Speaker Slide {idx}]: {notes_frame.text.strip()}")
+        if len(slide_lines) > 1:
+            slide_texts.append("\n".join(slide_lines))
+    return "\n\n".join(slide_texts)
+
+
 def extract_document_text(content: bytes, filename: str, content_type: str | None) -> str:
     lower_name = filename.lower()
     if lower_name.endswith(".pdf") or content_type == "application/pdf":
@@ -368,12 +439,24 @@ def extract_document_text(content: bytes, filename: str, content_type: str | Non
         return _extract_pdf_with_gemini_ocr(content)
     if lower_name.endswith(".docx"):
         return _clean_text(_extract_docx(content))
+    if lower_name.endswith((".pptx", ".ppt")):
+        return _clean_text(_extract_pptx(content))
     if lower_name.endswith((".xlsx", ".xls", ".csv")):
         return _clean_text(_extract_spreadsheet(content, filename))
     try:
         return _clean_text(content.decode("utf-8"))
     except UnicodeDecodeError:
         return _clean_text(content.decode("latin-1", errors="ignore"))
+
+
+def _normalize_l2(values: List[float], expected_dim: int = EMBEDDING_DIMENSION) -> List[float]:
+    if not values or len(values) != expected_dim:
+        return [0.0] * expected_dim
+    arr = np.array(values, dtype=np.float32)
+    norm = np.linalg.norm(arr)
+    if norm > 0:
+        arr = arr / norm
+    return arr.tolist()
 
 
 def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) -> List[float]:
@@ -390,23 +473,23 @@ def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) 
         "output_dimensionality": EMBEDDING_DIMENSION,
     }
 
-    for key in keys:
-        try:
-            response = _HTTP_SESSION.post(
-                f"{GEMINI_API_BASE}/models/{model}:embedContent",
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json=payload,
-                timeout=30,
-            )
-            if response.ok:
-                values = response.json().get("embedding", {}).get("values")
-                if isinstance(values, list) and len(values) == EMBEDDING_DIMENSION:
-                    return [float(v) for v in values]
-            elif response.status_code == 429:
-                logger.warning("Gemini embedding key hit rate limit (429). Trying next key...")
-                continue
-        except Exception as exc:
-            logger.warning(f"Gemini embedding exception: {exc}")
+    with httpx.Client(timeout=30.0) as client:
+        for key in keys:
+            try:
+                response = client.post(
+                    f"{GEMINI_API_BASE}/models/{model}:embedContent",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json=payload,
+                )
+                if response.status_code == 200:
+                    values = response.json().get("embedding", {}).get("values")
+                    if isinstance(values, list) and len(values) == EMBEDDING_DIMENSION:
+                        return _normalize_l2([float(v) for v in values])
+                elif response.status_code == 429:
+                    logger.warning("Gemini embedding key hit rate limit (429). Trying next key...")
+                    continue
+            except Exception as exc:
+                logger.warning(f"Gemini embedding exception: {exc}")
 
     # Fallback to zero vector if embedding fails or rate limited
     logger.warning("All Gemini embedding keys failed. Returning 768-dim zero vector fallback.")
