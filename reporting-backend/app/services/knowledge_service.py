@@ -1,6 +1,7 @@
 import base64
 from contextlib import contextmanager
 import contextvars
+from datetime import datetime, timezone
 from html.parser import HTMLParser
 import ipaddress
 import io
@@ -44,6 +45,13 @@ MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
 IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
+TRUST_LEVEL_RANK = {
+    "official": 50,
+    "verified": 40,
+    "internal": 30,
+    "draft": 10,
+    "deprecated": 0,
+}
 
 
 def _check_and_flag_embedding_reindex_if_needed() -> None:
@@ -662,6 +670,78 @@ def _vector_literal(values: List[float]) -> str:
     return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
 
 
+def _parse_datetime(value: Any) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _trust_rank(value: Any) -> int:
+    return TRUST_LEVEL_RANK.get(str(value or "internal").lower(), TRUST_LEVEL_RANK["internal"])
+
+
+def _is_active_knowledge_document(document: Dict[str, Any], *, now: datetime | None = None) -> bool:
+    if document.get("status") != "ready":
+        return False
+    if document.get("needs_reindex") is True:
+        return False
+    current_time = now or datetime.now(timezone.utc)
+    effective_until = _parse_datetime(document.get("effective_until"))
+    return not effective_until or effective_until > current_time
+
+
+def _filter_rank_keyword_chunks(chunks: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    if not chunks:
+        return []
+
+    document_ids = sorted({chunk.get("document_id") for chunk in chunks if chunk.get("document_id")})
+    if not document_ids:
+        return []
+
+    try:
+        docs_res = (
+            supabase.table("knowledge_documents")
+            .select("id,status,trust_level,effective_until,needs_reindex")
+            .in_("id", document_ids)
+            .execute()
+        )
+    except Exception as exc:
+        logger.warning(f"Failed to load knowledge document metadata for keyword filtering: {exc}")
+        return []
+
+    now = datetime.now(timezone.utc)
+    doc_meta = {
+        doc.get("id"): doc
+        for doc in (docs_res.data or [])
+        if doc.get("id") and _is_active_knowledge_document(doc, now=now)
+    }
+    if not doc_meta:
+        return []
+
+    ranked_chunks = [
+        chunk
+        for chunk in chunks
+        if chunk.get("document_id") in doc_meta
+    ]
+    ranked_chunks.sort(
+        key=lambda chunk: (
+            -_trust_rank(doc_meta.get(chunk.get("document_id"), {}).get("trust_level")),
+            -float(chunk.get("similarity") or 0),
+            int(chunk.get("chunk_index") or 0),
+        )
+    )
+    return ranked_chunks[:limit]
+
+
 _KB_SYSTEM_INSTRUCTION = (
     "Anda adalah AI Knowledge Base untuk SAISOKU OMNIX. "
     "Jawab dalam Bahasa Indonesia yang ringkas, rapi, dan HANYA berdasarkan konteks yang diberikan. "
@@ -1056,7 +1136,8 @@ class KnowledgeService:
                     .execute()
                 )
                 raw_sources = res.data or []
-                sources = [s for s in raw_sources if float(s.get("similarity") or 0) >= 0.5]
+                relevant_sources = [s for s in raw_sources if float(s.get("similarity") or 0) >= 0.5]
+                sources = _filter_rank_keyword_chunks(relevant_sources, match_count)
         except Exception as exc:
             logger.warning(f"Vector search embedding failed or unconfigured: {exc}")
 
@@ -1115,8 +1196,8 @@ class KnowledgeService:
                 query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
                 for kw in keywords[:3]:
                     query_builder = query_builder.ilike("content", f"%{kw}%")
-                kw_res = query_builder.limit(match_count).execute()
-                kw_chunks = kw_res.data or []
+                kw_res = query_builder.limit(match_count * 4).execute()
+                kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
 
                 # Tier 2: OR top keyword-keyword spesifik — buat pertanyaan perbandingan
                 # ("Y1 vs Y1 Pro") di mana tiap istilah ada di chunk/dokumen berbeda,
@@ -1127,16 +1208,16 @@ class KnowledgeService:
                         supabase.table("knowledge_chunks")
                         .select("id, document_id, title, content, chunk_index")
                         .or_(or_filter)
-                        .limit(match_count * 2)
+                        .limit(match_count * 4)
                         .execute()
                     )
-                    kw_chunks = kw_res.data or []
+                    kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
 
                 # Tier 3: fallback ke keyword TERSPESIFIK (bukan kata pertama di kalimat)
                 if not kw_chunks:
                     query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
-                    kw_res = query_builder.ilike("content", f"%{keywords[0]}%").limit(match_count).execute()
-                    kw_chunks = kw_res.data or []
+                    kw_res = query_builder.ilike("content", f"%{keywords[0]}%").limit(match_count * 4).execute()
+                    kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
 
                 for kc in kw_chunks:
                     chunk_id = kc.get("id")
