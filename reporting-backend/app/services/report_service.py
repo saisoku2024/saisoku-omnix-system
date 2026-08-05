@@ -105,6 +105,7 @@ def _fetch_omnix_digital_rows(start_date, end_date, payload: dict) -> list[dict]
             supabase.table("omnix_cases")
             .select(
                 "interaction_at,source_name,channel,agent_name,response_time_sec,"
+                "handling_time_sec,date_first_response_interaction,date_end_interaction,"
                 "brand,main_category"
             )
             .gte("interaction_at", _iso_date(start_date))
@@ -263,6 +264,7 @@ class ReportService:
                 return []
 
             counts = defaultdict(int)
+            handling_times = defaultdict(list)
             response_times = defaultdict(list)
             rows = _fetch_omnix_digital_rows(start_date, end_date, payload)
 
@@ -278,9 +280,41 @@ class ReportService:
                 key = (day, channel)
                 counts[key] += 1
 
+                # Calculate handling time (AHT) with timestamp fallback if 0
+                handling_time = row.get("handling_time_sec")
+                if not handling_time or float(handling_time) == 0:
+                    dt_end = row.get("date_end_interaction")
+                    dt_start = row.get("interaction_at")
+                    if dt_end and dt_start:
+                        try:
+                            t1 = datetime.fromisoformat(str(dt_end).replace("Z", "+00:00"))
+                            t0 = datetime.fromisoformat(str(dt_start).replace("Z", "+00:00"))
+                            diff = (t1 - t0).total_seconds()
+                            if diff > 0:
+                                handling_time = diff
+                        except Exception:
+                            pass
+
+                if handling_time and float(handling_time) > 0:
+                    handling_times[key].append(float(handling_time))
+
+                # Calculate response time (ART) with timestamp fallback if 0
                 response_time = row.get("response_time_sec")
-                if response_time is not None:
-                    response_times[key].append(float(response_time or 0))
+                if not response_time or float(response_time) == 0:
+                    dt_first = row.get("date_first_response_interaction")
+                    dt_start = row.get("interaction_at")
+                    if dt_first and dt_start:
+                        try:
+                            t1 = datetime.fromisoformat(str(dt_first).replace("Z", "+00:00"))
+                            t0 = datetime.fromisoformat(str(dt_start).replace("Z", "+00:00"))
+                            diff = (t1 - t0).total_seconds()
+                            if diff > 0:
+                                response_time = diff
+                        except Exception:
+                            pass
+
+                if response_time and float(response_time) > 0:
+                    response_times[key].append(float(response_time))
 
             selected_channels = [
                 _normalize_channel(payload.get("channel"))
@@ -294,10 +328,16 @@ class ReportService:
 
                     key = (day, channel)
                     case_total = counts[key]
-                    times = response_times[key]
+                    h_times = handling_times[key]
+                    r_times = response_times[key]
+
+                    avg_handling_seconds = (
+                        round(sum(h_times) / len(h_times))
+                        if h_times else 0
+                    )
                     avg_response_seconds = (
-                        round(sum(times) / len(times))
-                        if times else 0
+                        round(sum(r_times) / len(r_times))
+                        if r_times else 0
                     )
                     defaults = _with_report_defaults(payload, channel)
 
@@ -311,7 +351,7 @@ class ReportService:
                         "d_case_out": case_total,
                         "d_case_out_within_sl": case_total,
                         "d_abandon": 0,
-                        "d_aht": _duration_label(0),
+                        "d_aht": _duration_label(avg_handling_seconds),
                         "d_target_aht": _duration_label(0),
                         "d_response_time": _duration_label(avg_response_seconds),
                         "d_target_response_time": _duration_label(0),
