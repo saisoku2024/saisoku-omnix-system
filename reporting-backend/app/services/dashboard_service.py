@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from app.core.supabase import supabase
 from app.utils.date_filter import get_date_range
 
@@ -30,6 +31,72 @@ def _fmt_duration(sec):
         return f"{minutes}m {seconds}s"
     except Exception:
         return "0m 0s"
+
+
+def _calculate_duration_fallback(start: str, end: str):
+    """Calculates AHT, ART, AWT from timestamp differences if explicitly stored sec columns are 0 or null."""
+    try:
+        res = (
+            supabase.table("omnix_cases")
+            .select("handling_time_sec, response_time_sec, waiting_time_sec, interaction_at, date_end_interaction, date_first_response_interaction")
+            .gte("interaction_at", start)
+            .lt("interaction_at", end)
+            .is_("deleted_at", "null")
+            .limit(2000)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            return 0.0, 0.0, 0.0
+
+        aht_list, art_list, awt_list = [], [], []
+
+        for r in rows:
+            # AHT
+            aht = float(r.get("handling_time_sec") or 0)
+            if not aht and r.get("date_end_interaction") and r.get("interaction_at"):
+                try:
+                    t_end = datetime.fromisoformat(r["date_end_interaction"])
+                    t_start = datetime.fromisoformat(r["interaction_at"])
+                    aht = max(0.0, (t_end - t_start).total_seconds())
+                except Exception:
+                    pass
+            if aht > 0:
+                aht_list.append(aht)
+
+            # ART
+            art = float(r.get("response_time_sec") or 0)
+            if not art and r.get("date_first_response_interaction") and r.get("interaction_at"):
+                try:
+                    t_res = datetime.fromisoformat(r["date_first_response_interaction"])
+                    t_start = datetime.fromisoformat(r["interaction_at"])
+                    art = max(0.0, (t_res - t_start).total_seconds())
+                except Exception:
+                    pass
+            if art > 0:
+                art_list.append(art)
+
+            # AWT
+            awt = float(r.get("waiting_time_sec") or 0)
+            if not awt and r.get("date_first_response_interaction") and r.get("interaction_at"):
+                try:
+                    t_res = datetime.fromisoformat(r["date_first_response_interaction"])
+                    t_start = datetime.fromisoformat(r["interaction_at"])
+                    awt = max(0.0, (t_res - t_start).total_seconds())
+                except Exception:
+                    pass
+            if awt > 0:
+                awt_list.append(awt)
+
+        avg_aht = sum(aht_list) / len(aht_list) if aht_list else 0.0
+        avg_art = sum(art_list) / len(art_list) if art_list else 0.0
+        avg_awt = sum(awt_list) / len(awt_list) if awt_list else 0.0
+
+        return avg_aht, avg_art, avg_awt
+
+    except Exception as e:
+        logger.error(f"ERROR CALCULATING DURATION FALLBACK: {e}", exc_info=True)
+        return 0.0, 0.0, 0.0
 
 
 def _is_unknown_only(rows):
@@ -105,6 +172,19 @@ def get_dashboard_summary(mode: str, period: str, year: int):
         art_raw = data.get("avg_art") if data.get("avg_art") is not None else data.get("art")
         awt_raw = data.get("avg_awt") if data.get("avg_awt") is not None else data.get("awt")
         csat_raw = data.get("csat") if data.get("csat") is not None else data.get("avg_csat")
+
+        aht_val = float(aht_raw or 0)
+        art_val = float(art_raw or 0)
+        awt_val = float(awt_raw or 0)
+
+        if (not aht_val or not art_val or not awt_val) and int(data.get("total_ticket") or 0) > 0:
+            fb_aht, fb_art, fb_awt = _calculate_duration_fallback(start, end)
+            if not aht_val and fb_aht > 0:
+                aht_raw = fb_aht
+            if not art_val and fb_art > 0:
+                art_raw = fb_art
+            if not awt_val and fb_awt > 0:
+                awt_raw = fb_awt
 
         return {
             "total_ticket": f"{int(data.get('total_ticket') or data.get('total') or 0):,}",
@@ -321,6 +401,19 @@ def get_dashboard_all(mode, period, year):
         art_raw = summary.get("avg_art") if summary.get("avg_art") is not None else summary.get("art")
         awt_raw = summary.get("avg_awt") if summary.get("avg_awt") is not None else summary.get("awt")
         csat_raw = summary.get("csat") if summary.get("csat") is not None else summary.get("avg_csat")
+
+        aht_val = float(aht_raw or 0)
+        art_val = float(art_raw or 0)
+        awt_val = float(awt_raw or 0)
+
+        if (not aht_val or not art_val or not awt_val) and int(summary.get("total_ticket") or 0) > 0:
+            fb_aht, fb_art, fb_awt = _calculate_duration_fallback(start, end)
+            if not aht_val and fb_aht > 0:
+                aht_raw = fb_aht
+            if not art_val and fb_art > 0:
+                art_raw = fb_art
+            if not awt_val and fb_awt > 0:
+                awt_raw = fb_awt
 
         return {
             "summary": {

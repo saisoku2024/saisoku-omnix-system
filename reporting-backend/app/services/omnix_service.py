@@ -292,12 +292,30 @@ class OmnixService:
             if not product or _is_unknown_only(product):
                 product = OmnixService._get_product_from_category(start, end)
 
+            aht_raw = summary.get("avg_aht") if summary.get("avg_aht") is not None else summary.get("aht")
+            art_raw = summary.get("avg_art") if summary.get("avg_art") is not None else summary.get("art")
+            awt_raw = summary.get("avg_awt") if summary.get("avg_awt") is not None else summary.get("awt")
+
+            aht_val = float(aht_raw or 0)
+            art_val = float(art_raw or 0)
+            awt_val = float(awt_raw or 0)
+
+            if (not aht_val or not art_val or not awt_val) and int(summary.get("total_ticket") or 0) > 0:
+                from app.services.dashboard_service import _calculate_duration_fallback
+                fb_aht, fb_art, fb_awt = _calculate_duration_fallback(start, end)
+                if not aht_val and fb_aht > 0:
+                    aht_raw = fb_aht
+                if not art_val and fb_art > 0:
+                    art_raw = fb_art
+                if not awt_val and fb_awt > 0:
+                    awt_raw = fb_awt
+
             return {
                 "summary": {
                     "total_ticket": int(summary.get("total_ticket") or 0),
-                    "aht": _fmt_duration(summary.get("avg_aht")),
-                    "art": _fmt_duration(summary.get("avg_art")),
-                    "awt": _fmt_duration(summary.get("avg_awt")),
+                    "aht": _fmt_duration(aht_raw),
+                    "art": _fmt_duration(art_raw),
+                    "awt": _fmt_duration(awt_raw),
                 },
                 "daily": [
                     {
