@@ -1366,6 +1366,10 @@ class KnowledgeService:
                 supabase.table("knowledge_entities").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             except Exception:
                 pass
+            try:
+                supabase.table("knowledge_inconsistency_logs").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            except Exception:
+                pass
             supabase.table("knowledge_chunks").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             res = supabase.table("knowledge_documents").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             deleted_count = len(res.data or [])
