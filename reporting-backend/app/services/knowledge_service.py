@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import socket
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -52,6 +52,52 @@ TRUST_LEVEL_RANK = {
     "draft": 10,
     "deprecated": 0,
 }
+ENTITY_INDEX_VERSION = "2026-08-05-v1"
+PRODUCT_CODE_RE = re.compile(r"\b[A-Z]{1,6}\d{1,4}[A-Z0-9]*(?:\s+(?:PRO|MAX|PRIME|OMNI|PLUS|COMBO|COMPLETE|STATION))*\b", re.IGNORECASE)
+COMPACT_PRODUCT_CODE_RE = re.compile(r"\b[A-Z]{1,6}\d{1,4}[A-Z0-9]*\b", re.IGNORECASE)
+MODEL_LINE_RE = re.compile(
+    r"\b(?:DEEBOT|ECOVACS|TINECO|LAIFEN|TYMO|YONIEV)?\s*"
+    r"[A-Z]{1,6}\d{1,4}[A-Z0-9]*(?:\s+(?:MAX|PRO|PRIME|OMNI|PLUS|COMBO|COMPLETE|STATION)){1,5}\b",
+    re.IGNORECASE,
+)
+BRAND_PATTERNS = {
+    "ecovacs": re.compile(r"\b(?:ecovacs|deebot)\b", re.IGNORECASE),
+    "tineco": re.compile(r"\btineco\b", re.IGNORECASE),
+    "laifen": re.compile(r"\blaifen\b", re.IGNORECASE),
+    "tymo": re.compile(r"\btymo\b", re.IGNORECASE),
+    "yoniev": re.compile(r"\byoniev\b", re.IGNORECASE),
+}
+DOCUMENT_TYPE_PATTERNS = {
+    "manual": re.compile(r"\b(?:manual|buku panduan|panduan pengguna|user manual)\b", re.IGNORECASE),
+    "warranty": re.compile(r"\b(?:garansi|warranty|kartu garansi)\b", re.IGNORECASE),
+    "specification": re.compile(r"\b(?:spesifikasi|specification|spec|spek)\b", re.IGNORECASE),
+    "troubleshooting": re.compile(r"\b(?:troubleshooting|pemecahan masalah|malafungsi|error)\b", re.IGNORECASE),
+}
+TOPIC_PATTERNS = {
+    "indicator_status": re.compile(
+        r"\b(?:lampu indikator|indikator status|status lampu|indikator|berkedip|solid|menyala|padam|dimming|bernapas)\b",
+        re.IGNORECASE,
+    ),
+    "wifi_status": re.compile(r"\b(?:wi-?fi|jaringan|terhubung|tersambung|menyambungkan)\b", re.IGNORECASE),
+    "omni_station": re.compile(r"\b(?:omni station|stasiun omni|station|dok|dock|pengisian daya)\b", re.IGNORECASE),
+    "robot_status": re.compile(r"\b(?:robot|baterai|tombol daya|tugas dimulai|tugas dijeda|alarm)\b", re.IGNORECASE),
+    "charging_status": re.compile(r"\b(?:mengisi daya|pengecasan|charging|baterai penuh|baterai lemah)\b", re.IGNORECASE),
+}
+INDICATOR_QUERY_RE = re.compile(
+    r"\b(?:lampu indikator|indikator|status lampu|berkedip|solid|wi-?fi|omni station|stasiun|dok|dock)\b",
+    re.IGNORECASE,
+)
+INDICATOR_EXPANSION_GROUPS = [
+    ["lampu", "indikator"],
+    ["indikator", "status"],
+    ["putih", "solid"],
+    ["putih", "berkedip"],
+    ["merah", "solid"],
+    ["merah", "berkedip"],
+    ["omni", "station"],
+    ["wi-fi"],
+    ["wifi"],
+]
 
 
 def _check_and_flag_embedding_reindex_if_needed() -> None:
@@ -670,6 +716,215 @@ def _vector_literal(values: List[float]) -> str:
     return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
 
 
+def _normalize_entity_value(value: Any) -> str:
+    normalized = re.sub(r"[^A-Z0-9]+", " ", str(value or "").upper()).strip()
+    return re.sub(r"\s+", " ", normalized)
+
+
+def _compact_entity_value(value: Any) -> str:
+    return re.sub(r"[^A-Z0-9]+", "", str(value or "").upper())
+
+
+def _entity_row(
+    document_id: str,
+    chunk_id: str | None,
+    entity_type: str,
+    entity_value: str,
+    normalized_value: str | None = None,
+    confidence: float = 1.0,
+    source: str = "regex",
+) -> Dict[str, Any]:
+    return {
+        "document_id": document_id,
+        "chunk_id": chunk_id,
+        "entity_type": entity_type,
+        "entity_value": entity_value.strip(),
+        "normalized_value": normalized_value or _normalize_entity_value(entity_value),
+        "confidence": confidence,
+        "source": source,
+    }
+
+
+def _extract_product_codes(text: str) -> List[str]:
+    values: List[str] = []
+    for match in COMPACT_PRODUCT_CODE_RE.finditer(text or ""):
+        value = _compact_entity_value(match.group(0))
+        if len(value) >= 2 and any(char.isdigit() for char in value):
+            values.append(value)
+    seen: Set[str] = set()
+    result: List[str] = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
+
+
+def _series_from_product_code(product_code: str) -> str | None:
+    match = re.match(r"^([A-Z]+\d+)", _compact_entity_value(product_code))
+    if not match:
+        return None
+    return match.group(1)
+
+
+def extract_knowledge_entities(document: Dict[str, Any], chunk: Dict[str, Any]) -> List[Dict[str, Any]]:
+    document_id = str(document.get("id") or chunk.get("document_id") or "")
+    chunk_id = chunk.get("id") or chunk.get("chunk_id")
+    if not document_id:
+        return []
+
+    title = str(chunk.get("title") or document.get("title") or "")
+    source_file = str(document.get("source_file") or "")
+    content = str(chunk.get("content") or "")
+    combined_text = f"{title}\n{source_file}\n{content}"
+
+    rows: List[Dict[str, Any]] = []
+    for brand, pattern in BRAND_PATTERNS.items():
+        if pattern.search(combined_text):
+            rows.append(_entity_row(document_id, chunk_id, "brand", brand.title(), brand.upper(), 0.95))
+
+    for product_code in _extract_product_codes(combined_text):
+        rows.append(_entity_row(document_id, chunk_id, "product_code", product_code, product_code, 0.95))
+        series = _series_from_product_code(product_code)
+        if series and series != product_code:
+            rows.append(_entity_row(document_id, chunk_id, "series", series, series, 0.9))
+
+    for pattern in [PRODUCT_CODE_RE, MODEL_LINE_RE]:
+        for match in pattern.finditer(combined_text):
+            model = _normalize_entity_value(match.group(0))
+            if any(char.isdigit() for char in model) and len(model) >= 3:
+                rows.append(_entity_row(document_id, chunk_id, "model", model, model, 0.85))
+
+    for document_type, pattern in DOCUMENT_TYPE_PATTERNS.items():
+        if pattern.search(combined_text):
+            rows.append(_entity_row(document_id, chunk_id, "document_type", document_type, document_type.upper(), 0.85))
+
+    for topic, pattern in TOPIC_PATTERNS.items():
+        if pattern.search(combined_text):
+            rows.append(_entity_row(document_id, chunk_id, "topic", topic, topic.upper(), 0.9))
+
+    deduped: List[Dict[str, Any]] = []
+    seen_keys: Set[tuple] = set()
+    for row in rows:
+        key = (row["document_id"], row.get("chunk_id"), row["entity_type"], row["normalized_value"])
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        deduped.append(row)
+    return deduped
+
+
+def _indicator_query_terms(question: str) -> Dict[str, Any]:
+    if not INDICATOR_QUERY_RE.search(question or ""):
+        return {"is_indicator_query": False, "product_codes": [], "series": [], "topic_groups": []}
+
+    product_codes = _extract_product_codes(question)
+    series: List[str] = []
+    for product_code in product_codes:
+        value = _series_from_product_code(product_code)
+        if value and value not in series:
+            series.append(value)
+
+    return {
+        "is_indicator_query": True,
+        "product_codes": product_codes,
+        "series": series,
+        "topic_groups": INDICATOR_EXPANSION_GROUPS,
+    }
+
+
+def _chunk_matches_any_term(chunk: Dict[str, Any], terms: List[str]) -> bool:
+    haystack = f"{chunk.get('title') or ''}\n{chunk.get('content') or ''}".lower()
+    return any(term.lower() in haystack for term in terms)
+
+
+def _to_query_source(chunk: Dict[str, Any], similarity: float) -> Dict[str, Any]:
+    return {
+        "chunk_id": chunk.get("id") or chunk.get("chunk_id"),
+        "document_id": chunk.get("document_id"),
+        "title": chunk.get("title"),
+        "content": chunk.get("content"),
+        "chunk_index": chunk.get("chunk_index"),
+        "similarity": similarity,
+    }
+
+
+def _fetch_keyword_chunks(keyword_groups: List[List[str]], limit: int) -> List[Dict[str, Any]]:
+    found: List[Dict[str, Any]] = []
+    seen_ids: Set[str] = set()
+    for group in keyword_groups:
+        terms = [term.strip() for term in group if term and term.strip()]
+        if not terms:
+            continue
+        try:
+            query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
+            for term in terms:
+                query_builder = query_builder.ilike("content", f"%{term}%")
+            result = query_builder.limit(limit).execute()
+        except Exception as exc:
+            logger.warning(f"Knowledge keyword expansion search failed for {terms}: {exc}")
+            continue
+        for chunk in result.data or []:
+            chunk_id = chunk.get("id")
+            if chunk_id and chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                found.append(chunk)
+    return found
+
+
+def _fetch_entity_index_chunks(indicator_terms: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+    product_values = [
+        *_extract_product_codes(" ".join(indicator_terms.get("product_codes") or [])),
+        *(indicator_terms.get("series") or []),
+    ]
+    topic_values = ["INDICATOR_STATUS", "WIFI_STATUS", "OMNI_STATION", "ROBOT_STATUS", "CHARGING_STATUS"]
+
+    try:
+        product_chunk_ids: Set[str] = set()
+        topic_chunk_ids: Set[str] = set()
+
+        for value in product_values:
+            res = (
+                supabase.table("knowledge_entities")
+                .select("chunk_id")
+                .in_("entity_type", ["product_code", "series", "model"])
+                .eq("normalized_value", value)
+                .limit(limit * 4)
+                .execute()
+            )
+            product_chunk_ids.update(row.get("chunk_id") for row in (res.data or []) if row.get("chunk_id"))
+
+        for value in topic_values:
+            res = (
+                supabase.table("knowledge_entities")
+                .select("chunk_id")
+                .eq("entity_type", "topic")
+                .eq("normalized_value", value)
+                .limit(limit * 4)
+                .execute()
+            )
+            topic_chunk_ids.update(row.get("chunk_id") for row in (res.data or []) if row.get("chunk_id"))
+
+        candidate_ids = topic_chunk_ids
+        if product_chunk_ids:
+            intersected = product_chunk_ids & topic_chunk_ids
+            candidate_ids = intersected or product_chunk_ids
+        if not candidate_ids:
+            return []
+
+        chunks_res = (
+            supabase.table("knowledge_chunks")
+            .select("id, document_id, title, content, chunk_index")
+            .in_("id", list(candidate_ids)[: limit * 4])
+            .limit(limit * 4)
+            .execute()
+        )
+        return chunks_res.data or []
+    except Exception as exc:
+        logger.info(f"Knowledge entity index lookup unavailable, using keyword expansion only: {exc}")
+        return []
+
+
 def _parse_datetime(value: Any) -> datetime | None:
     if not value:
         return None
@@ -715,8 +970,23 @@ def _filter_rank_keyword_chunks(chunks: List[Dict[str, Any]], limit: int) -> Lis
             .execute()
         )
     except Exception as exc:
-        logger.warning(f"Failed to load knowledge document metadata for keyword filtering: {exc}")
-        return []
+        if not any(column in str(exc) for column in ["trust_level", "effective_until", "needs_reindex"]):
+            logger.warning(f"Failed to load knowledge document metadata for keyword filtering: {exc}")
+            return []
+        logger.warning(
+            "Knowledge metadata columns are not available yet. "
+            "Falling back to status-only retrieval filtering."
+        )
+        try:
+            docs_res = (
+                supabase.table("knowledge_documents")
+                .select("id,status")
+                .in_("id", document_ids)
+                .execute()
+            )
+        except Exception as fallback_exc:
+            logger.warning(f"Failed to load fallback knowledge document status: {fallback_exc}")
+            return []
 
     now = datetime.now(timezone.utc)
     doc_meta = {
@@ -755,6 +1025,11 @@ _KB_SYSTEM_INSTRUCTION = (
     "1. Tabel Markdown perbandingan fitur yang berbeda. "
     "2. Poin-poin persamaan fitur. "
     "3. Ringkasan kesimpulan singkat. "
+    "Jika pertanyaan membahas LAMPU INDIKATOR / STATUS LAMPU / WI-FI / OMNI STATION, WAJIB kelompokkan jawaban berdasarkan bagian yang tersedia di konteks: "
+    "1. Lampu Indikator pada Robot. "
+    "2. Lampu Indikator pada OMNI Station atau dok. "
+    "3. Indikator Status Wi-Fi. "
+    "Jika salah satu bagian tidak tersedia di konteks, sebutkan singkat bahwa bagian itu belum ditemukan di knowledge base. "
     "Untuk pertanyaan spesifikasi produk atau informasi umum, sajikan poin spesifikasi secara terstruktur lalu AKHIRI DENGAN '📌 Ringkasan Keunggulan / Kesimpulan' singkat di bagian bawah. "
     "Jika konteks tidak cukup untuk menjawab, katakan dengan jelas bahwa knowledge base belum punya "
     "informasi yang cukup, jangan menebak atau mengarang."
@@ -962,13 +1237,31 @@ class KnowledgeService:
                         "embedding": _vector_literal(embeddings[index]),
                     }
                 )
-            supabase.table("knowledge_chunks").insert(rows).execute()
+            insert_res = supabase.table("knowledge_chunks").insert(rows).execute()
             (
                 supabase.table("knowledge_documents")
                 .update({"status": "ready", "chunk_count": len(rows), "error_summary": None})
                 .eq("id", document_id)
                 .execute()
             )
+            try:
+                inserted_chunks = insert_res.data or []
+                if not inserted_chunks:
+                    chunks_res = (
+                        supabase.table("knowledge_chunks")
+                        .select("id, document_id, title, content, chunk_index")
+                        .eq("document_id", document_id)
+                        .execute()
+                    )
+                    inserted_chunks = chunks_res.data or []
+                KnowledgeService.reindex_entities_for_document(
+                    document_id=document_id,
+                    document={"id": document_id, "title": document_title, "status": "ready"},
+                    chunks=inserted_chunks,
+                    dry_run=False,
+                )
+            except Exception as entity_exc:
+                logger.warning(f"Knowledge entity indexing skipped for document {document_id}: {entity_exc}")
             AuditLogService.log(
                 action="KNOWLEDGE_UPLOAD",
                 resource="knowledge_documents",
@@ -1113,6 +1406,106 @@ class KnowledgeService:
             )
 
     @staticmethod
+    def reindex_entities_for_document(
+        document_id: str,
+        document: Dict[str, Any] | None = None,
+        chunks: List[Dict[str, Any]] | None = None,
+        dry_run: bool = True,
+    ) -> Dict[str, Any]:
+        if not document:
+            doc_res = (
+                supabase.table("knowledge_documents")
+                .select("id,title,source_file,status")
+                .eq("id", document_id)
+                .single()
+                .execute()
+            )
+            document = doc_res.data or {}
+        if not document:
+            raise HTTPException(status_code=404, detail="Knowledge document tidak ditemukan.")
+
+        if chunks is None:
+            chunks_res = (
+                supabase.table("knowledge_chunks")
+                .select("id, document_id, title, content, chunk_index")
+                .eq("document_id", document_id)
+                .order("chunk_index")
+                .execute()
+            )
+            chunks = chunks_res.data or []
+
+        entity_rows: List[Dict[str, Any]] = []
+        for chunk in chunks:
+            entity_rows.extend(extract_knowledge_entities(document, chunk))
+
+        if dry_run:
+            return {
+                "document_id": document_id,
+                "title": document.get("title"),
+                "chunk_count": len(chunks),
+                "entity_count": len(entity_rows),
+                "sample_entities": entity_rows[:20],
+            }
+
+        try:
+            supabase.table("knowledge_entities").delete().eq("document_id", document_id).execute()
+            if entity_rows:
+                supabase.table("knowledge_entities").insert(entity_rows).execute()
+            (
+                supabase.table("knowledge_documents")
+                .update(
+                    {
+                        "entity_indexed_at": datetime.now(timezone.utc).isoformat(),
+                        "entity_index_version": ENTITY_INDEX_VERSION,
+                    }
+                )
+                .eq("id", document_id)
+                .execute()
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to write knowledge entity index for document {document_id}: {exc}")
+            raise
+
+        return {
+            "document_id": document_id,
+            "title": document.get("title"),
+            "chunk_count": len(chunks),
+            "entity_count": len(entity_rows),
+            "dry_run": False,
+        }
+
+    @staticmethod
+    def reindex_entities(limit: int = 200, offset: int = 0, dry_run: bool = True) -> Dict[str, Any]:
+        docs_res = (
+            supabase.table("knowledge_documents")
+            .select("id,title,source_file,status")
+            .eq("status", "ready")
+            .order("created_at", desc=False)
+            .range(offset, offset + max(limit, 1) - 1)
+            .execute()
+        )
+        documents = docs_res.data or []
+        results: List[Dict[str, Any]] = []
+        total_entities = 0
+        for document in documents:
+            result = KnowledgeService.reindex_entities_for_document(
+                document_id=document["id"],
+                document=document,
+                chunks=None,
+                dry_run=dry_run,
+            )
+            total_entities += int(result.get("entity_count") or 0)
+            results.append(result)
+
+        return {
+            "dry_run": dry_run,
+            "entity_index_version": ENTITY_INDEX_VERSION,
+            "document_count": len(documents),
+            "entity_count": total_entities,
+            "documents": results,
+        }
+
+    @staticmethod
     def query(question: str, match_count: int = 6) -> Dict[str, Any]:
         _check_and_flag_embedding_reindex_if_needed()
         cleaned_question = question.strip()
@@ -1171,6 +1564,7 @@ class KnowledgeService:
 
         # Entitas produk spesifik (misal: "Y1", "S9", "T80")
         product_code_keywords = [w for w in keywords if any(c.isdigit() for c in w)]
+        indicator_terms = _indicator_query_terms(cleaned_question)
 
         # Jika vector search menghasilkan sumber tetapi TIDAK SATUPUN sumber memuat kode produk spesifik
         # yang ditanyakan user, maka vector search terjebak di dokumen generik (misal: Troubleshooting).
@@ -1185,6 +1579,35 @@ class KnowledgeService:
             else:
                 logger.info(f"Vector search returned generic chunks without product codes {product_code_keywords}. Falling back to keyword search.")
                 sources = []
+
+        if indicator_terms.get("is_indicator_query"):
+            existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
+            product_terms = list(indicator_terms.get("product_codes") or []) + list(indicator_terms.get("series") or [])
+            indicator_chunks = _fetch_entity_index_chunks(indicator_terms, match_count * 4)
+
+            keyword_indicator_chunks = _fetch_keyword_chunks(indicator_terms.get("topic_groups") or [], match_count * 8)
+            if product_terms:
+                product_matched = [
+                    chunk for chunk in keyword_indicator_chunks
+                    if _chunk_matches_any_term(chunk, product_terms)
+                ]
+                keyword_indicator_chunks = product_matched or keyword_indicator_chunks
+
+            combined_indicator_chunks: List[Dict[str, Any]] = []
+            seen_indicator_ids: Set[str] = set()
+            for chunk in [*indicator_chunks, *keyword_indicator_chunks]:
+                chunk_id = chunk.get("id") or chunk.get("chunk_id")
+                if chunk_id and chunk_id not in seen_indicator_ids:
+                    seen_indicator_ids.add(chunk_id)
+                    combined_indicator_chunks.append(chunk)
+
+            ranked_indicator_chunks = _filter_rank_keyword_chunks(combined_indicator_chunks, match_count * 2)
+            for chunk in ranked_indicator_chunks:
+                source = _to_query_source(chunk, 0.98)
+                chunk_id = source.get("chunk_id")
+                if chunk_id and chunk_id not in existing_ids:
+                    sources.append(source)
+                    existing_ids.add(chunk_id)
 
         # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
