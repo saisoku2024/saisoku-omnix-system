@@ -72,31 +72,9 @@ export const sidebarMenu: SidebarMenuItem[] = [
     ],
   },
   {
-    title: "AI Workspace",
-    url: "/ai/workspace",
-    icon: <BotIcon />,
-    items: [
-      {
-        title: "Workspace Hub",
-        url: "/ai/workspace",
-        icon: <SparklesIcon />,
-      },
-      {
-        title: "Knowledge Base",
-        url: "/ai/knowledge-base",
-        icon: <BookOpenIcon />,
-      },
-      {
-        title: "Brand Analytics",
-        url: "/ai/brand-analytics",
-        icon: <PieChartIcon />,
-      },
-      {
-        title: "QA & Compliance Audit",
-        url: "/ai/qa-audit",
-        icon: <ShieldCheckIcon />,
-      },
-    ],
+    title: "AI Knowledge Base",
+    url: "/ai/knowledge-base",
+    icon: <BookOpenIcon />,
   },
   {
     title: "Data Management",
