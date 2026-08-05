@@ -45,6 +45,7 @@ _HTTPX_CLIENT = httpx.Client(
 MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
 MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
 MIN_EXTRACTED_TEXT_CHARS = 20
+MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT = 40
 IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
 TRUST_LEVEL_RANK = {
     "official": 50,
@@ -1301,9 +1302,21 @@ class KnowledgeService:
             if not chunks:
                 raise HTTPException(status_code=400, detail="Dokumen tidak menghasilkan chunk knowledge base.")
 
-            # Contextual retrieval: generate context_prefix per chunk (sequential, reuse key rotation)
+            # Contextual retrieval: generate context_prefix per chunk (sequential, reuse key rotation).
+            # Di-cap supaya dokumen dengan chunk sangat banyak tidak bikin ingest bermenit-menit
+            # atau menghabiskan rate limit Gemini dalam satu background task. Chunk di luar cap
+            # tetap diproses normal, cuma tanpa context_prefix.
+            if len(chunks) > MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT:
+                logger.warning(
+                    f"Dokumen '{document_title}' punya {len(chunks)} chunk, melebihi "
+                    f"MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT={MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT}. "
+                    f"Contextual retrieval hanya dijalankan untuk {MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT} "
+                    f"chunk pertama; sisanya di-embed tanpa context_prefix."
+                )
             context_prefixes = [
-                _generate_chunk_context(text, chunk, document_title) for chunk in chunks
+                _generate_chunk_context(text, chunk, document_title)
+                if index < MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT else ""
+                for index, chunk in enumerate(chunks)
             ]
 
             # Embedding pakai gabungan context_prefix + chunk (kalau context_prefix kosong, fallback ke chunk asli)
