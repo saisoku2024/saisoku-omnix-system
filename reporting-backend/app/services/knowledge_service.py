@@ -1091,8 +1091,11 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
             except Exception as exc:
                 logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
 
-    # Fallback if LLM API key fails, returns 429, or unavailable
-    return "Berikut informasi yang ditemukan di Knowledge Base SOP:\n\n" + context
+    # Do not dump raw retrieved context when LLM generation is unavailable.
+    return (
+        "Saya menemukan sumber Knowledge Base yang relevan, tetapi AI penyusun jawaban sedang tidak tersedia. "
+        "Silakan coba lagi beberapa saat lagi."
+    )
 
 
 

@@ -1,4 +1,4 @@
-from app.services.knowledge_service import extract_knowledge_entities, _indicator_query_terms
+from app.services.knowledge_service import _generate_answer, _indicator_query_terms, extract_knowledge_entities
 
 
 def test_extract_knowledge_entities_for_indicator_chunk():
@@ -36,3 +36,22 @@ def test_indicator_query_terms_expand_product_series():
     assert "T30C" in terms["product_codes"]
     assert "T30" in terms["series"]
     assert ["merah", "berkedip"] in terms["topic_groups"]
+
+
+def test_llm_fallback_does_not_dump_raw_context(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEYS", raising=False)
+
+    answer = _generate_answer(
+        "lampu indikator t30c",
+        [
+            {
+                "title": "Sensitive Internal SOP",
+                "content": "RAW_CONTEXT_SHOULD_NOT_BE_RETURNED",
+            }
+        ],
+    )
+
+    assert "RAW_CONTEXT_SHOULD_NOT_BE_RETURNED" not in answer
+    assert "Sensitive Internal SOP" not in answer
+    assert "AI penyusun jawaban sedang tidak tersedia" in answer
