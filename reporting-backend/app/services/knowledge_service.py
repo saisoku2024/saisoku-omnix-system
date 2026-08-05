@@ -1346,6 +1346,29 @@ class KnowledgeService:
         }
 
     @staticmethod
+    def delete_document(document_id: str) -> Dict[str, Any]:
+        try:
+            supabase.table("knowledge_entities").delete().eq("document_id", document_id).execute()
+            supabase.table("knowledge_chunks").delete().eq("document_id", document_id).execute()
+            supabase.table("knowledge_documents").delete().eq("id", document_id).execute()
+            return {"success": True, "document_id": document_id}
+        except Exception as exc:
+            logger.error(f"Failed to delete document {document_id}: {exc}")
+            raise HTTPException(status_code=500, detail=f"Gagal menghapus dokumen knowledge: {exc}")
+
+    @staticmethod
+    def clear_all_documents() -> Dict[str, Any]:
+        try:
+            supabase.table("knowledge_entities").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            supabase.table("knowledge_chunks").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            res = supabase.table("knowledge_documents").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            deleted_count = len(res.data or [])
+            return {"success": True, "deleted_count": deleted_count}
+        except Exception as exc:
+            logger.error(f"Failed to clear all knowledge documents: {exc}")
+            raise HTTPException(status_code=500, detail=f"Gagal membersihkan database knowledge: {exc}")
+
+    @staticmethod
     async def prepare_upload(file: UploadFile, title: str | None, user_email: str = "admin@omnix.com") -> Dict[str, Any]:
         content = await file.read()
         validate_storage_upload("knowledge", file.filename or "", len(content))

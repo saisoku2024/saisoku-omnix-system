@@ -56,6 +56,7 @@ const ALLOWED_READ_ROUTES = new Set([
   "GET knowledge/monitoring/summary",
   "GET knowledge/backup/export",
   "POST knowledge/backup/restore",
+  "POST knowledge/clear-all",
 ])
 
 const SENSITIVE_PROXY_ROUTES = new Set([

@@ -232,3 +232,13 @@ def get_knowledge_monitoring_summary(days: int = Query(7, ge=1, le=90)):
     from app.services.knowledge_query_log_service import KnowledgeQueryLogService
     return KnowledgeQueryLogService.summary(days=days)
 
+
+@router.delete("/documents/{document_id}")
+def delete_knowledge_document(document_id: str):
+    return KnowledgeService.delete_document(document_id)
+
+
+@router.post("/clear-all")
+def clear_all_knowledge_documents():
+    return KnowledgeService.clear_all_documents()
+

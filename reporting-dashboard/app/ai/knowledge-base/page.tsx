@@ -21,6 +21,7 @@ import {
   SearchIcon,
   SendIcon,
   SparklesIcon,
+  Trash2Icon,
   TypeIcon,
   UploadIcon,
   ZapIcon,
@@ -234,6 +235,7 @@ export default function KnowledgeBasePage() {
   const [processingStageIndex, setProcessingStageIndex] = useState(0)
   const [exportingBackup, setExportingBackup] = useState(false)
   const [restoringBackup, setRestoringBackup] = useState(false)
+  const [clearingAll, setClearingAll] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
@@ -302,12 +304,37 @@ export default function KnowledgeBasePage() {
       setSuccess(
         `Backup berhasil dipulihkan! (${data.restored_documents || 0} dokumen & ${data.restored_chunks || 0} chunk restored)`
       )
-      await loadDocuments()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memulihkan backup knowledge base")
     } finally {
       setRestoringBackup(false)
       event.target.value = ""
+    }
+  }
+
+  const handleClearAll = async () => {
+    if (!isAdmin) return
+    if (
+      !confirm(
+        "⚠️ PERINGATAN BERSINKRONISASI ⚠️\n\nApakah Anda yakin ingin menghapus SEMUA dokumen dan vector chunk di Knowledge Base?\nTindakan ini tidak dapat dibatalkan!"
+      )
+    ) {
+      return
+    }
+
+    setClearingAll(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const response = await fetch("/api/backend/knowledge/clear-all", { method: "POST" })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(readError(data, "Gagal membersihkan database knowledge"))
+      setSuccess(`Berhasil membersihkan Database Knowledge Base (${data.deleted_count || 0} dokumen dihapus).`)
+      await loadDocuments()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membersihkan database knowledge")
+    } finally {
+      setClearingAll(false)
     }
   }
 
@@ -587,11 +614,23 @@ export default function KnowledgeBasePage() {
               </button>
 
               {isAdmin && (
-                <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-xl border border-(--c-border) bg-(--c-overlay) px-3.5 text-xs font-semibold text-(--c-text) transition-all duration-150 hover:border-emerald-500/50 hover:bg-emerald-500/8 hover:text-emerald-400">
-                  {restoringBackup ? <Loader2Icon size={13} className="animate-spin" /> : <RefreshCwIcon size={13} className="text-emerald-400" />}
-                  Restore Backup
-                  <input type="file" accept=".zip" disabled={restoringBackup} onChange={handleRestoreBackup} className="hidden" />
-                </label>
+                <>
+                  <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-xl border border-(--c-border) bg-(--c-overlay) px-3.5 text-xs font-semibold text-(--c-text) transition-all duration-150 hover:border-emerald-500/50 hover:bg-emerald-500/8 hover:text-emerald-400">
+                    {restoringBackup ? <Loader2Icon size={13} className="animate-spin" /> : <RefreshCwIcon size={13} className="text-emerald-400" />}
+                    Restore Backup
+                    <input type="file" accept=".zip" disabled={restoringBackup} onChange={handleRestoreBackup} className="hidden" />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    disabled={clearingAll}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 text-xs font-semibold text-red-400 transition-all duration-150 hover:border-red-500/60 hover:bg-red-500/20 hover:text-red-300 disabled:opacity-50"
+                    title="Kosongkan seluruh dokumen dan vector chunk di Knowledge Base"
+                  >
+                    {clearingAll ? <Loader2Icon size={13} className="animate-spin" /> : <Trash2Icon size={13} className="text-red-400" />}
+                    Reset Database
+                  </button>
+                </>
               )}
 
               <div className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold ${
