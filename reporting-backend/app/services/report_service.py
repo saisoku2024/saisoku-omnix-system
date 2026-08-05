@@ -220,6 +220,8 @@ class ReportService:
                 ).execute()
                 rows = res.data or []
                 for row in rows:
+                    if isinstance(row.get("d_aht"), (int, float)):
+                        row["d_aht"] = round(float(row["d_aht"]) * 60)
                     if isinstance(row.get("d_response_time"), (int, float)):
                         row["d_response_time"] = round(float(row["d_response_time"]) * 60)
                 return rows
@@ -355,8 +357,8 @@ class ReportService:
                         "d_case_out": case_total,
                         "d_case_out_within_sl": case_total,
                         "d_abandon": 0,
-                        "d_aht": _duration_label(avg_handling_seconds),
-                        "d_target_aht": _duration_label(0),
+                        "d_aht": avg_handling_seconds,
+                        "d_target_aht": 0,
                         "d_response_time": avg_response_seconds,
                         "d_target_response_time": 0,
                         "d_response_rate": 100 if case_total else 0,
