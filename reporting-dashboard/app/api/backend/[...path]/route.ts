@@ -50,6 +50,7 @@ const ALLOWED_READ_ROUTES = new Set([
   "POST knowledge/url",
   "POST knowledge/query",
   "GET knowledge/inconsistencies",
+  "GET knowledge/monitoring/summary",
   "GET knowledge/backup/export",
   "POST knowledge/backup/restore",
 ])

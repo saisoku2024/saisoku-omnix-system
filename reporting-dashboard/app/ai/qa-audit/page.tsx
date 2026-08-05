@@ -170,6 +170,22 @@ export default function QaAuditPage() {
   const [error, setError] = useState<string | null>(null)
   const [aiAuditReport, setAiAuditReport] = useState<string | null>(null)
 
+  interface RagMonitoringSummary {
+    total_queries: number
+    avg_latency_ms: number | null
+    unanswered_rate: number | null
+    top_unanswered: Array<{ question: string; count: number }>
+    by_retrieval_method: Record<string, number>
+  }
+  const [monitoringSummary, setMonitoringSummary] = useState<RagMonitoringSummary | null>(null)
+
+  React.useEffect(() => {
+    fetch("/api/backend/knowledge/monitoring/summary?days=7")
+      .then((res) => res.json())
+      .then((data: RagMonitoringSummary) => setMonitoringSummary(data))
+      .catch((err) => console.error("Failed to load RAG monitoring summary:", err))
+  }, [])
+
   const periodOptions = useMemo(() => (mode === "monthly" ? MONTHS : QUARTERS), [mode])
   const cssVars = isDark ? DARK_VARS : LIGHT_VARS
 
@@ -503,6 +519,80 @@ export default function QaAuditPage() {
                   <li>Berikan pelatihan pengungkapan empati (*empathy statement*) untuk Agen Arif saat penanganan komplain di atas 10 menit.</li>
                   <li>Tingkatkan koordinasi follow-up ke Service Partner Pontianak & Surabaya untuk menekan akumulasi komplain unit mengendap.</li>
                 </ol>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* RAG ENGINE PERFORMANCE & KNOWLEDGE GAP MONITORING */}
+        <Card className="shrink-0 w-full p-5">
+          <div className="flex items-center justify-between mb-4 border-b border-[var(--c-border)] pb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex size-6 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
+                <FileText className="h-3.5 w-3.5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-[var(--c-text)]">RAG Engine Performance & Knowledge Gap Monitoring</h3>
+                <p className="text-[11px] text-[var(--c-muted)]">Agregasi performansi RAG 7 hari terakhir (Vector, Hybrid, & Unanswered Queries)</p>
+              </div>
+            </div>
+            {monitoringSummary && (
+              <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-400">
+                {monitoringSummary.total_queries} Queries Logged
+              </span>
+            )}
+          </div>
+
+          {!monitoringSummary || monitoringSummary.total_queries === 0 ? (
+            <div className="rounded-xl border border-dashed border-[var(--c-border)] bg-[var(--c-offset)] p-6 text-center text-xs text-[var(--c-muted)]">
+              Belum ada log query RAG tercatat dalam 7 hari terakhir. Tanyakan sesuatu di menu <strong>Knowledge Base</strong> untuk mulai merekam performansi retrieval & latency!
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              {/* Metric Highlights */}
+              <div className="space-y-2.5">
+                <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-offset)] p-3">
+                  <span className="text-[10px] uppercase font-bold text-[var(--c-muted)] block">Avg Latency (Total)</span>
+                  <span className="text-base font-black text-sky-400">
+                    {monitoringSummary.avg_latency_ms != null ? `${monitoringSummary.avg_latency_ms} ms` : "-"}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-offset)] p-3">
+                  <span className="text-[10px] uppercase font-bold text-[var(--c-muted)] block">Unanswered Rate</span>
+                  <span className={`text-base font-black ${monitoringSummary.unanswered_rate && monitoringSummary.unanswered_rate > 0.2 ? "text-amber-400" : "text-emerald-400"}`}>
+                    {monitoringSummary.unanswered_rate != null ? `${(monitoringSummary.unanswered_rate * 100).toFixed(1)}%` : "-"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Retrieval Method Distribution */}
+              <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-offset)] p-3.5">
+                <span className="text-[10px] uppercase font-bold text-[var(--c-muted)] block mb-2">Metode Retrieval Digunakan</span>
+                <div className="space-y-1.5 font-mono text-[11px]">
+                  {Object.entries(monitoringSummary.by_retrieval_method || {}).map(([method, count]) => (
+                    <div key={method} className="flex justify-between items-center">
+                      <span className="capitalize text-[var(--c-text)]">{method}:</span>
+                      <span className="font-bold text-sky-400">{count} ({Math.round((count / monitoringSummary.total_queries) * 100)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top Unanswered Questions (Knowledge Gap) */}
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
+                <span className="text-[10px] uppercase font-bold text-amber-400 block mb-2">Top Unanswered Questions (Knowledge Gap)</span>
+                {monitoringSummary.top_unanswered.length === 0 ? (
+                  <p className="text-[11px] text-emerald-400">✅ Semua pertanyaan pengguna berhasil dijawab oleh RAG.</p>
+                ) : (
+                  <ul className="space-y-1 text-[11px] text-[var(--c-text)]">
+                    {monitoringSummary.top_unanswered.slice(0, 4).map((item, idx) => (
+                      <li key={idx} className="flex justify-between gap-2 truncate">
+                        <span className="truncate">• &quot;{item.question}&quot;</span>
+                        <span className="font-bold text-amber-400 shrink-0">{item.count}x</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           )}

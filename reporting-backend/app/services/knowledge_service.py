@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import socket
+import time
 from typing import Any, Dict, List, Set
 from urllib.parse import urljoin, urlparse
 
@@ -716,6 +717,65 @@ def _vector_literal(values: List[float]) -> str:
     return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
 
 
+_CHUNK_CONTEXT_SYSTEM_INSTRUCTION = (
+    "Anda membantu menyiapkan Knowledge Base RAG. Diberikan SATU DOKUMEN PENUH dan SATU "
+    "POTONGAN (chunk) dari dokumen tersebut, tulis 1-2 kalimat singkat (maks 40 kata) dalam "
+    "Bahasa Indonesia yang menjelaskan POSISI chunk ini di dalam dokumen — misalnya produk/model "
+    "apa, bagian/section apa (spesifikasi, garansi, troubleshooting, indikator lampu, dst). "
+    "JANGAN meringkas isi chunk. JANGAN menambah informasi yang tidak ada di dokumen. "
+    "Jawab HANYA dengan kalimat context tersebut, tanpa embel-embel lain."
+)
+
+
+def _generate_chunk_context(document_text: str, chunk: str, document_title: str) -> str:
+    """
+    Contextual retrieval (Anthropic, 2024): generate kalimat singkat yang menempatkan
+    posisi chunk dalam dokumen asalnya, supaya chunk yang ambigu (mis. "merah berkedip")
+    jadi jelas konteksnya (mis. "robot Ecovacs T30C MAX OMNI, bagian indikator lampu").
+
+    Kalau gagal (rate limit / error), return string kosong -> fallback ke chunk tanpa context,
+    JANGAN sampai gagal generate context menggagalkan seluruh proses ingest dokumen.
+    """
+    keys = _get_gemini_keys()
+    if not keys:
+        return ""
+
+    truncated_doc = document_text[:12000]
+    candidate_models = chat_fallback_chain()
+    prompt = (
+        f"<dokumen judul=\"{document_title}\">\n{truncated_doc}\n</dokumen>\n\n"
+        f"<chunk>\n{chunk[:2000]}\n</chunk>\n\n"
+        "Tulis kalimat context untuk chunk di atas sesuai instruksi."
+    )
+
+    for m in candidate_models:
+        for key in keys:
+            try:
+                response = _HTTPX_CLIENT.post(
+                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
+                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                    json={
+                        "systemInstruction": {"parts": [{"text": _CHUNK_CONTEXT_SYSTEM_INSTRUCTION}]},
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 100},
+                    },
+                )
+                if response.status_code == 200:
+                    candidates = response.json().get("candidates") or []
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts") or []
+                        text = " ".join(str(p.get("text", "")) for p in parts if p.get("text"))
+                        cleaned = _clean_text(text)
+                        if cleaned:
+                            return cleaned[:300]
+                elif response.status_code == 429:
+                    continue
+            except Exception as exc:
+                logger.warning(f"Chunk context generation failed: {exc}")
+
+    return ""
+
+
 def _normalize_entity_value(value: Any) -> str:
     normalized = re.sub(r"[^A-Z0-9]+", " ", str(value or "").upper()).strip()
     return re.sub(r"\s+", " ", normalized)
@@ -844,9 +904,22 @@ def _to_query_source(chunk: Dict[str, Any], similarity: float) -> Dict[str, Any]
         "document_id": chunk.get("document_id"),
         "title": chunk.get("title"),
         "content": chunk.get("content"),
+        "context_prefix": chunk.get("context_prefix"),
         "chunk_index": chunk.get("chunk_index"),
         "similarity": similarity,
     }
+
+
+def _execute_chunk_select(select_builder_fn, limit: int) -> List[Dict[str, Any]]:
+    try:
+        builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, context_prefix, chunk_index")
+        return select_builder_fn(builder).limit(limit).execute().data or []
+    except Exception as exc:
+        if "context_prefix" in str(exc).lower():
+            builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
+            return select_builder_fn(builder).limit(limit).execute().data or []
+        logger.warning(f"Knowledge chunk select failed: {exc}")
+        return []
 
 
 def _fetch_keyword_chunks(keyword_groups: List[List[str]], limit: int) -> List[Dict[str, Any]]:
@@ -856,15 +929,11 @@ def _fetch_keyword_chunks(keyword_groups: List[List[str]], limit: int) -> List[D
         terms = [term.strip() for term in group if term and term.strip()]
         if not terms:
             continue
-        try:
-            query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
+        def _build(builder):
             for term in terms:
-                query_builder = query_builder.ilike("content", f"%{term}%")
-            result = query_builder.limit(limit).execute()
-        except Exception as exc:
-            logger.warning(f"Knowledge keyword expansion search failed for {terms}: {exc}")
-            continue
-        for chunk in result.data or []:
+                builder = builder.ilike("content", f"%{term}%")
+            return builder
+        for chunk in _execute_chunk_select(_build, limit):
             chunk_id = chunk.get("id")
             if chunk_id and chunk_id not in seen_ids:
                 seen_ids.add(chunk_id)
@@ -912,14 +981,7 @@ def _fetch_entity_index_chunks(indicator_terms: Dict[str, Any], limit: int) -> L
         if not candidate_ids:
             return []
 
-        chunks_res = (
-            supabase.table("knowledge_chunks")
-            .select("id, document_id, title, content, chunk_index")
-            .in_("id", list(candidate_ids)[: limit * 4])
-            .limit(limit * 4)
-            .execute()
-        )
-        return chunks_res.data or []
+        return _execute_chunk_select(lambda b: b.in_("id", list(candidate_ids)[: limit * 4]), limit * 4)
     except Exception as exc:
         logger.info(f"Knowledge entity index lookup unavailable, using keyword expansion only: {exc}")
         return []
@@ -1043,10 +1105,12 @@ _KB_SYSTEM_INSTRUCTION = (
 
 
 def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
-    context = "\n\n".join(
-        f"[Source {idx + 1}: {source['title']}]\n{source['content']}"
-        for idx, source in enumerate(sources)
-    )
+    context_blocks = []
+    for idx, source in enumerate(sources):
+        ctx_prefix = source.get("context_prefix")
+        body = f"Konteks Posisi: {ctx_prefix}\n{source['content']}" if ctx_prefix else source['content']
+        context_blocks.append(f"[Source {idx + 1}: {source['title']}]\n{body}")
+    context = "\n\n".join(context_blocks)
     prompt = f"KONTEKS:\n{context}\n\nPERTANYAAN:\n{question}"
 
     # Try Gemini API Keys
@@ -1233,7 +1297,18 @@ class KnowledgeService:
             if not chunks:
                 raise HTTPException(status_code=400, detail="Dokumen tidak menghasilkan chunk knowledge base.")
 
-            embeddings = _embed_texts(chunks, title=document_title)
+            # Contextual retrieval: generate context_prefix per chunk (sequential, reuse key rotation)
+            context_prefixes = [
+                _generate_chunk_context(text, chunk, document_title) for chunk in chunks
+            ]
+
+            # Embedding pakai gabungan context_prefix + chunk (kalau context_prefix kosong, fallback ke chunk asli)
+            texts_to_embed = [
+                f"{ctx}\n\n{chunk}" if ctx else chunk
+                for ctx, chunk in zip(context_prefixes, chunks)
+            ]
+            embeddings = _embed_texts(texts_to_embed, title=document_title)
+
             rows = []
             for index, chunk in enumerate(chunks):
                 rows.append(
@@ -1242,6 +1317,7 @@ class KnowledgeService:
                         "chunk_index": index,
                         "title": document_title,
                         "content": chunk,
+                        "context_prefix": context_prefixes[index] or None,
                         "token_estimate": _estimate_tokens(chunk),
                         "embedding": _vector_literal(embeddings[index]),
                     }
@@ -1516,16 +1592,21 @@ class KnowledgeService:
 
     @staticmethod
     def query(question: str, match_count: int = 6) -> Dict[str, Any]:
+        t_start = time.perf_counter()
         _check_and_flag_embedding_reindex_if_needed()
         cleaned_question = question.strip()
         if len(cleaned_question) < 3:
             raise HTTPException(status_code=400, detail="Pertanyaan terlalu pendek.")
 
         sources: List[Dict[str, Any]] = []
+        retrieval_methods_used: Set[str] = set()
 
         # 1. Vector Search (if Gemini Embedding API key is valid & non-zero)
+        t0_embed = time.perf_counter()
+        t_embed_ms = 0
         try:
             embedding = _embed_text(cleaned_question, is_query=True)
+            t_embed_ms = int((time.perf_counter() - t0_embed) * 1000)
             if any(v != 0.0 for v in embedding):
                 res = (
                     supabase.rpc(
@@ -1540,6 +1621,8 @@ class KnowledgeService:
                 raw_sources = res.data or []
                 relevant_sources = [s for s in raw_sources if float(s.get("similarity") or 0) >= 0.5]
                 sources = _filter_rank_keyword_chunks(relevant_sources, match_count)
+                if sources:
+                    retrieval_methods_used.add("vector")
         except Exception as exc:
             logger.warning(f"Vector search embedding failed or unconfigured: {exc}")
 
@@ -1548,7 +1631,6 @@ class KnowledgeService:
             "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai",
             "sisi", "dokumen", "perbedaan", "spek", "spesifikasi", "info", "informasi", "fitur",
             "detail", "tolong", "minta", "kasih", "tahu", "jelaskan", "ada", "seri", "yg",
-            # Bentuk kolokial yang tadinya lolos filter dan bikin pencarian jadi generik
             "beda", "bedanya", "vs", "versus", "sama", "kayak", "gimana", "kenapa", "gak", "nggak",
             "antara", "dibanding", "dibandingkan", "lebih",
         }
@@ -1571,13 +1653,9 @@ class KnowledgeService:
                 keywords.append(w)
         keywords.sort(key=lambda w: (not any(c.isdigit() for c in w), len(w)))
 
-        # Entitas produk spesifik (misal: "Y1", "S9", "T80")
         product_code_keywords = [w for w in keywords if any(c.isdigit() for c in w)]
         indicator_terms = _indicator_query_terms(cleaned_question)
 
-        # Jika vector search menghasilkan sumber tetapi TIDAK SATUPUN sumber memuat kode produk spesifik
-        # yang ditanyakan user, maka vector search terjebak di dokumen generik (misal: Troubleshooting).
-        # Kita saring sumber yang tidak cocok agar keyword search mengambil dokumen produk yang tepat.
         if sources and product_code_keywords:
             matching_sources = [
                 s for s in sources
@@ -1588,7 +1666,9 @@ class KnowledgeService:
             else:
                 logger.info(f"Vector search returned generic chunks without product codes {product_code_keywords}. Falling back to keyword search.")
                 sources = []
+                retrieval_methods_used.discard("vector")
 
+        t0_retrieval = time.perf_counter()
         if indicator_terms.get("is_indicator_query"):
             existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
             product_terms = list(indicator_terms.get("product_codes") or []) + list(indicator_terms.get("series") or [])
@@ -1617,20 +1697,19 @@ class KnowledgeService:
                 if chunk_id and chunk_id not in existing_ids:
                     sources.append(source)
                     existing_ids.add(chunk_id)
+                    retrieval_methods_used.add("entity_index")
 
         # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
-
-
             if keywords:
                 existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
 
                 # Tier 1: AND semua top-3 keyword (periksa kolom content maupun title)
-                query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
-                for kw in keywords[:3]:
-                    query_builder = query_builder.or_(f"content.ilike.%{kw}%,title.ilike.%{kw}%")
-                kw_res = query_builder.limit(match_count * 4).execute()
-                kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
+                def _build_t1(b):
+                    for kw in keywords[:3]:
+                        b = b.or_(f"content.ilike.%{kw}%,title.ilike.%{kw}%")
+                    return b
+                kw_chunks = _filter_rank_keyword_chunks(_execute_chunk_select(_build_t1, match_count * 4), match_count * 2)
 
                 # Tier 2: OR top keyword-keyword spesifik (periksa kolom content maupun title)
                 if not kw_chunks and len(keywords) > 1:
@@ -1639,26 +1718,15 @@ class KnowledgeService:
                         for kw in keywords[:4]
                         for item in (f"content.ilike.%{kw}%", f"title.ilike.%{kw}%")
                     )
-                    kw_res = (
-                        supabase.table("knowledge_chunks")
-                        .select("id, document_id, title, content, chunk_index")
-                        .or_(or_filter)
-                        .limit(match_count * 4)
-                        .execute()
-                    )
-                    kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
+                    kw_chunks = _filter_rank_keyword_chunks(_execute_chunk_select(lambda b: b.or_(or_filter), match_count * 4), match_count * 2)
 
                 # Tier 3: fallback ke keyword TERSPESIFIK (periksa kolom content maupun title)
                 if not kw_chunks and keywords:
                     keyword = keywords[0]
-                    kw_res = (
-                        supabase.table("knowledge_chunks")
-                        .select("id, document_id, title, content, chunk_index")
-                        .or_(f"content.ilike.%{keyword}%,title.ilike.%{keyword}%")
-                        .limit(match_count * 4)
-                        .execute()
-                    )
-                    kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count)
+                    kw_chunks = _filter_rank_keyword_chunks(_execute_chunk_select(lambda b: b.or_(f"content.ilike.%{keyword}%,title.ilike.%{keyword}%"), match_count * 4), match_count)
+
+                if kw_chunks:
+                    retrieval_methods_used.add("keyword")
 
                 for kc in kw_chunks:
                     chunk_id = kc.get("id")
@@ -1668,14 +1736,52 @@ class KnowledgeService:
                             "document_id": kc.get("document_id"),
                             "title": kc.get("title"),
                             "content": kc.get("content"),
+                            "context_prefix": kc.get("context_prefix"),
                             "chunk_index": kc.get("chunk_index"),
                             "similarity": 0.95,
                         })
                         existing_ids.add(chunk_id)
 
+        t_retrieval_ms = int((time.perf_counter() - t0_retrieval) * 1000)
+
+        # Determine consolidated retrieval_method
+        if len(retrieval_methods_used) > 1:
+            retrieval_method = "hybrid"
+        elif "vector" in retrieval_methods_used:
+            retrieval_method = "vector"
+        elif "entity_index" in retrieval_methods_used:
+            retrieval_method = "entity_index"
+        elif "keyword" in retrieval_methods_used:
+            retrieval_method = "keyword"
+        else:
+            retrieval_method = "unknown"
+
+        top_similarity = float(sources[0].get("similarity") or 0) if sources else None
+
         if not sources:
+            no_answer_text = "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini."
+            t_total_ms = int((time.perf_counter() - t_start) * 1000)
+            try:
+                from app.services.knowledge_query_log_service import KnowledgeQueryLogService
+                KnowledgeQueryLogService.log(
+                    question=question,
+                    cleaned_question=cleaned_question,
+                    retrieval_method=retrieval_method,
+                    matched_chunk_ids=[],
+                    source_count=0,
+                    top_similarity=None,
+                    answer_text=no_answer_text,
+                    embedding_latency_ms=t_embed_ms,
+                    retrieval_latency_ms=t_retrieval_ms,
+                    generation_latency_ms=0,
+                    total_latency_ms=t_total_ms,
+                    chat_model=resolve_chat_model(),
+                )
+            except Exception as log_exc:
+                logger.warning(f"Failed to log unanswered query: {log_exc}")
+
             return {
-                "answer": "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini.",
+                "answer": no_answer_text,
                 "sources": [],
             }
 
@@ -1690,7 +1796,13 @@ class KnowledgeService:
 
             sources.sort(key=lambda s: (-_keyword_overlap_score(s), -float(s.get("similarity") or 0)))
 
+        t0_gen = time.perf_counter()
         answer = _generate_answer(cleaned_question, sources[:match_count])
+        t_gen_ms = int((time.perf_counter() - t0_gen) * 1000)
+        t_total_ms = int((time.perf_counter() - t_start) * 1000)
+
+        matched_sources = sources[:match_count]
+        matched_chunk_ids = [str(s.get("chunk_id")) for s in matched_sources if s.get("chunk_id")]
 
         try:
             from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
@@ -1698,10 +1810,29 @@ class KnowledgeService:
         except Exception as inc_exc:
             logger.warning(f"Failed auto-logging inconsistency: {inc_exc}")
 
+        try:
+            from app.services.knowledge_query_log_service import KnowledgeQueryLogService
+            KnowledgeQueryLogService.log(
+                question=question,
+                cleaned_question=cleaned_question,
+                retrieval_method=retrieval_method,
+                matched_chunk_ids=matched_chunk_ids,
+                source_count=len(matched_sources),
+                top_similarity=top_similarity,
+                answer_text=answer,
+                embedding_latency_ms=t_embed_ms,
+                retrieval_latency_ms=t_retrieval_ms,
+                generation_latency_ms=t_gen_ms,
+                total_latency_ms=t_total_ms,
+                chat_model=resolve_chat_model(),
+            )
+        except Exception as log_exc:
+            logger.warning(f"Failed to log query execution: {log_exc}")
+
         AuditLogService.log(
             action="KNOWLEDGE_QUERY",
             resource="knowledge_chunks",
-            details={"question": cleaned_question, "source_count": len(sources[:match_count])},
+            details={"question": cleaned_question, "source_count": len(matched_sources)},
         )
         return {
             "answer": answer,
@@ -1714,6 +1845,6 @@ class KnowledgeService:
                     "chunk_index": source.get("chunk_index"),
                     "similarity": source.get("similarity"),
                 }
-                for source in sources[:match_count]
+                for source in matched_sources
             ],
         }

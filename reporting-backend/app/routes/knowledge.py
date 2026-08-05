@@ -225,3 +225,10 @@ def get_knowledge_inconsistencies(limit: int = Query(10, ge=1, le=100), offset: 
     from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
     items = KnowledgeInconsistencyService.list_inconsistencies(limit=limit, offset=offset)
     return {"inconsistencies": items, "count": len(items)}
+
+
+@router.get("/monitoring/summary")
+def get_knowledge_monitoring_summary(days: int = Query(7, ge=1, le=90)):
+    from app.services.knowledge_query_log_service import KnowledgeQueryLogService
+    return KnowledgeQueryLogService.summary(days=days)
+
