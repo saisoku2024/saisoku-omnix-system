@@ -1016,10 +1016,16 @@ _KB_SYSTEM_INSTRUCTION = (
     "Anda adalah AI Knowledge Base untuk SAISOKU OMNIX. "
     "Jawab dalam Bahasa Indonesia yang ringkas, rapi, dan HANYA berdasarkan konteks yang diberikan. "
     "DILARANG MENAMPILKAN CATATAN INTERNAL, VERIFIKASI BARIS/KOLOM, ATAU PROSES BERPIKIR DRAFT DI DALAM JAWABAN. "
-    "JIKA TERDETEKSI KETIDAK-KONSISTENAN / PERBEDAAN DATA ANTAR-DOKUMEN DI DALAM KONTEKS (misalnya Dokumen A menyebut angka/nilai X dan Dokumen B menyebut angka/nilai Y): "
+    "PERHATIKAN DENGAN SEKSAMA VARIAN MODEL DAN NAMA DOKUMEN: "
+    "Varian model seperti 'T30 MAX', 'T30C MAX OMNI', 'T30 PRO OMNI', 'T30C Prime' adalah varian yang spesifik. "
+    "Jika dokumen sumber memuat varian yang cocok dengan pertanyaan pengguna (misal: 'Buku Manual dan Kartu Garansi Ecovacs T30C MAX OMNI.pdf' atau 'T30C MAX' untuk pertanyaan 't30 max'), WAJIB gunakan dokumen tersebut sebagai rujukan utama spesifikasi model yang dimaksud. "
+    "DILARANG MENYATAKAN bahwa 'dokumen tidak ditemukan' atau 'knowledge base tidak memiliki dokumen T30 MAX' apabila di dalam sumber referensi jelas-jelas terdapat dokumen bernama atau membahas model tersebut (seperti Ecovacs T30C MAX OMNI). "
+    "Jika pengguna meminta spesifikasi satu model tertentu (seperti 'spek t30 max'), berikan spesifikasi lengkap model tersebut dari dokumen rujukannya secara langsung. "
+    "JANGAN mengubah pertanyaan menjadi perbandingan dua model lain kecuali jika pengguna secara eksplisit meminta perbandingan ('vs' atau 'perbedaan'). "
+    "JIKA TERDETEKSI KETIDAK-KONSISTENAN / PERBEDAAN DATA ANTAR-DOKUMEN DI DALAM KONTEKS UNTUK MODEL YANG SAMA: "
     "WAJIB gunakan PRINSIP TRANSPARANSI dengan menyajikan: "
-    "1. Menyebutkan nilai/informasi pada dokumen versi lama/terdahulu (misal: Dokumen A - 290 menit). "
-    "2. Menyebutkan nilai/informasi pada dokumen versi baru/terbaru (misal: Dokumen B - 240 menit). "
+    "1. Menyebutkan nilai/informasi pada dokumen versi lama/terdahulu. "
+    "2. Menyebutkan nilai/informasi pada dokumen versi baru/terbaru. "
     "3. Menyampaikan rekomendasi rujukan utama secara tegas berdasarkan publikasi dokumen yang paling baru. "
     "Jika pertanyaan berupa PERBANDINGAN / PERBEDAAAN (seperti 'beda X dan Y', 'vs', 'perbandingan'), WAJIB sajikan dengan: "
     "1. Tabel Markdown perbandingan fitur yang berbeda. "
@@ -1635,12 +1641,11 @@ class KnowledgeService:
                         .execute()
                     )
                     kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
-
                 # Tier 3: fallback ke keyword TERSPESIFIK (bukan kata pertama di kalimat)
                 if not kw_chunks:
                     query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
                     kw_res = query_builder.ilike("content", f"%{keywords[0]}%").limit(match_count * 4).execute()
-                    kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
+                    kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count)
 
                 for kc in kw_chunks:
                     chunk_id = kc.get("id")
@@ -1655,13 +1660,22 @@ class KnowledgeService:
                         })
                         existing_ids.add(chunk_id)
 
-
-
         if not sources:
             return {
                 "answer": "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini.",
                 "sources": [],
             }
+
+        if sources and keywords:
+            def _keyword_overlap_score(s: Dict[str, Any]) -> float:
+                title_lower = (s.get("title") or "").lower()
+                content_lower = (s.get("content") or "").lower()
+                matches = sum(1 for kw in keywords if kw.lower() in title_lower or kw.lower() in content_lower)
+                title_matches = sum(1 for kw in keywords if kw.lower() in title_lower)
+                exact_phrase = 1.0 if cleaned_question.lower() in title_lower or cleaned_question.lower() in content_lower else 0.0
+                return matches * 10.0 + title_matches * 15.0 + exact_phrase * 20.0
+
+            sources.sort(key=lambda s: (-_keyword_overlap_score(s), -float(s.get("similarity") or 0)))
 
         answer = _generate_answer(cleaned_question, sources[:match_count])
 
@@ -1690,4 +1704,3 @@ class KnowledgeService:
                 for source in sources[:match_count]
             ],
         }
-
