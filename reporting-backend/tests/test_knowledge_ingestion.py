@@ -3,7 +3,13 @@ import io
 import pandas as pd
 import pytest
 
-from app.services.knowledge_service import _chunk_text, _clean_text, _extract_docx, _extract_spreadsheet
+from app.services.knowledge_service import (
+    _chunk_text,
+    _clean_text,
+    _extract_docx,
+    _extract_spreadsheet,
+    _without_context_prefix,
+)
 
 
 def test_clean_text_normalizes_repeated_headers_and_units():
@@ -72,3 +78,23 @@ def test_extract_spreadsheet_outputs_sheet_markdown_table():
     assert "### SHEET: Specs" in extracted
     assert "| Model | Daya |" in extracted
     assert "| T30C MAX | 11.000 Pa |" in extracted
+
+
+def test_without_context_prefix_keeps_insertable_chunk_fields():
+    rows = [
+        {
+            "document_id": "doc-1",
+            "chunk_index": 0,
+            "title": "Manual",
+            "content": "Isi chunk",
+            "context_prefix": "Bagian spesifikasi",
+            "token_estimate": 3,
+            "embedding": "[0.1,0.2]",
+        }
+    ]
+
+    stripped = _without_context_prefix(rows)
+
+    assert "context_prefix" not in stripped[0]
+    assert stripped[0]["document_id"] == "doc-1"
+    assert stripped[0]["embedding"] == "[0.1,0.2]"

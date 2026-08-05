@@ -623,6 +623,13 @@ def _dataframe_to_markdown(df: pd.DataFrame) -> str:
     return _markdown_table(rows)
 
 
+def _without_context_prefix(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [
+        {key: value for key, value in row.items() if key != "context_prefix"}
+        for row in rows
+    ]
+
+
 def _extract_spreadsheet(content: bytes, filename: str) -> str:
     file_obj = io.BytesIO(content)
     if filename.lower().endswith(".csv"):
@@ -1513,7 +1520,16 @@ class KnowledgeService:
                         "embedding": _vector_literal(embeddings[index]),
                     }
                 )
-            insert_res = supabase.table("knowledge_chunks").insert(rows).execute()
+            try:
+                insert_res = supabase.table("knowledge_chunks").insert(rows).execute()
+            except Exception as exc:
+                if "context_prefix" not in str(exc).lower():
+                    raise
+                logger.warning(
+                    "knowledge_chunks.context_prefix is not available in the current schema cache; "
+                    "inserting chunks without contextual prefixes."
+                )
+                insert_res = supabase.table("knowledge_chunks").insert(_without_context_prefix(rows)).execute()
             (
                 supabase.table("knowledge_documents")
                 .update({"status": "ready", "chunk_count": len(rows), "error_summary": None})
