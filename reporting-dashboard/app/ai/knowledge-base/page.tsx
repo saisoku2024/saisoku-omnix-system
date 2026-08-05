@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
+import type { Components } from "react-markdown"
 import {
   AlertTriangleIcon,
   ArchiveIcon,
@@ -180,6 +181,47 @@ function CopyButton({ text }: { text: string }) {
       {copied ? <CheckIcon size={12} className="text-emerald-400" /> : <ClipboardIcon size={12} />}
       {copied ? "Tersalin!" : "Salin"}
     </button>
+  )
+}
+
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="mb-3 last:mb-0 text-sm leading-7 text-[var(--c-text)]">{children}</p>,
+  strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+  ul: ({ children }) => <ul className="my-3 space-y-2 pl-5 text-sm leading-7">{children}</ul>,
+  ol: ({ children }) => <ol className="my-3 space-y-2 pl-5 text-sm leading-7">{children}</ol>,
+  li: ({ children }) => <li className="pl-1 marker:text-sky-400">{children}</li>,
+  h1: ({ children }) => <h1 className="mb-3 mt-5 text-base font-bold text-white first:mt-0">{children}</h1>,
+  h2: ({ children }) => <h2 className="mb-3 mt-5 text-sm font-bold text-sky-100 first:mt-0">{children}</h2>,
+  h3: ({ children }) => <h3 className="mb-2.5 mt-4 text-sm font-bold text-sky-100 first:mt-0">{children}</h3>,
+  code: ({ children }) => (
+    <code className="rounded-md border border-[var(--c-border)] bg-[var(--c-surface)] px-1.5 py-0.5 text-[12px] text-sky-100">
+      {children}
+    </code>
+  ),
+  table: ({ children }) => (
+    <div className="my-4 overflow-x-auto rounded-xl border border-[var(--c-border)]">
+      <table className="min-w-full border-collapse text-left text-xs">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-[var(--c-surface)] text-sky-100">{children}</thead>,
+  th: ({ children }) => <th className="border-b border-[var(--c-border)] px-3 py-2 font-bold">{children}</th>,
+  td: ({ children }) => <td className="border-t border-[var(--c-border)] px-3 py-2 align-top text-[var(--c-text)]">{children}</td>,
+}
+
+function formatAnswerMarkdown(answerText: string) {
+  return answerText
+    .replace(/\[Source\s+(\d+)\]/gi, "`Source $1`")
+    .replace(/([^\n])(\*\*[^*\n]+:\*\*)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(?=\*\*[^*\n]+:\*\*)/g, "$1\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+function AnswerMarkdown({ text }: { text: string }) {
+  return (
+    <ReactMarkdown components={markdownComponents}>
+      {formatAnswerMarkdown(text)}
+    </ReactMarkdown>
   )
 }
 
@@ -1159,8 +1201,8 @@ export default function KnowledgeBasePage() {
                         </div>
                         <CopyButton text={answer.answer} />
                       </div>
-                      <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-[var(--c-text)] [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[var(--c-border)] [&_td]:px-3 [&_td]:py-2 [&_td]:text-xs [&_th]:border [&_th]:border-[var(--c-border)] [&_th]:bg-[var(--c-surface)] [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs [&_th]:font-bold [&_code]:rounded [&_code]:bg-[var(--c-surface)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-xs [&_p]:text-[var(--c-text)]">
-                        <ReactMarkdown>{answer.answer}</ReactMarkdown>
+                      <div className="rounded-xl border border-sky-500/10 bg-[var(--c-bg)]/35 px-4 py-3.5 text-sm text-[var(--c-text)]">
+                        <AnswerMarkdown text={answer.answer} />
                       </div>
                     </div>
                   </div>
