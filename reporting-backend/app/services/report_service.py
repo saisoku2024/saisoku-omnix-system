@@ -218,7 +218,11 @@ class ReportService:
                         "p_kota": "",
                     },
                 ).execute()
-                return res.data or []
+                rows = res.data or []
+                for row in rows:
+                    if isinstance(row.get("d_response_time"), (int, float)):
+                        row["d_response_time"] = round(float(row["d_response_time"]) * 60)
+                return rows
 
             elif report_type == "data_pelanggan":
                 return ReportService.export_customer({
@@ -353,8 +357,8 @@ class ReportService:
                         "d_abandon": 0,
                         "d_aht": _duration_label(avg_handling_seconds),
                         "d_target_aht": _duration_label(0),
-                        "d_response_time": _duration_label(avg_response_seconds),
-                        "d_target_response_time": _duration_label(0),
+                        "d_response_time": avg_response_seconds,
+                        "d_target_response_time": 0,
                         "d_response_rate": 100 if case_total else 0,
                         "d_target_response_rate": 0,
                         "d_achievement": 100 if case_total else 0,
