@@ -58,6 +58,12 @@ const SENSITIVE_PROXY_ROUTES = new Set([
   "POST reports/preview",
   "POST cleanup/preview",
   "POST cleanup/diagnostics/phone-format",
+  "POST knowledge/upload-multiple",
+  "POST knowledge/storage-ingest",
+  "POST knowledge/text",
+  "POST knowledge/url",
+  "GET knowledge/backup/export",
+  "POST knowledge/backup/restore",
 ])
 
 const ALLOWED_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> = [
@@ -82,6 +88,12 @@ const SENSITIVE_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean>
     method === "POST" &&
     path.startsWith("upload-sessions/") &&
     path.endsWith("/delete"),
+  (method, path) =>
+    method === "DELETE" &&
+    path.startsWith("knowledge/documents/"),
+  (method, path) =>
+    method === "PATCH" &&
+    path.startsWith("knowledge/inconsistencies/"),
 ]
 
 function isAllowedBackendRead(method: string, path: string) {
