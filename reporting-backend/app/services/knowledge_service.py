@@ -1547,7 +1547,7 @@ class KnowledgeService:
             "apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu",
             "adalah", "bisa", "bagaimana", "mengapa", "apakah", "berapa", "saya", "tanya", "sesuai",
             "sisi", "dokumen", "perbedaan", "spek", "spesifikasi", "info", "informasi", "fitur",
-            "detail", "tolong", "minta", "kasih", "tahu", "jelaskan",
+            "detail", "tolong", "minta", "kasih", "tahu", "jelaskan", "ada", "seri", "yg",
             # Bentuk kolokial yang tadinya lolos filter dan bikin pencarian jadi generik
             "beda", "bedanya", "vs", "versus", "sama", "kayak", "gimana", "kenapa", "gak", "nggak",
             "antara", "dibanding", "dibandingkan", "lebih",
@@ -1635,7 +1635,11 @@ class KnowledgeService:
                 # ("Y1 vs Y1 Pro") di mana tiap istilah ada di chunk/dokumen berbeda,
                 # bukan nyampur di satu chunk yang sama.
                 if not kw_chunks and len(keywords) > 1:
-                    or_filter = ",".join(f"content.ilike.%{kw}%" for kw in keywords[:4])
+                    or_filter = ",".join(
+                        item
+                        for kw in keywords[:4]
+                        for item in (f"content.ilike.%{kw}%", f"title.ilike.%{kw}%")
+                    )
                     kw_res = (
                         supabase.table("knowledge_chunks")
                         .select("id, document_id, title, content, chunk_index")
@@ -1646,8 +1650,14 @@ class KnowledgeService:
                     kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
                 # Tier 3: fallback ke keyword TERSPESIFIK (bukan kata pertama di kalimat)
                 if not kw_chunks:
-                    query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
-                    kw_res = query_builder.ilike("content", f"%{keywords[0]}%").limit(match_count * 4).execute()
+                    keyword = keywords[0]
+                    kw_res = (
+                        supabase.table("knowledge_chunks")
+                        .select("id, document_id, title, content, chunk_index")
+                        .or_(f"content.ilike.%{keyword}%,title.ilike.%{keyword}%")
+                        .limit(match_count * 4)
+                        .execute()
+                    )
                     kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count)
 
                 for kc in kw_chunks:
