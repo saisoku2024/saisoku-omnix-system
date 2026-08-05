@@ -137,7 +137,7 @@ function getFileIcon(title: string, sourceFile?: string) {
     return <FileTypeIcon size={14} className="text-blue-400 shrink-0" />
   if (name.match(/\.(jpg|jpeg|png|webp)$/))
     return <ImageIcon size={14} className="text-purple-400 shrink-0" />
-  return <FileTextIcon size={14} className="text-(--c-accent) shrink-0" />
+  return <FileTextIcon size={14} className="text-[var(--c-accent)] shrink-0" />
 }
 
 function StatusBadge({ status }: { status: KnowledgeDocument["status"] }) {
@@ -173,7 +173,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-(--c-border) bg-(--c-overlay) px-2.5 py-1.5 text-[11px] font-semibold text-(--c-muted) transition hover:border-(--c-accent) hover:text-(--c-accent)"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--c-border)] bg-[var(--c-offset)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--c-muted)] transition hover:border-[var(--c-accent)] hover:text-[var(--c-accent)]"
       title="Salin jawaban"
     >
       {copied ? <CheckIcon size={12} className="text-emerald-400" /> : <ClipboardIcon size={12} />}
@@ -886,33 +886,33 @@ export default function KnowledgeBasePage() {
               {loadingDocuments ? (
                 <div className="space-y-2.5">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center gap-3 rounded-xl border border-(--c-border) bg-(--c-overlay) p-3 animate-pulse">
-                      <div className="size-7 shrink-0 rounded-lg bg-(--c-border)" />
+                    <div key={i} className="flex items-center gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-3 animate-pulse">
+                      <div className="size-7 shrink-0 rounded-lg bg-[var(--c-border)]" />
                       <div className="flex-1 space-y-1.5">
-                        <div className="h-2.5 w-3/4 rounded-full bg-(--c-border)" />
-                        <div className="h-2 w-1/2 rounded-full bg-(--c-border)" />
+                        <div className="h-2.5 w-3/4 rounded-full bg-[var(--c-border)]" />
+                        <div className="h-2 w-1/2 rounded-full bg-[var(--c-border)]" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : documents.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-(--c-border) p-6 text-center">
-                  <DatabaseIcon size={24} className="text-(--c-muted)/40" />
-                  <p className="text-xs text-(--c-muted)">Belum ada dokumen knowledge base.</p>
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-[var(--c-border)] p-6 text-center">
+                  <DatabaseIcon size={24} className="text-[var(--c-muted)]/40" />
+                  <p className="text-xs text-[var(--c-muted)]">Belum ada dokumen knowledge base.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {documents.slice(0, 3).map((doc) => (
-                    <div key={doc.id} className="group flex items-start gap-3 rounded-xl border border-(--c-border) bg-(--c-overlay) p-3 transition-all duration-150 hover:border-indigo-500/30 hover:bg-indigo-500/4 hover:shadow-sm">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-(--c-border) bg-(--c-surface)">
+                    <div key={doc.id} className="group flex items-start gap-3 rounded-xl border border-[var(--c-border)] bg-[var(--c-offset)] p-3 transition-all duration-150 hover:border-indigo-500/30 hover:bg-indigo-500/5 hover:shadow-sm">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-[var(--c-border)] bg-[var(--c-surface)]">
                         {getFileIcon(doc.title, doc.source_file)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold text-(--c-text) group-hover:text-indigo-300 transition-colors">{doc.title}</p>
+                        <p className="truncate text-xs font-bold text-[var(--c-text)] group-hover:text-indigo-300 transition-colors">{doc.title}</p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <StatusBadge status={doc.status} />
                           {doc.chunk_count > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-(--c-overlay-2) px-1.5 py-0.5 text-[10px] text-(--c-muted)">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-[var(--c-surface)] px-1.5 py-0.5 text-[10px] text-[var(--c-muted)]">
                               <LayersIcon size={9} />{doc.chunk_count} chunks
                             </span>
                           )}
@@ -920,7 +920,7 @@ export default function KnowledgeBasePage() {
                         {doc.error_summary && (
                           <p className="mt-1 text-[11px] text-red-400 line-clamp-1">{doc.error_summary}</p>
                         )}
-                        <p className="mt-1 text-[10px] text-(--c-muted)/70">{formatDate(doc.created_at)}</p>
+                        <p className="mt-1 text-[10px] text-[var(--c-muted)]/70">{formatDate(doc.created_at)}</p>
                       </div>
                     </div>
                   ))}
@@ -928,16 +928,16 @@ export default function KnowledgeBasePage() {
               )}
             </section>
 
-            {/* Inconsistency Card */}
-            <section className="rounded-2xl border border-amber-500/15 bg-(--c-surface) p-5 shadow-sm">
+            {/* Inconsistency Card — Clean & Polished UI */}
+            <section className="rounded-2xl border border-amber-500/20 bg-[var(--c-surface)] p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="flex size-8 items-center justify-center rounded-xl bg-amber-500/15 ring-1 ring-amber-500/25">
                     <AlertTriangleIcon size={14} className="text-amber-400" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-amber-300">Temuan Inconsistency</h2>
-                    <p className="text-[11px] text-amber-400/60">Konflik data antar dokumen</p>
+                    <h2 className="text-sm font-bold text-amber-300">Temuan Inconsistency Log</h2>
+                    <p className="text-[11px] text-amber-400/70">Deteksi otomatis konflik data antar dokumen</p>
                   </div>
                 </div>
                 <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-400">
@@ -945,38 +945,41 @@ export default function KnowledgeBasePage() {
                 </span>
               </div>
               {inconsistencies.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-amber-500/15 bg-emerald-500/4 p-4 text-center">
+                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-amber-500/20 bg-emerald-500/5 p-4 text-center">
                   <span className="text-base">✅</span>
                   <p className="text-xs font-medium text-emerald-400">Tidak ada konflik data terdeteksi.</p>
                 </div>
               ) : (
-                <div className="space-y-2.5">
-                  {inconsistencies.slice(0, 2).map((inc) => (
-                    <div key={inc.id} className="rounded-xl border border-amber-500/15 bg-amber-500/4 p-3.5 space-y-2.5">
-                      <div className="flex items-start justify-between gap-2 text-xs">
-                        <div>
-                          <span className="font-bold text-(--c-text)">{inc.entity_name}</span>
-                          <span className="mx-1.5 text-(--c-muted)">·</span>
-                          <span className="font-semibold text-amber-400">{inc.attribute_name}</span>
+                <div className="space-y-3">
+                  {inconsistencies.map((inc) => (
+                    <div key={inc.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 space-y-2.5 transition-all hover:border-amber-500/35">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-[var(--c-text)]">{inc.entity_name}</span>
+                          <span className="text-[var(--c-muted)]">·</span>
+                          <span className="font-semibold text-amber-300">{inc.attribute_name}</span>
+                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-mono text-amber-400 uppercase">
+                            {inc.conflict_type || "value_mismatch"}
+                          </span>
                         </div>
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                           inc.status === "resolved"
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-amber-500/15 text-amber-400"
+                            ? "border border-emerald-500/30 bg-emerald-500/20 text-emerald-400"
+                            : "border border-amber-500/30 bg-amber-500/20 text-amber-300"
                         }`}>
                           {inc.status}
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-[11px]">
-                        <div className="rounded-lg border border-red-500/15 bg-red-500/4 p-2.5">
-                          <p className="font-semibold text-red-400/70 truncate text-[10px] uppercase tracking-wide">Sumber A</p>
-                          <p className="truncate text-[11px] text-(--c-muted) mt-0.5">{inc.doc_a_title}</p>
-                          <p className="mt-1.5 font-bold text-red-400">{inc.value_a}</p>
+                        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-2.5">
+                          <p className="font-semibold text-red-300 truncate text-[10px] uppercase tracking-wide">Sumber A (Dokumen Lama)</p>
+                          <p className="truncate text-[11px] text-[var(--c-muted)] mt-0.5">{inc.doc_a_title}</p>
+                          <p className="mt-1.5 font-bold text-red-400 text-xs">{inc.value_a}</p>
                         </div>
-                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
-                          <p className="font-semibold text-emerald-400/70 truncate text-[10px] uppercase tracking-wide">Sumber B</p>
-                          <p className="truncate text-[11px] text-(--c-muted) mt-0.5">{inc.doc_b_title}</p>
-                          <p className="mt-1.5 font-bold text-emerald-400">{inc.value_b}</p>
+                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2.5">
+                          <p className="font-semibold text-emerald-300 truncate text-[10px] uppercase tracking-wide">Sumber B (Dokumen Terbaru)</p>
+                          <p className="truncate text-[11px] text-[var(--c-muted)] mt-0.5">{inc.doc_b_title}</p>
+                          <p className="mt-1.5 font-bold text-emerald-400 text-xs">{inc.value_b}</p>
                         </div>
                       </div>
                     </div>
@@ -987,7 +990,7 @@ export default function KnowledgeBasePage() {
           </div>
 
           {/* ── RIGHT PANEL: ASK AI ── */}
-          <section className="relative overflow-hidden rounded-2xl border border-(--c-border) bg-(--c-surface) p-5 shadow-sm">
+          <section className="relative overflow-hidden rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] p-5 shadow-sm">
             {/* Top Google accent bar */}
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#4285F4] via-[#EA4335] via-[#FBBC05] to-[#34A853]" />
 
@@ -998,13 +1001,13 @@ export default function KnowledgeBasePage() {
 
             <div className="relative">
               {/* Panel header */}
-              <div className="mb-5 flex items-center gap-3 border-b border-(--c-border) pb-4">
+              <div className="mb-5 flex items-center gap-3 border-b border-[var(--c-border)] pb-4">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 via-red-500/10 to-emerald-500/20 ring-1 ring-white/10 shadow-inner">
                   <BotIcon size={19} className="text-[#4285F4]" />
                 </div>
                 <div>
                   <h2 className="text-base font-bold">Ask Knowledge Base</h2>
-                  <p className="text-[11px] text-(--c-muted)">Powered by <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#34A853]">Gemini RAG</span> · Vector Similarity Search</p>
+                  <p className="text-[11px] text-[var(--c-muted)]">Powered by <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#34A853]">Gemini RAG</span> · Vector Similarity Search</p>
                 </div>
                 <div className="ml-auto flex items-center gap-1.5">
                   <span className="flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/8 px-3 py-1.5 text-[11px] font-bold text-sky-400">
@@ -1018,7 +1021,7 @@ export default function KnowledgeBasePage() {
               <form onSubmit={handleAsk} className="mb-4">
                 <div className="flex flex-col gap-2.5 sm:flex-row">
                   <div className="group relative flex-1">
-                    <SearchIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-(--c-muted) transition-colors group-focus-within:text-sky-400" />
+                    <SearchIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--c-muted)] transition-colors group-focus-within:text-sky-400" />
                     <input
                       value={question}
                       onChange={(e) => setQuestion(e.target.value)}
@@ -1028,7 +1031,7 @@ export default function KnowledgeBasePage() {
                           ? "Tanya SOP, garansi, FAQ produk, atau policy CS..."
                           : "Upload dokumen dulu untuk aktifkan AI Query..."
                       }
-                      className="h-12 w-full rounded-xl border border-(--c-border) bg-(--c-overlay) pl-10 pr-4 text-sm text-(--c-text) outline-none transition-all duration-150 placeholder:text-(--c-muted)/50 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/15 disabled:opacity-40"
+                      className="h-12 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-offset)] pl-10 pr-4 text-sm text-[var(--c-text)] outline-none transition-all duration-150 placeholder:text-[var(--c-muted)]/50 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/15 disabled:opacity-40"
                     />
                   </div>
                   <button
@@ -1050,7 +1053,7 @@ export default function KnowledgeBasePage() {
                       key={suggestion}
                       type="button"
                       onClick={() => setQuestion(suggestion)}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-(--c-border) bg-(--c-overlay) px-3 py-1.5 text-[11px] font-medium text-(--c-muted) transition-all duration-150 hover:border-sky-500/40 hover:bg-sky-500/8 hover:text-sky-300"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--c-border)] bg-[var(--c-offset)] px-3 py-1.5 text-[11px] font-medium text-[var(--c-muted)] transition-all duration-150 hover:border-sky-500/40 hover:bg-sky-500/8 hover:text-sky-300"
                     >
                       <SparklesIcon size={10} className="text-sky-400" />
                       {suggestion}
@@ -1069,8 +1072,8 @@ export default function KnowledgeBasePage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-base font-bold text-(--c-text)">Menelusuri Knowledge Base...</p>
-                    <p className="mt-1 text-xs text-(--c-muted)">Sedang mencari konteks relevan & menyusun jawaban</p>
+                    <p className="text-base font-bold text-[var(--c-text)]">Menelusuri Knowledge Base...</p>
+                    <p className="mt-1 text-xs text-[var(--c-muted)]">Sedang mencari konteks relevan & menyusun jawaban</p>
                   </div>
                   <div className="flex gap-2">
                     {[0, 1, 2].map((i) => (
@@ -1083,13 +1086,13 @@ export default function KnowledgeBasePage() {
                   </div>
                 </div>
               ) : !answer ? (
-                <div className="flex min-h-[380px] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-(--c-border) bg-(--c-overlay) p-8 text-center">
-                  <div className="flex size-16 items-center justify-center rounded-2xl border border-(--c-border) bg-(--c-surface) text-(--c-muted)/50">
+                <div className="flex min-h-[380px] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-[var(--c-border)] bg-[var(--c-offset)] p-8 text-center">
+                  <div className="flex size-16 items-center justify-center rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] text-[var(--c-muted)]/50">
                     <BotIcon size={30} />
                   </div>
                   <div>
-                    <p className="text-base font-semibold text-(--c-text)">Tanyakan apa saja tentang produk & SOP</p>
-                    <p className="mt-1.5 text-xs text-(--c-muted) max-w-xs">
+                    <p className="text-base font-semibold text-[var(--c-text)]">Tanyakan apa saja tentang produk & SOP</p>
+                    <p className="mt-1.5 text-xs text-[var(--c-muted)] max-w-xs">
                       {readyDocuments.length > 0
                         ? `${readyDocuments.length} dokumen aktif · klik saran di atas atau ketik pertanyaan Anda`
                         : "Upload dokumen di panel kiri untuk mengaktifkan AI Query Engine"}
@@ -1113,11 +1116,11 @@ export default function KnowledgeBasePage() {
                             <BotIcon size={13} className="text-sky-400" />
                           </div>
                           <span className="text-xs font-bold text-sky-400">Jawaban AI</span>
-                          <span className="text-[10px] text-(--c-muted)">· {answer.sources.length} sumber ditemukan</span>
+                          <span className="text-[10px] text-[var(--c-muted)]">· {answer.sources.length} sumber ditemukan</span>
                         </div>
                         <CopyButton text={answer.answer} />
                       </div>
-                      <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-(--c-text) [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-(--c-border) [&_td]:px-3 [&_td]:py-2 [&_td]:text-xs [&_th]:border [&_th]:border-(--c-border) [&_th]:bg-(--c-overlay-2) [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs [&_th]:font-bold [&_code]:rounded [&_code]:bg-(--c-overlay-2) [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-xs [&_p]:text-(--c-text)">
+                      <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-[var(--c-text)] [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[var(--c-border)] [&_td]:px-3 [&_td]:py-2 [&_td]:text-xs [&_th]:border [&_th]:border-[var(--c-border)] [&_th]:bg-[var(--c-surface)] [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs [&_th]:font-bold [&_code]:rounded [&_code]:bg-[var(--c-surface)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-xs [&_p]:text-[var(--c-text)]">
                         <ReactMarkdown>{answer.answer}</ReactMarkdown>
                       </div>
                     </div>
@@ -1126,27 +1129,27 @@ export default function KnowledgeBasePage() {
                   {/* Sources */}
                   {answer.sources.length > 0 && (
                     <div>
-                      <h3 className="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-(--c-muted)">
+                      <h3 className="mb-2.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--c-muted)]">
                         <LayersIcon size={12} className="text-indigo-400" />
                         Sumber Referensi ({answer.sources.length})
                       </h3>
                       <div className="space-y-2">
                         {answer.sources.map((source) => (
-                          <details key={source.chunk_id} className="group rounded-xl border border-(--c-border) bg-(--c-overlay) transition-all duration-150 hover:border-indigo-500/30 hover:shadow-sm">
+                          <details key={source.chunk_id} className="group rounded-xl border border-[var(--c-border)] bg-[var(--c-offset)] transition-all duration-150 hover:border-indigo-500/30 hover:shadow-sm">
                             <summary className="flex cursor-pointer list-none items-center gap-2.5 p-3.5">
                               <div className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-[11px] font-bold text-indigo-400 ring-1 ring-indigo-500/20">
                                 {source.chunk_index + 1}
                               </div>
-                              <span className="flex-1 truncate text-xs font-semibold text-(--c-text)">{source.title}</span>
+                              <span className="flex-1 truncate text-xs font-semibold text-[var(--c-text)]">{source.title}</span>
                               <div className="flex items-center gap-1.5">
                                 <span className="shrink-0 rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-[10px] font-bold text-indigo-400">
                                   {(Number(source.similarity || 0) * 100).toFixed(1)}%
                                 </span>
-                                <span className="text-[10px] text-(--c-muted) group-open:rotate-180 transition-transform duration-200">▾</span>
+                                <span className="text-[10px] text-[var(--c-muted)] group-open:rotate-180 transition-transform duration-200">▾</span>
                               </div>
                             </summary>
-                            <div className="border-t border-(--c-border) p-3.5">
-                              <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-5 text-(--c-muted)">
+                            <div className="border-t border-[var(--c-border)] p-3.5">
+                              <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-5 text-[var(--c-muted)]">
                                 {source.content}
                               </p>
                             </div>
