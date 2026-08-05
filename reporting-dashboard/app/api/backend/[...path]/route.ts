@@ -55,7 +55,6 @@ const ALLOWED_READ_ROUTES = new Set([
 ])
 
 const SENSITIVE_PROXY_ROUTES = new Set([
-  "POST reports/preview",
   "POST cleanup/preview",
   "POST cleanup/diagnostics/phone-format",
   "POST knowledge/upload-multiple",

@@ -20,9 +20,9 @@ async function handleProxyExport(
   const type = resolvedParams.type
   const searchParams = request.nextUrl.searchParams.toString()
 
-  let endpoint = `/api/reports/export/${type}`
+  let endpoint = `/reports/export/${type}`
   if (type === "principal") {
-    endpoint = "/api/principal-report/export"
+    endpoint = "/principal-report/export"
   }
 
   const targetUrl = `${API_ORIGIN}${endpoint}${searchParams ? `?${searchParams}` : ""}`
