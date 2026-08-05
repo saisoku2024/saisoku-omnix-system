@@ -179,7 +179,34 @@ MOJIBAKE_REPLACEMENTS = {
     "\u2019": "'",
     "\u201c": '"',
     "\u201d": '"',
+    "\ufeff": "",
+    "\u00c2\u00b0": "\u00b0",
+    "\u00c2": "",
+    "\u00e2\u20ac\u00a2": "- ",
+    "\u00e2\u20ac\u201c": "-",
+    "\u00e2\u20ac\u201d": "-",
+    "\u00e2\u20ac\u02dc": "'",
+    "\u00e2\u20ac\u2122": "'",
+    "\u00e2\u20ac\u0153": '"',
+    "\u00e2\u20ac\ufffd": '"',
 }
+
+
+def _strip_repeated_lines(text: str, *, min_repeats: int = 3) -> str:
+    lines = text.splitlines()
+    normalized_counts: Dict[str, int] = {}
+    for line in lines:
+        normalized = re.sub(r"\s+", " ", line).strip().lower()
+        if len(normalized) >= 4:
+            normalized_counts[normalized] = normalized_counts.get(normalized, 0) + 1
+
+    cleaned_lines = []
+    for line in lines:
+        normalized = re.sub(r"\s+", " ", line).strip().lower()
+        if normalized_counts.get(normalized, 0) >= min_repeats:
+            continue
+        cleaned_lines.append(line)
+    return "\n".join(cleaned_lines)
 
 
 def _clean_text(value: str) -> str:
@@ -192,18 +219,45 @@ def _clean_text(value: str) -> str:
     # Clean repeating PDF headers / footers / page numbers
     text = re.sub(r"(?i)^\s*halaman\s+\d+\s+(?:dari|of)\s+\d+\s*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"(?i)^\s*page\s+\d+\s+(?:of|dari)\s+\d+\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"(?i)^\s*(?:halaman|page)\s+\d+\s*$", "", text, flags=re.MULTILINE)
+    text = _strip_repeated_lines(text)
 
     # Normalize technical units spacing (e.g. 11 . 000 Pa -> 11.000 Pa, 70 ° C -> 70°C)
     text = re.sub(r"(\d+)\s*\.\s*(\d{3})", r"\1.\2", text)
+    text = re.sub(
+        r"(\d+)\s*(?:\u00b0|degrees?)\s*C\b",
+        lambda match: f"{match.group(1)}\u00b0C",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"(\d+(?:[.,]\d+)?)\s*(pa|mah|wh|w|v|ml|kg|g|cm|mm|m)\b",
+        lambda match: f"{match.group(1)} {match.group(2)}",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\b(\d+(?:[.,]\d+)?)\s+L\b", r"\1L", text)
     text = re.sub(r"(\d+)\s*°\s*C", r"\1°C", text)
 
     text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r" *\n *", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
 
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
+
+
+def _looks_like_table_line(stripped: str) -> bool:
+    return ("|" in stripped and stripped.count("|") >= 2) or (
+        "," in stripped and stripped.count(",") >= 3 and not stripped.endswith(".")
+    )
+
+
+def _looks_like_table_block(block_text: str) -> bool:
+    lines = [line.strip() for line in block_text.splitlines() if line.strip()]
+    return len(lines) >= 2 and all(_looks_like_table_line(line) for line in lines)
 
 
 def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) -> List[str]:
@@ -234,9 +288,7 @@ def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) ->
             current_block.append(line)
             continue
 
-        is_table_line = ("|" in stripped and stripped.count("|") >= 2) or (
-            "," in stripped and stripped.count(",") >= 3 and not stripped.endswith(".")
-        )
+        is_table_line = _looks_like_table_line(stripped)
         if is_table_line:
             if not in_table and current_block:
                 blocks.append((current_header, "\n".join(current_block)))
@@ -284,6 +336,9 @@ def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) ->
                 chunks.append(current_chunk)
             if len(b_str) <= max_chars:
                 current_chunk = f"{hdr_prefix}{b_str}".strip()
+            elif _looks_like_table_block(b_str):
+                chunks.append(f"{hdr_prefix}{b_str}".strip())
+                current_chunk = ""
             else:
                 sub_lines = b_str.splitlines()
                 sub_chunk = ""
@@ -305,6 +360,9 @@ def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) ->
 
     with_overlap: List[str] = [chunks[0]]
     for index in range(1, len(chunks)):
+        if len(chunks[index]) > max_chars:
+            with_overlap.append(chunks[index])
+            continue
         prefix = chunks[index - 1][-overlap_chars:].strip()
         merged = f"{prefix}\n\n{chunks[index]}".strip()
         with_overlap.append(merged[: max_chars + overlap_chars])
@@ -522,8 +580,47 @@ def _extract_docx(content: bytes) -> str:
         ) from exc
 
     document = Document(io.BytesIO(content))
-    paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
-    return "\n\n".join(paragraphs)
+    parts: List[str] = []
+    for paragraph in document.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            parts.append(text)
+    for index, table in enumerate(document.tables, start=1):
+        rows = [
+            [cell.text.strip() for cell in row.cells]
+            for row in table.rows
+            if any(cell.text.strip() for cell in row.cells)
+        ]
+        if rows:
+            parts.append(f"### TABLE {index}\n{_markdown_table(rows)}")
+    return "\n\n".join(parts)
+
+
+def _markdown_table(rows: List[List[Any]]) -> str:
+    if not rows:
+        return ""
+    width = max(len(row) for row in rows)
+    normalized_rows = [
+        [str(cell).replace("\n", " ").strip() for cell in row] + [""] * (width - len(row))
+        for row in rows
+    ]
+    header = normalized_rows[0]
+    body = normalized_rows[1:]
+    lines = [
+        "| " + " | ".join(header) + " |",
+        "| " + " | ".join(["---"] * width) + " |",
+    ]
+    lines.extend("| " + " | ".join(row) + " |" for row in body)
+    return "\n".join(lines)
+
+
+def _dataframe_to_markdown(df: pd.DataFrame) -> str:
+    cleaned_df = df.dropna(how="all").dropna(axis=1, how="all").fillna("")
+    if cleaned_df.empty:
+        return ""
+    rows: List[List[Any]] = [list(cleaned_df.columns)]
+    rows.extend(cleaned_df.astype(str).values.tolist())
+    return _markdown_table(rows)
 
 
 def _extract_spreadsheet(content: bytes, filename: str) -> str:
@@ -532,15 +629,16 @@ def _extract_spreadsheet(content: bytes, filename: str) -> str:
         df = pd.read_csv(file_obj)
         if df.empty:
             return ""
-        return df.fillna("").astype(str).to_csv(index=False)
+        return _dataframe_to_markdown(df)
     else:
         excel_file = pd.ExcelFile(file_obj)
         sheet_texts: List[str] = []
         for sheet_name in excel_file.sheet_names:
             df = pd.read_excel(excel_file, sheet_name=sheet_name)
             if not df.empty:
-                sheet_csv = df.fillna("").astype(str).to_csv(index=False)
-                sheet_texts.append(f"### SHEET: {sheet_name}\n\n{sheet_csv}")
+                sheet_table = _dataframe_to_markdown(df)
+                if sheet_table:
+                    sheet_texts.append(f"### SHEET: {sheet_name}\n\n{sheet_table}")
         return "\n\n".join(sheet_texts)
 
 
