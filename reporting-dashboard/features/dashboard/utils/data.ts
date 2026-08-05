@@ -38,7 +38,10 @@ function padDay(day: number) {
 }
 
 function getDaysInSelectedMonth(period: string, year: number) {
-  const monthIndex = MONTHS.indexOf(period)
+  let monthIndex = MONTHS.indexOf(period)
+  if (monthIndex === -1) {
+    monthIndex = parseMonthIndex(period) ?? -1
+  }
   if (monthIndex === -1) return 31
   return new Date(year, monthIndex + 1, 0).getDate()
 }

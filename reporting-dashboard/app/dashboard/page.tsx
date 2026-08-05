@@ -24,8 +24,6 @@ import { getDefaultMonth, getDefaultYear, REPORT_YEARS } from "@/lib/period-defa
 const DARK_VARS: React.CSSProperties = { "--c-bg": "#0d1117", "--c-surface": "#161b22", "--c-offset": "#1f2430", "--c-border": "rgba(255,255,255,0.07)", "--c-text": "#e2e4ea", "--c-muted": "#6b7485", "--c-skeleton": "#252a35", "--c-accent": "#0ea5e9" } as React.CSSProperties
 const LIGHT_VARS: React.CSSProperties = { "--c-bg": "#f0f2f5", "--c-surface": "#ffffff", "--c-offset": "#f6f8fa", "--c-border": "rgba(0,0,0,0.07)", "--c-text": "#1a1d27", "--c-muted": "#6b7280", "--c-skeleton": "#e5e7eb", "--c-accent": "#0ea5e9" } as React.CSSProperties
 
-
-
 export default function DashboardPage() {
   const { isDark, toggleTheme } = useTheme()
   const [mode, setMode] = useState<ModeType>("monthly")
@@ -127,7 +125,7 @@ export default function DashboardPage() {
         <Card className="shrink-0 w-full">
           <CardHeader title="Ticket Volume Trend" badge="DAILY" />
           <div className="h-[240px] p-4">
-            {loading ? (<Spinner height={240} />) : trendData.length === 0 ? (<EmptyState message="Tidak ada data" height={240} />) : (<TrendChart data={trendData} mode={mode} highlightedMonths={mode === "monthly" ? [] : highlightedMonths} isDark={isDark} />)}
+            {loading ? (<Spinner height={240} />) : trendData.length === 0 || trendData.every((d) => d.count === 0) ? (<EmptyState message="Tidak ada data" height={240} />) : (<TrendChart data={trendData} mode={mode} highlightedMonths={mode === "monthly" ? [] : highlightedMonths} isDark={isDark} />)}
           </div>
         </Card>
         

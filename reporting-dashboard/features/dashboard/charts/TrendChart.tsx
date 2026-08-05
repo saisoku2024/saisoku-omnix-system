@@ -79,22 +79,31 @@ const TrendChart = memo(function TrendChart({
     return Math.max(...activeData.map((d) => d.count), 0)
   }, [data, highlightedMonths, isHighlightAll])
 
+  const chartWidthStyle = useMemo(() => {
+    if (mode === "monthly" && data.length < 16) {
+      const calculatedWidth = Math.max(240, data.length * 64)
+      return { width: `min(100%, ${calculatedWidth}px)` }
+    }
+    return { width: "100%" }
+  }, [mode, data.length])
+
   return (
     <div
-      className="h-full w-full"
+      className="h-full w-full flex justify-start"
       onMouseLeave={() => setActiveIndex(null)}
     >
-      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
-        <BarChart
-          data={data}
-          barCategoryGap={mode === "monthly" ? 14 : "30%"}
-          margin={{
-            top: 24,
-            right: 10,
-            bottom: 4,
-            left: -12,
-          }}
-        >
+      <div style={chartWidthStyle} className="h-full">
+        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 200 }}>
+          <BarChart
+            data={data}
+            barCategoryGap={mode === "monthly" ? (data.length <= 7 ? 10 : 14) : "30%"}
+            margin={{
+              top: 24,
+              right: 10,
+              bottom: 4,
+              left: -12,
+            }}
+          >
           <CartesianGrid
             vertical={false}
             strokeDasharray={mode === "monthly" ? "2 6" : "3 3"}
@@ -157,7 +166,7 @@ const TrendChart = memo(function TrendChart({
           <Bar
             dataKey="count"
             radius={[8, 8, 2, 2]}
-            maxBarSize={mode === "monthly" ? 18 : 38}
+            maxBarSize={mode === "monthly" ? (data.length <= 7 ? 32 : 18) : 38}
             animationDuration={700}
             animationEasing="ease-out"
             onMouseEnter={(_, index) => setActiveIndex(index)}
@@ -222,6 +231,7 @@ const TrendChart = memo(function TrendChart({
         </BarChart>
       </ResponsiveContainer>
     </div>
+  </div>
   )
 })
 
