@@ -15,9 +15,21 @@ def _rpc_json(data):
 
 
 def _fmt_duration(sec):
-    sec = int(float(sec or 0))
-    minutes, seconds = divmod(sec, 60)
-    return f"{minutes}m {seconds}s"
+    if sec is None:
+        return "0m 0s"
+    if isinstance(sec, str) and ("m" in sec or "s" in sec or "h" in sec):
+        return sec
+    try:
+        val = int(float(sec or 0))
+        if val <= 0:
+            return "0m 0s"
+        hours, remainder = divmod(val, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours > 0:
+            return f"{hours}h {minutes}m {seconds}s"
+        return f"{minutes}m {seconds}s"
+    except Exception:
+        return "0m 0s"
 
 
 def _is_unknown_only(rows):
@@ -89,20 +101,17 @@ def get_dashboard_summary(mode: str, period: str, year: int):
 
         data = res.data[0] if res.data else {}
 
-        aht = int(float(data.get("avg_aht") or 0))
-        art = int(float(data.get("avg_art") or 0))
-        awt = int(float(data.get("avg_awt") or 0))
-
-        m_aht, s_aht = divmod(aht, 60)
-        m_art, s_art = divmod(art, 60)
-        m_awt, s_awt = divmod(awt, 60)
+        aht_raw = data.get("avg_aht") if data.get("avg_aht") is not None else data.get("aht")
+        art_raw = data.get("avg_art") if data.get("avg_art") is not None else data.get("art")
+        awt_raw = data.get("avg_awt") if data.get("avg_awt") is not None else data.get("awt")
+        csat_raw = data.get("csat") if data.get("csat") is not None else data.get("avg_csat")
 
         return {
-            "total_ticket": f"{int(data.get('total_ticket') or 0):,}",
-            "aht": f"{m_aht}m {s_aht}s",
-            "art": f"{m_art}m {s_art}s",
-            "awt": f"{m_awt}m {s_awt}s",
-            "csat": str(data.get("csat") or 0)
+            "total_ticket": f"{int(data.get('total_ticket') or data.get('total') or 0):,}",
+            "aht": _fmt_duration(aht_raw),
+            "art": _fmt_duration(art_raw),
+            "awt": _fmt_duration(awt_raw),
+            "csat": str(csat_raw or 0)
         }
 
     except Exception as e:
@@ -308,13 +317,18 @@ def get_dashboard_all(mode, period, year):
         if not brand:
             brand = _get_brand_fallback(start, end)
 
+        aht_raw = summary.get("avg_aht") if summary.get("avg_aht") is not None else summary.get("aht")
+        art_raw = summary.get("avg_art") if summary.get("avg_art") is not None else summary.get("art")
+        awt_raw = summary.get("avg_awt") if summary.get("avg_awt") is not None else summary.get("awt")
+        csat_raw = summary.get("csat") if summary.get("csat") is not None else summary.get("avg_csat")
+
         return {
             "summary": {
-                "total_ticket": f"{int(summary.get('total_ticket') or 0):,}",
-                "aht": _fmt_duration(summary.get("avg_aht")),
-                "art": _fmt_duration(summary.get("avg_art")),
-                "awt": _fmt_duration(summary.get("avg_awt")),
-                "csat": str(summary.get("csat") or 0),
+                "total_ticket": f"{int(summary.get('total_ticket') or summary.get('total') or 0):,}",
+                "aht": _fmt_duration(aht_raw),
+                "art": _fmt_duration(art_raw),
+                "awt": _fmt_duration(awt_raw),
+                "csat": str(csat_raw or 0),
             },
             "trend": [
                 {

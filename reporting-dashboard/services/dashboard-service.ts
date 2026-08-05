@@ -81,9 +81,44 @@ function sanitizeNamedItems<T extends { name?: string }>(items: T[] | undefined)
   )
 }
 
+function formatDuration(val: unknown): string {
+  if (val === null || val === undefined || val === "" || val === 0 || val === "0") return "0m 0s"
+  const str = String(val).trim()
+  if (str.includes("m") || str.includes("s") || str.includes("h")) return str
+  const num = Number(str)
+  if (!Number.isFinite(num) || num <= 0) return "0m 0s"
+  const sec = Math.round(num)
+  const hours = Math.floor(sec / 3600)
+  const minutes = Math.floor((sec % 3600) / 60)
+  const seconds = sec % 60
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
+  return `${minutes}m ${seconds}s`
+}
+
 function normalizeDashboardResponse(response: DashboardAllResponse): DashboardPayload {
+  const rawSummary = (response.summary || {}) as Record<string, unknown>
+
+  const safeStr = (val: unknown, fallback: string): string => {
+    if (val === null || val === undefined || val === "") return fallback
+    return String(val)
+  }
+
+  const totalTicket = rawSummary.total_ticket ?? rawSummary.total ?? 0
+  const totalTicketStr = typeof totalTicket === "number" ? totalTicket.toLocaleString() : String(totalTicket)
+
+  const ahtRaw = rawSummary.aht ?? rawSummary.avg_aht
+  const artRaw = rawSummary.art ?? rawSummary.avg_art
+  const awtRaw = rawSummary.awt ?? rawSummary.avg_awt
+  const csatRaw = rawSummary.csat ?? rawSummary.avg_csat
+
   return {
-    stats: response.summary || EMPTY_STATS,
+    stats: {
+      total_ticket: totalTicketStr || "0",
+      aht: formatDuration(ahtRaw),
+      art: formatDuration(artRaw),
+      awt: formatDuration(awtRaw),
+      csat: safeStr(csatRaw, "0"),
+    },
     trend: resolveDashboardTrend(response),
     channel: response.channel || [],
     category: response.category || [],

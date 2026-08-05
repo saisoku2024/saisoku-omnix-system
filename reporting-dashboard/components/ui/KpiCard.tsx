@@ -14,9 +14,9 @@ export type KpiCardProps = {
   loading: boolean
 }
 
-const EMPTY_VALUES = new Set(["–", "-", "0", "0%", "0s", "0m", "0m 0s", "NaN", ""])
+const EMPTY_VALUES = new Set(["–", "-", "NaN", ""])
 function isEmpty(value: string): boolean {
-  return EMPTY_VALUES.has(value.trim())
+  return !value || EMPTY_VALUES.has(value.trim())
 }
 
 function KpiCard({ label, value, Icon, color, loading }: KpiCardProps) {
@@ -48,7 +48,7 @@ function KpiCard({ label, value, Icon, color, loading }: KpiCardProps) {
                 boxShadow: `0 0 12px ${color}1a`,
               }}
             >
-              <Icon size={14} color={color} strokeWidth={2.4} opacity={empty ? 0.5 : 1} />
+              <Icon size={14} color={color} strokeWidth={2.4} opacity={1} />
             </div>
           </div>
 
@@ -56,10 +56,9 @@ function KpiCard({ label, value, Icon, color, loading }: KpiCardProps) {
             <Skeleton w={70} h={24} />
           ) : (
             <span
-              className="font-heading text-[20px] font-extrabold leading-none tracking-tight tabular-nums"
-              style={{ color: empty ? "var(--c-muted)" : "#ffffff" }}
+              className="font-heading text-[20px] font-extrabold leading-none tracking-tight tabular-nums text-white"
             >
-              {value}
+              {value || "0m 0s"}
             </span>
           )}
         </div>

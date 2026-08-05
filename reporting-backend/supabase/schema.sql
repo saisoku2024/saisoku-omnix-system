@@ -830,9 +830,9 @@ csat_filtered as (
 summary_data as (
   select
     count(o.id)::int as total_ticket,
-    coalesce(avg(o.handling_time_sec), 0)::numeric as avg_aht,
-    coalesce(avg(o.response_time_sec), 0)::numeric as avg_art,
-    coalesce(avg(o.waiting_time_sec), 0)::numeric as avg_awt,
+    coalesce(avg(coalesce(nullif(o.handling_time_sec, 0), nullif(extract(epoch from (o.date_end_interaction - o.interaction_at)), 0))), 0)::numeric as avg_aht,
+    coalesce(avg(coalesce(nullif(o.response_time_sec, 0), nullif(extract(epoch from (o.date_first_response_interaction - o.interaction_at)), 0))), 0)::numeric as avg_art,
+    coalesce(avg(coalesce(nullif(o.waiting_time_sec, 0), nullif(extract(epoch from (o.date_first_response_interaction - o.interaction_at)), 0))), 0)::numeric as avg_awt,
     coalesce(avg(c.score), 0)::numeric as csat
   from omnix_filtered o
   full join csat_filtered c on false
