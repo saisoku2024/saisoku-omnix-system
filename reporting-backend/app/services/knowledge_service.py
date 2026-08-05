@@ -947,11 +947,11 @@ def _trust_rank(value: Any) -> int:
 def _is_active_knowledge_document(document: Dict[str, Any], *, now: datetime | None = None) -> bool:
     if document.get("status") != "ready":
         return False
-    if document.get("needs_reindex") is True:
-        return False
     current_time = now or datetime.now(timezone.utc)
     effective_until = _parse_datetime(document.get("effective_until"))
-    return not effective_until or effective_until > current_time
+    if effective_until and effective_until <= current_time:
+        return False
+    return True
 
 
 def _filter_rank_keyword_chunks(chunks: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
@@ -1621,19 +1621,18 @@ class KnowledgeService:
         # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
 
+
             if keywords:
                 existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
 
-                # Tier 1: AND semua top-3 keyword — presisi tinggi buat pertanyaan satu topik
+                # Tier 1: AND semua top-3 keyword (periksa kolom content maupun title)
                 query_builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
                 for kw in keywords[:3]:
-                    query_builder = query_builder.ilike("content", f"%{kw}%")
+                    query_builder = query_builder.or_(f"content.ilike.%{kw}%,title.ilike.%{kw}%")
                 kw_res = query_builder.limit(match_count * 4).execute()
                 kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
 
-                # Tier 2: OR top keyword-keyword spesifik — buat pertanyaan perbandingan
-                # ("Y1 vs Y1 Pro") di mana tiap istilah ada di chunk/dokumen berbeda,
-                # bukan nyampur di satu chunk yang sama.
+                # Tier 2: OR top keyword-keyword spesifik (periksa kolom content maupun title)
                 if not kw_chunks and len(keywords) > 1:
                     or_filter = ",".join(
                         item
@@ -1648,8 +1647,9 @@ class KnowledgeService:
                         .execute()
                     )
                     kw_chunks = _filter_rank_keyword_chunks(kw_res.data or [], match_count * 2)
-                # Tier 3: fallback ke keyword TERSPESIFIK (bukan kata pertama di kalimat)
-                if not kw_chunks:
+
+                # Tier 3: fallback ke keyword TERSPESIFIK (periksa kolom content maupun title)
+                if not kw_chunks and keywords:
                     keyword = keywords[0]
                     kw_res = (
                         supabase.table("knowledge_chunks")
