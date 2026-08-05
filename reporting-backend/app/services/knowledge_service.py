@@ -168,8 +168,35 @@ def _chat_model() -> str:
     return resolve_chat_model()
 
 
+MOJIBAKE_REPLACEMENTS = {
+    "\xa0": " ",
+    "\u200b": "",
+    "\u2022": "• ",
+    "\uf0b7": "• ",
+    "\u2013": "-",
+    "\u2014": "-",
+    "\u2018": "'",
+    "\u2019": "'",
+    "\u201c": '"',
+    "\u201d": '"',
+}
+
+
 def _clean_text(value: str) -> str:
+    if not value:
+        return ""
     text = value.replace("\x00", " ")
+    for k, v in MOJIBAKE_REPLACEMENTS.items():
+        text = text.replace(k, v)
+
+    # Clean repeating PDF headers / footers / page numbers
+    text = re.sub(r"(?i)^\s*halaman\s+\d+\s+(?:dari|of)\s+\d+\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"(?i)^\s*page\s+\d+\s+(?:of|dari)\s+\d+\s*$", "", text, flags=re.MULTILINE)
+
+    # Normalize technical units spacing (e.g. 11 . 000 Pa -> 11.000 Pa, 70 ° C -> 70°C)
+    text = re.sub(r"(\d+)\s*\.\s*(\d{3})", r"\1.\2", text)
+    text = re.sub(r"(\d+)\s*°\s*C", r"\1°C", text)
+
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
@@ -181,39 +208,53 @@ def _estimate_tokens(text: str) -> int:
 
 def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) -> List[str]:
     """
-    Chunking Table-Aware & Token-Aware.
-    Mencegah pemotongan acak di tengah baris tabel/CSV dan menggunakan estimasi token (~4 karakter/token).
+    Chunking Smart Header-Aware & Table-Protected dengan Token Estimation (~4 char/token).
+    - Mempertahankan Active Section Header (Markdown #, ##, ###) pada chunk turunan.
+    - Melindungi baris tabel agar tidak terpisah di tengah baris.
+    - Menyediakan overlap antar-chunk untuk menjaga kontinuitas konteks.
     """
     max_chars = max_tokens * 4
     overlap_chars = overlap_tokens * 4
 
     lines = text.splitlines()
-    blocks: List[str] = []
+    blocks: List[tuple[str | None, str]] = []  # (active_header, block_text)
     current_block: List[str] = []
+    current_header: str | None = None
     in_table = False
+
+    header_re = re.compile(r"^\s*(#{1,4}\s+.+|[A-Z0-9\.\s]{3,60}:)\s*$")
 
     for line in lines:
         stripped = line.strip()
-        is_table_line = ("|" in stripped and stripped.count("|") >= 2) or ("," in stripped and stripped.count(",") >= 3 and not stripped.endswith("."))
+        if header_re.match(stripped) and not in_table:
+            if current_block:
+                blocks.append((current_header, "\n".join(current_block)))
+                current_block = []
+            current_header = stripped
+            current_block.append(line)
+            continue
+
+        is_table_line = ("|" in stripped and stripped.count("|") >= 2) or (
+            "," in stripped and stripped.count(",") >= 3 and not stripped.endswith(".")
+        )
         if is_table_line:
             if not in_table and current_block:
-                blocks.append("\n".join(current_block))
+                blocks.append((current_header, "\n".join(current_block)))
                 current_block = []
             in_table = True
             current_block.append(line)
         else:
             if in_table and current_block:
-                # Check table delimiter consistency
                 delims = [l.count("|") if "|" in l else l.count(",") for l in current_block if l.strip()]
                 if delims and len(set(delims)) > 1:
                     logger.warning(f"[TABLE_GUARDRAIL_WARNING] Inconsistent delimiter count across table rows: {set(delims)}")
                     current_block.insert(0, "[NEEDS_REVIEW: Struktur Baris/Kolom Tabel Tidak Konsisten]")
-                blocks.append("\n".join(current_block))
+                blocks.append((current_header, "\n".join(current_block)))
                 current_block = []
             in_table = False
             if not stripped:
                 if current_block:
-                    blocks.append("\n".join(current_block))
+                    blocks.append((current_header, "\n".join(current_block)))
                     current_block = []
             else:
                 current_block.append(line)
@@ -224,34 +265,36 @@ def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) ->
             if delims and len(set(delims)) > 1:
                 logger.warning(f"[TABLE_GUARDRAIL_WARNING] Inconsistent delimiter count across table rows: {set(delims)}")
                 current_block.insert(0, "[NEEDS_REVIEW: Struktur Baris/Kolom Tabel Tidak Konsisten]")
-        blocks.append("\n".join(current_block))
+        blocks.append((current_header, "\n".join(current_block)))
 
     chunks: List[str] = []
     current_chunk = ""
 
-    for block in blocks:
-        block_str = block.strip()
-        if not block_str:
+    for hdr, block_text in blocks:
+        b_str = block_text.strip()
+        if not b_str:
             continue
-        next_chunk = f"{current_chunk}\n\n{block_str}".strip() if current_chunk else block_str
-        if len(next_chunk) <= max_chars:
-            current_chunk = next_chunk
+        hdr_prefix = f"[{hdr}]\n" if (hdr and hdr not in b_str) else ""
+        candidate = f"{current_chunk}\n\n{b_str}".strip() if current_chunk else f"{hdr_prefix}{b_str}".strip()
+
+        if len(candidate) <= max_chars:
+            current_chunk = candidate
         else:
             if current_chunk:
                 chunks.append(current_chunk)
-            if len(block_str) <= max_chars:
-                current_chunk = block_str
+            if len(b_str) <= max_chars:
+                current_chunk = f"{hdr_prefix}{b_str}".strip()
             else:
-                sub_lines = block_str.splitlines()
+                sub_lines = b_str.splitlines()
                 sub_chunk = ""
                 for sub_line in sub_lines:
-                    next_sub = f"{sub_chunk}\n{sub_line}".strip() if sub_chunk else sub_line
+                    next_sub = f"{sub_chunk}\n{sub_line}".strip() if sub_chunk else f"{hdr_prefix}{sub_line}".strip()
                     if len(next_sub) <= max_chars:
                         sub_chunk = next_sub
                     else:
                         if sub_chunk:
                             chunks.append(sub_chunk)
-                        sub_chunk = sub_line
+                        sub_chunk = f"{hdr_prefix}{sub_line}".strip()
                 current_chunk = sub_chunk
 
     if current_chunk:
