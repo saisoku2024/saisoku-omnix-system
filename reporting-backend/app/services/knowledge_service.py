@@ -1348,7 +1348,10 @@ class KnowledgeService:
     @staticmethod
     def delete_document(document_id: str) -> Dict[str, Any]:
         try:
-            supabase.table("knowledge_entities").delete().eq("document_id", document_id).execute()
+            try:
+                supabase.table("knowledge_entities").delete().eq("document_id", document_id).execute()
+            except Exception:
+                pass
             supabase.table("knowledge_chunks").delete().eq("document_id", document_id).execute()
             supabase.table("knowledge_documents").delete().eq("id", document_id).execute()
             return {"success": True, "document_id": document_id}
@@ -1359,7 +1362,10 @@ class KnowledgeService:
     @staticmethod
     def clear_all_documents() -> Dict[str, Any]:
         try:
-            supabase.table("knowledge_entities").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            try:
+                supabase.table("knowledge_entities").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            except Exception:
+                pass
             supabase.table("knowledge_chunks").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             res = supabase.table("knowledge_documents").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             deleted_count = len(res.data or [])
