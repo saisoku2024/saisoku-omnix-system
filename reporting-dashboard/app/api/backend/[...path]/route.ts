@@ -4,6 +4,9 @@ import { adminHeaders, getAdminApiToken } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
 import { getCurrentSession } from "@/lib/server-auth"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 const ALLOWED_READ_ROUTES = new Set([
   "GET dashboard/years",
   "GET dashboard/summary",
