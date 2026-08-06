@@ -2,13 +2,13 @@ import { NextResponse } from "next/server"
 
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
-import { requireAdminSession } from "@/lib/auth-token"
+import { requireManagerOrAdminSession } from "@/lib/auth-token"
 
 export async function POST(request: Request) {
-  const session = await requireAdminSession()
+  const session = await requireManagerOrAdminSession()
   if (!session) {
     return NextResponse.json(
-      { detail: "Forbidden: Admin privileges required" },
+      { detail: "Forbidden: Manager or Admin privileges required" },
       { status: 403 }
     )
   }
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     const response = await fetch(targetUrl, {
       method: "POST",
-      headers: adminHeaders(),
+      headers: adminHeaders(session),
       body: formData,
     })
 

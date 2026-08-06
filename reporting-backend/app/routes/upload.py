@@ -149,8 +149,9 @@ def process_upload_content(
             UploadService.update_upload_failed(upload_id, e)
         except Exception as fail_err:
             logger.warning(f"Failed to record upload failure state: {fail_err}")
-        status_code = 400 if isinstance(e, ValueError) else 500
-        raise HTTPException(status_code=status_code, detail=str(e))
+        if isinstance(e, ValueError):
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan internal saat memproses upload berkas.")
 
 @router.post("/upload")
 async def upload_file(

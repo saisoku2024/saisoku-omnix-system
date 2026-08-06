@@ -2,7 +2,6 @@ import { cookies } from "next/headers"
 
 export const AUTH_COOKIE_NAME = "saisoku_session"
 export const AUTH_MAX_AGE_SECONDS = 60 * 60 * 12
-const DEFAULT_SECRET = "saisoku-omnix-system-secret-key-2026"
 
 export function getSessionSecret(): string {
   const secret = process.env.AUTH_SESSION_SECRET
@@ -10,12 +9,7 @@ export function getSessionSecret(): string {
     return secret.trim()
   }
 
-  if (process.env.NODE_ENV === "production") {
-    console.error("FATAL: AUTH_SESSION_SECRET environment variable is missing in production environment!")
-    throw new Error("AUTH_SESSION_SECRET is missing in production environment.")
-  }
-
-  return DEFAULT_SECRET
+  throw new Error("AUTH_SESSION_SECRET environment variable is missing. Please configure it in .env.")
 }
 
 export type UserRole = "super_admin" | "manager" | "spv" | "agent" | "guest"
@@ -30,6 +24,12 @@ export type SessionPayload = {
 }
 
 export function isAdminSession(session: SessionPayload | null | undefined) {
+  if (!session) return false
+  const role = session.role || session.sub
+  return role === "admin" || role === "super_admin"
+}
+
+export function isManagerOrAdminSession(session: SessionPayload | null | undefined) {
   if (!session) return false
   const role = session.role || session.sub
   return role === "admin" || role === "super_admin" || role === "manager"
@@ -153,6 +153,16 @@ export async function requireAdminSession() {
 
   const session = await getSessionPayload(token, sessionSecret)
   if (!isAdminSession(session)) return null
+  return session
+}
+
+export async function requireManagerOrAdminSession() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value
+  const sessionSecret = getSessionSecret()
+
+  const session = await getSessionPayload(token, sessionSecret)
+  if (!isManagerOrAdminSession(session)) return null
   return session
 }
 

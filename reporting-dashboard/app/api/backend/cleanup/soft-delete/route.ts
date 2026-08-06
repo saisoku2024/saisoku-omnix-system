@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...adminHeaders(),
+        ...adminHeaders(session),
       },
       body: bodyText,
     })

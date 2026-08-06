@@ -89,12 +89,8 @@ async function authenticateWithSupabaseAuth(email: string, password: string) {
       // Profile lookup error ignored
     }
 
-    const isSuperAdminEmail = email === "admin@omnix.com" || email === "admin"
-    const role: UserRole = isSuperAdminEmail
-      ? "super_admin"
-      : (profile?.role || (user.user_metadata?.role as UserRole) || "guest")
-
-    const fullName = profile?.full_name || user.user_metadata?.full_name || (isSuperAdminEmail ? "Super Admin" : "Omnix User")
+    const role: UserRole = profile?.role || (user.user_metadata?.role as UserRole) || "guest"
+    const fullName = profile?.full_name || user.user_metadata?.full_name || "Omnix User"
     const brandAccess = profile?.brand_access || ["ALL"]
 
     return {
@@ -116,12 +112,7 @@ function getAdminUiPassword(): string | null {
     return secret.trim()
   }
 
-  if (process.env.NODE_ENV === "production") {
-    console.warn("ADMIN_UI_PASSWORD is missing in production environment; legacy admin password fallback is disabled.")
-    return null
-  }
-
-  return "admin123"
+  return null
 }
 
 export async function POST(request: Request) {

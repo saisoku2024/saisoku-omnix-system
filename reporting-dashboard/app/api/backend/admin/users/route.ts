@@ -17,7 +17,7 @@ export async function GET() {
     const backendUrl = `${API_ORIGIN}/api/admin/users`
     const response = await fetch(backendUrl, {
       method: "GET",
-      headers: adminHeaders(),
+      headers: adminHeaders(session),
       cache: "no-store",
     })
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(backendUrl, {
       method: "POST",
       headers: {
-        ...adminHeaders(),
+        ...adminHeaders(session),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),

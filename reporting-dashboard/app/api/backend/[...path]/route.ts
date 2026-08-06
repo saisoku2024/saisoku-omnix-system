@@ -68,6 +68,12 @@ const SENSITIVE_PROXY_ROUTES = new Set([
   "POST knowledge/url",
   "GET knowledge/backup/export",
   "POST knowledge/backup/restore",
+  "POST knowledge/clear-all",
+])
+
+const ADMIN_ONLY_PROXY_ROUTES = new Set([
+  "POST knowledge/clear-all",
+  "POST knowledge/backup/restore",
 ])
 
 const ALLOWED_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> = [
@@ -100,6 +106,16 @@ const SENSITIVE_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean>
     path.startsWith("knowledge/inconsistencies/"),
 ]
 
+const ADMIN_ONLY_ROUTE_MATCHERS: Array<(method: string, path: string) => boolean> = [
+  (method, path) =>
+    method === "POST" &&
+    path.startsWith("upload-sessions/") &&
+    path.endsWith("/delete"),
+  (method, path) =>
+    method === "DELETE" &&
+    path.startsWith("knowledge/documents/"),
+]
+
 function isAllowedBackendRead(method: string, path: string) {
   const normalizedMethod = method.toUpperCase()
   return (
@@ -114,6 +130,15 @@ function isSensitiveBackendRoute(method: string, path: string) {
   return (
     SENSITIVE_PROXY_ROUTES.has(routeKey) ||
     SENSITIVE_ROUTE_MATCHERS.some((matcher) => matcher(normalizedMethod, path))
+  )
+}
+
+function isAdminOnlyBackendRoute(method: string, path: string) {
+  const normalizedMethod = method.toUpperCase()
+  const routeKey = `${normalizedMethod} ${path}`
+  return (
+    ADMIN_ONLY_PROXY_ROUTES.has(routeKey) ||
+    ADMIN_ONLY_ROUTE_MATCHERS.some((matcher) => matcher(normalizedMethod, path))
   )
 }
 
@@ -144,8 +169,18 @@ async function proxyBackendRequest(
     return NextResponse.json({ detail: `Forbidden: Route ${request.method} ${path} is not allowed` }, { status: 403 })
   }
 
-  // Restrict sensitive proxy routes for guest role
   const role = session.role || session.sub
+  const isAdmin = role === "super_admin" || role === "admin"
+
+  // Restrict destructive/admin-only operations
+  if (isAdminOnlyBackendRoute(request.method, path) && !isAdmin) {
+    return NextResponse.json(
+      { detail: "Forbidden: Admin or Super Admin privileges required for this operation" },
+      { status: 403 }
+    )
+  }
+
+  // Restrict sensitive proxy routes for guest role
   if (isSensitiveBackendRoute(request.method, path) && role === "guest") {
     return NextResponse.json(
       { detail: "Forbidden: Guest role cannot execute sensitive management operations" },
@@ -162,7 +197,7 @@ async function proxyBackendRequest(
 
   const search = request.nextUrl.search
   const targetUrl = `${API_ORIGIN}/api/${path}${search}`
-  const headers = new Headers(adminHeaders())
+  const headers = new Headers(adminHeaders(session))
   const contentType = request.headers.get("Content-Type")
   const hasRequestBody = request.method !== "GET" && request.method !== "HEAD"
 

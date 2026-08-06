@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { adminHeaders } from "@/lib/admin-api"
 import { API_ORIGIN } from "@/lib/api"
-import { requireAdminSession } from "@/lib/auth-token"
+import { requireManagerOrAdminSession } from "@/lib/auth-token"
 
 async function handleProxyExport(
   request: NextRequest,
   params: Promise<{ type: string }>
 ) {
-  const session = await requireAdminSession()
+  const session = await requireManagerOrAdminSession()
   if (!session) {
     return NextResponse.json(
-      { detail: "Forbidden: Admin privileges required" },
+      { detail: "Forbidden: Manager or Admin privileges required" },
       { status: 403 }
     )
   }
@@ -35,7 +35,7 @@ async function handleProxyExport(
       method: request.method,
       headers: {
         ...(isPost ? { "Content-Type": "application/json" } : {}),
-        ...adminHeaders(),
+        ...adminHeaders(session),
       },
       ...(isPost ? { body: bodyText } : {}),
     })
