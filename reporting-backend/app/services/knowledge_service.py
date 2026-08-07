@@ -1860,13 +1860,15 @@ class KnowledgeService:
                 keywords.append(w)
         keywords.sort(key=lambda w: (not any(c.isdigit() for c in w), len(w)))
 
-        product_code_keywords = [w for w in keywords if any(c.isdigit() for c in w)]
+        # Poin 4: Deteksi product code robust via regex _extract_product_codes
+        extracted_pks = _extract_product_codes(cleaned_question)
+        product_code_keywords = extracted_pks if extracted_pks else [w for w in keywords if any(c.isdigit() for c in w) and len(w) <= 8]
         indicator_terms = _indicator_query_terms(cleaned_question)
 
         if sources and product_code_keywords:
             matching_sources = [
                 s for s in sources
-                if any(pk.lower() in (s.get("content") or "").lower() or pk.lower() in (s.get("title") or "").lower() for pk in product_code_keywords)
+                if any(re.search(r"\b" + re.escape(pk) + r"\b", f"{s.get('title') or ''} {s.get('content') or ''}", re.I) for pk in product_code_keywords)
             ]
             if matching_sources:
                 sources = matching_sources
@@ -1880,7 +1882,7 @@ class KnowledgeService:
             existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
             for pk in product_code_keywords:
                 has_pk = any(
-                    pk.lower() in (s.get("content") or "").lower() or pk.lower() in (s.get("title") or "").lower()
+                    re.search(r"\b" + re.escape(pk) + r"\b", f"{s.get('title') or ''} {s.get('content') or ''}", re.I)
                     for s in sources
                 )
                 if not has_pk:
@@ -1891,6 +1893,7 @@ class KnowledgeService:
                     for kc in pk_chunks:
                         chunk_id = kc.get("id")
                         if chunk_id and chunk_id not in existing_ids:
+                            # Poin 3: Assign similarity 0.85 untuk keyword fetch (bukan 0.95)
                             sources.append({
                                 "chunk_id": chunk_id,
                                 "document_id": kc.get("document_id"),
@@ -1898,7 +1901,7 @@ class KnowledgeService:
                                 "content": kc.get("content"),
                                 "context_prefix": kc.get("context_prefix"),
                                 "chunk_index": kc.get("chunk_index"),
-                                "similarity": 0.95,
+                                "similarity": 0.85,
                             })
                             existing_ids.add(chunk_id)
                             retrieval_methods_used.add("keyword")
@@ -1973,7 +1976,7 @@ class KnowledgeService:
                             "content": kc.get("content"),
                             "context_prefix": kc.get("context_prefix"),
                             "chunk_index": kc.get("chunk_index"),
-                            "similarity": 0.95,
+                            "similarity": 0.85,
                         })
                         existing_ids.add(chunk_id)
 
@@ -2031,32 +2034,65 @@ class KnowledgeService:
 
             sources.sort(key=lambda s: (-_keyword_overlap_score(s), -float(s.get("similarity") or 0)))
 
-        # For comparison / multi-product queries, guarantee balanced representation of each product code
+        # For comparison / multi-product queries, guarantee balanced representation and quota redistribution
         if sources and product_code_keywords and len(product_code_keywords) > 1:
-            balanced_sources: List[Dict[str, Any]] = []
             pk_map: Dict[str, List[Dict[str, Any]]] = {pk: [] for pk in product_code_keywords}
-            other_sources: List[Dict[str, Any]] = []
 
             for s in sources:
-                content_title = f"{s.get('title') or ''} {s.get('content') or ''}".lower()
-                matched_pks = [pk for pk in product_code_keywords if pk.lower() in content_title]
-                if matched_pks:
-                    for pk in matched_pks:
+                content_title = f"{s.get('title') or ''} {s.get('content') or ''}"
+                for pk in product_code_keywords:
+                    if re.search(r"\b" + re.escape(pk) + r"\b", content_title, re.I):
                         pk_map[pk].append(s)
-                else:
-                    other_sources.append(s)
 
             per_pk_limit = max(2, match_count // len(product_code_keywords))
+            total_budget = match_count * 2
+
+            # Pass 1: Take up to per_pk_limit chunks per product
+            selected: Dict[str, List[Dict[str, Any]]] = {pk: [] for pk in product_code_keywords}
             seen_ids: Set[str] = set()
             for pk in product_code_keywords:
-                for s in pk_map[pk][:per_pk_limit]:
+                for s in pk_map[pk]:
+                    if len(selected[pk]) >= per_pk_limit:
+                        break
                     cid = s.get("chunk_id")
                     if cid and cid not in seen_ids:
                         seen_ids.add(cid)
-                        balanced_sources.append(s)
+                        selected[pk].append(s)
 
+            # Poin 2: Redistribusi kuota sisa dari produk yang punya < per_pk_limit chunks
+            unused_quota = sum(per_pk_limit - len(selected[pk]) for pk in product_code_keywords)
+            if unused_quota > 0:
+                remaining_pool = {
+                    pk: [s for s in pk_map[pk] if s.get("chunk_id") not in seen_ids]
+                    for pk in product_code_keywords
+                }
+                progress = True
+                while unused_quota > 0 and progress:
+                    progress = False
+                    for pk in product_code_keywords:
+                        if unused_quota <= 0:
+                            break
+                        pool = remaining_pool.get(pk) or []
+                        if pool:
+                            s = pool.pop(0)
+                            cid = s.get("chunk_id")
+                            if cid and cid not in seen_ids:
+                                seen_ids.add(cid)
+                                selected[pk].append(s)
+                                unused_quota -= 1
+                                progress = True
+
+            # Poin 5: Interleave urutan akhir (T90, T80, T90, T80) untuk konteks optimal LLM
+            balanced_sources: List[Dict[str, Any]] = []
+            max_len = max((len(v) for v in selected.values()), default=0)
+            for i in range(max_len):
+                for pk in product_code_keywords:
+                    if i < len(selected[pk]):
+                        balanced_sources.append(selected[pk][i])
+
+            # Top-up sisa budget dari kandidat lain
             for s in sources:
-                if len(balanced_sources) >= match_count * 2:
+                if len(balanced_sources) >= total_budget:
                     break
                 cid = s.get("chunk_id")
                 if cid and cid not in seen_ids:
