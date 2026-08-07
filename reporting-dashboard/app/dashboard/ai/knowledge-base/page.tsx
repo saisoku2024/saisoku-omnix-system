@@ -497,6 +497,15 @@ export default function KnowledgeBaseDashboardPage() {
 
             {/* Header Right Actions */}
             <div className="flex flex-wrap items-center gap-2.5">
+              <a
+                href="/ai/knowledge-base"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3.5 text-xs font-bold text-sky-400 transition-all hover:bg-sky-500/20 hover:text-sky-300"
+                title="Buka Halaman Tanya AI (RAG Engine)"
+              >
+                <SparklesIcon size={14} className="text-sky-400" />
+                Tanya AI (RAG Engine)
+              </a>
+
               {isAdmin && (
                 <button
                   type="button"

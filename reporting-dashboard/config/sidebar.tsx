@@ -78,7 +78,12 @@ export const sidebarMenu: SidebarMenuItem[] = [
     icon: <SparklesIcon />,
     items: [
       {
-        title: "AI Knowledge Base",
+        title: "Tanya AI Knowledge (RAG)",
+        url: "/ai/knowledge-base",
+        icon: <BotIcon />,
+      },
+      {
+        title: "Dokumentasi & Upload KB",
         url: "/dashboard/ai/knowledge-base",
         icon: <BrainIcon />,
       },
