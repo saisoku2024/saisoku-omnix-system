@@ -1,626 +1,96 @@
-import base64
-from contextlib import contextmanager
-import contextvars
 from datetime import datetime, timezone
-from html.parser import HTMLParser
-import ipaddress
-import io
 import logging
-import os
 import re
-import socket
 import time
 from typing import Any, Dict, List, Set
-from urllib.parse import urljoin, urlparse
 
-import httpx
-import numpy as np
-import pandas as pd
-import requests
-from urllib3.util import connection
 from fastapi import HTTPException, UploadFile, status
 
+from app.core.gemini_config import resolve_chat_model
 from app.core.supabase import supabase
-from app.core.gemini_config import (
-    resolve_chat_model,
-    resolve_embedding_model,
-    chat_fallback_chain,
-    check_embedding_reindex_needed,
-    DEFAULT_EMBEDDING_MODEL,
-    EMBEDDING_DIMENSION,
-)
 from app.services.audit_log_service import AuditLogService
 from app.services.storage_upload_service import (
     MAX_STORAGE_UPLOAD_SIZE_BYTES,
     validate_storage_upload,
 )
 
+# Import from modularized microservices
+from app.services.knowledge_embedding_service import (
+    GEMINI_API_BASE,
+    _HTTPX_CLIENT,
+    _check_and_flag_embedding_reindex_if_needed,
+    _embed_text,
+    _embed_texts,
+    _embedding_model,
+    _gemini_api_key,
+    _get_gemini_keys,
+    _normalize_l2,
+    _vector_literal,
+)
+from app.services.knowledge_extraction_service import (
+    IGNORED_HTML_TAGS,
+    MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT,
+    MAX_WEB_PAGE_BYTES,
+    MIN_EXTRACTED_TEXT_CHARS,
+    MOJIBAKE_REPLACEMENTS,
+    HostPinnedHTTPAdapter,
+    ReadableTextParser,
+    _chunk_text,
+    _clean_text,
+    _dataframe_to_markdown,
+    _estimate_tokens,
+    _extract_docx,
+    _extract_image_with_gemini_ocr,
+    _extract_pdf,
+    _extract_pdf_with_gemini_ocr,
+    _extract_pptx,
+    _extract_spreadsheet,
+    _extract_web_page_text,
+    _generate_chunk_context,
+    _looks_like_table_block,
+    _looks_like_table_line,
+    _markdown_table,
+    _resolve_and_validate_host,
+    _strip_repeated_lines,
+    _validate_public_web_url,
+    extract_document_text,
+)
+from app.services.knowledge_entity_service import (
+    BRAND_PATTERNS,
+    COMPACT_PRODUCT_CODE_RE,
+    DOCUMENT_TYPE_PATTERNS,
+    MODEL_LINE_RE,
+    PRODUCT_CODE_RE,
+    TOPIC_PATTERNS,
+    _compact_entity_value,
+    _entity_row,
+    _extract_product_codes,
+    _normalize_entity_value,
+    _series_from_product_code,
+    extract_knowledge_entities,
+)
+from app.services.knowledge_retrieval_service import (
+    TRUST_LEVEL_RANK,
+    _chunk_matches_any_term,
+    _execute_chunk_select,
+    _fetch_entity_index_chunks,
+    _fetch_keyword_chunks,
+    _filter_rank_keyword_chunks,
+    _indicator_query_terms,
+    _is_active_knowledge_document,
+    _parse_datetime,
+    _to_query_source,
+    _trust_rank,
+)
+from app.services.knowledge_answer_service import (
+    _KB_SYSTEM_INSTRUCTION,
+    _generate_answer,
+)
+
 logger = logging.getLogger(__name__)
 
-GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-_HTTPX_CLIENT = httpx.Client(
-    timeout=httpx.Timeout(60.0, connect=10.0),
-    limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
-)
 MAX_KB_FILE_SIZE_BYTES = MAX_STORAGE_UPLOAD_SIZE_BYTES
-MAX_WEB_PAGE_BYTES = 1 * 1024 * 1024
-MIN_EXTRACTED_TEXT_CHARS = 20
-MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT = 40
-IGNORED_HTML_TAGS = {"script", "style", "noscript", "svg", "nav", "header", "footer", "aside"}
-TRUST_LEVEL_RANK = {
-    "official": 50,
-    "verified": 40,
-    "internal": 30,
-    "draft": 10,
-    "deprecated": 0,
-}
 ENTITY_INDEX_VERSION = "2026-08-05-v1"
-PRODUCT_CODE_RE = re.compile(r"\b[A-Z]{1,6}\d{1,4}[A-Z0-9]*(?:\s+(?:PRO|MAX|PRIME|OMNI|PLUS|COMBO|COMPLETE|STATION))*\b", re.IGNORECASE)
-COMPACT_PRODUCT_CODE_RE = re.compile(r"\b[A-Z]{1,6}\d{1,4}[A-Z0-9]*\b", re.IGNORECASE)
-MODEL_LINE_RE = re.compile(
-    r"\b(?:DEEBOT|ECOVACS|TINECO|LAIFEN|TYMO|YONIEV)?\s*"
-    r"[A-Z]{1,6}\d{1,4}[A-Z0-9]*(?:\s+(?:MAX|PRO|PRIME|OMNI|PLUS|COMBO|COMPLETE|STATION)){1,5}\b",
-    re.IGNORECASE,
-)
-BRAND_PATTERNS = {
-    "ecovacs": re.compile(r"\b(?:ecovacs|deebot)\b", re.IGNORECASE),
-    "tineco": re.compile(r"\btineco\b", re.IGNORECASE),
-    "laifen": re.compile(r"\blaifen\b", re.IGNORECASE),
-    "tymo": re.compile(r"\btymo\b", re.IGNORECASE),
-    "yoniev": re.compile(r"\byoniev\b", re.IGNORECASE),
-}
-DOCUMENT_TYPE_PATTERNS = {
-    "manual": re.compile(r"\b(?:manual|buku panduan|panduan pengguna|user manual)\b", re.IGNORECASE),
-    "warranty": re.compile(r"\b(?:garansi|warranty|kartu garansi)\b", re.IGNORECASE),
-    "specification": re.compile(r"\b(?:spesifikasi|specification|spec|spek)\b", re.IGNORECASE),
-    "troubleshooting": re.compile(r"\b(?:troubleshooting|pemecahan masalah|malafungsi|error)\b", re.IGNORECASE),
-}
-TOPIC_PATTERNS = {
-    "indicator_status": re.compile(
-        r"\b(?:lampu indikator|indikator status|status lampu|indikator|berkedip|solid|menyala|padam|dimming|bernapas)\b",
-        re.IGNORECASE,
-    ),
-    "wifi_status": re.compile(r"\b(?:wi-?fi|jaringan|terhubung|tersambung|menyambungkan)\b", re.IGNORECASE),
-    "omni_station": re.compile(r"\b(?:omni station|stasiun omni|station|dok|dock|pengisian daya)\b", re.IGNORECASE),
-    "robot_status": re.compile(r"\b(?:robot|baterai|tombol daya|tugas dimulai|tugas dijeda|alarm)\b", re.IGNORECASE),
-    "charging_status": re.compile(r"\b(?:mengisi daya|pengecasan|charging|baterai penuh|baterai lemah)\b", re.IGNORECASE),
-}
-INDICATOR_QUERY_RE = re.compile(
-    r"\b(?:lampu indikator|indikator|status lampu|berkedip|solid|wi-?fi|omni station|stasiun|dok|dock)\b",
-    re.IGNORECASE,
-)
-INDICATOR_EXPANSION_GROUPS = [
-    ["lampu", "indikator"],
-    ["indikator", "status"],
-    ["putih", "solid"],
-    ["putih", "berkedip"],
-    ["merah", "solid"],
-    ["merah", "berkedip"],
-    ["omni", "station"],
-    ["wi-fi"],
-    ["wifi"],
-]
-
-
-def _check_and_flag_embedding_reindex_if_needed() -> None:
-    if check_embedding_reindex_needed():
-        logger.warning(
-            f"[EMBEDDING_MISMATCH_WARNING] Environment GEMINI_EMBEDDING_MODEL differs from DEFAULT_EMBEDDING_MODEL ({DEFAULT_EMBEDDING_MODEL}). Flagging knowledge_documents as needs_reindex=True."
-        )
-        try:
-            supabase.table("knowledge_documents").update({"needs_reindex": True}).eq("needs_reindex", False).execute()
-        except Exception as exc:
-            logger.warning(f"Failed to update knowledge_documents reindex flag: {exc}")
-
-import urllib3
-from requests.adapters import HTTPAdapter
-
-class HostPinnedHTTPAdapter(HTTPAdapter):
-    def __init__(self, hostname: str, pinned_ip: str, **kwargs):
-        self.hostname = hostname
-        self.pinned_ip = pinned_ip
-        super().__init__(**kwargs)
-
-    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
-        class PinnedPoolManager(urllib3.PoolManager):
-            def __init__(pm_self, hostname, pinned_ip, *args, **kwargs):
-                pm_self.hostname = hostname
-                pm_self.pinned_ip = pinned_ip
-                super().__init__(*args, **kwargs)
-
-            def _new_pool(pm_self, scheme, host, port, request_context=None):
-                if host == pm_self.hostname:
-                    if request_context is None:
-                        request_context = {}
-                    request_context["server_hostname"] = pm_self.hostname
-                    return super()._new_pool(scheme, pm_self.pinned_ip, port, request_context)
-                return super()._new_pool(scheme, host, port, request_context)
-
-        self.poolmanager = PinnedPoolManager(self.hostname, self.pinned_ip, connections, maxsize, block=block, **pool_kwargs)
-
-
-_key_index = 0
-
-def _get_gemini_keys() -> List[str]:
-    keys_str = os.getenv("GEMINI_API_KEYS", "") or os.getenv("GEMINI_API_KEY", "")
-    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
-    return keys
-
-def _gemini_api_key() -> str:
-    keys = _get_gemini_keys()
-    if not keys:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GEMINI_API_KEY is not configured",
-        )
-    global _key_index
-    key = keys[_key_index % len(keys)]
-    _key_index += 1
-    return key
-
-
-
-def _embedding_model() -> str:
-    return resolve_embedding_model()
-
-
-def _chat_model() -> str:
-    return resolve_chat_model()
-
-
-MOJIBAKE_REPLACEMENTS = {
-    "\xa0": " ",
-    "\u200b": "",
-    "\u2022": "• ",
-    "\uf0b7": "• ",
-    "\u2013": "-",
-    "\u2014": "-",
-    "\u2018": "'",
-    "\u2019": "'",
-    "\u201c": '"',
-    "\u201d": '"',
-    "\ufeff": "",
-    "\u00c2\u00b0": "\u00b0",
-    "\u00c2": "",
-    "\u00e2\u20ac\u00a2": "- ",
-    "\u00e2\u20ac\u201c": "-",
-    "\u00e2\u20ac\u201d": "-",
-    "\u00e2\u20ac\u02dc": "'",
-    "\u00e2\u20ac\u2122": "'",
-    "\u00e2\u20ac\u0153": '"',
-    "\u00e2\u20ac\ufffd": '"',
-}
-
-
-def _strip_repeated_lines(text: str, *, min_repeats: int = 3) -> str:
-    lines = text.splitlines()
-    normalized_counts: Dict[str, int] = {}
-    for line in lines:
-        normalized = re.sub(r"\s+", " ", line).strip().lower()
-        if len(normalized) >= 4:
-            normalized_counts[normalized] = normalized_counts.get(normalized, 0) + 1
-
-    cleaned_lines = []
-    for line in lines:
-        normalized = re.sub(r"\s+", " ", line).strip().lower()
-        if normalized_counts.get(normalized, 0) >= min_repeats:
-            continue
-        cleaned_lines.append(line)
-    return "\n".join(cleaned_lines)
-
-
-def _clean_text(value: str) -> str:
-    if not value:
-        return ""
-    text = value.replace("\x00", " ")
-    for k, v in MOJIBAKE_REPLACEMENTS.items():
-        text = text.replace(k, v)
-
-    # Clean repeating PDF headers / footers / page numbers
-    text = re.sub(r"(?i)^\s*halaman\s+\d+\s+(?:dari|of)\s+\d+\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"(?i)^\s*page\s+\d+\s+(?:of|dari)\s+\d+\s*$", "", text, flags=re.MULTILINE)
-    text = re.sub(r"(?i)^\s*(?:halaman|page)\s+\d+\s*$", "", text, flags=re.MULTILINE)
-    text = _strip_repeated_lines(text)
-
-    # Normalize technical units spacing (e.g. 11 . 000 Pa -> 11.000 Pa, 70 ° C -> 70°C)
-    text = re.sub(r"(\d+)\s*\.\s*(\d{3})", r"\1.\2", text)
-    text = re.sub(
-        r"(\d+)\s*(?:\u00b0|degrees?)\s*C\b",
-        lambda match: f"{match.group(1)}\u00b0C",
-        text,
-        flags=re.IGNORECASE,
-    )
-    text = re.sub(
-        r"(\d+(?:[.,]\d+)?)\s*(pa|mah|wh|w|v|ml|kg|g|cm|mm|m)\b",
-        lambda match: f"{match.group(1)} {match.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    text = re.sub(r"\b(\d+(?:[.,]\d+)?)\s+L\b", r"\1L", text)
-    text = re.sub(r"(\d+)\s*°\s*C", r"\1°C", text)
-
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r" *\n *", "\n", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
-
-
-def _estimate_tokens(text: str) -> int:
-    return max(1, len(text) // 4)
-
-
-def _looks_like_table_line(stripped: str) -> bool:
-    return ("|" in stripped and stripped.count("|") >= 2) or (
-        "," in stripped and stripped.count(",") >= 3 and not stripped.endswith(".")
-    )
-
-
-def _looks_like_table_block(block_text: str) -> bool:
-    lines = [line.strip() for line in block_text.splitlines() if line.strip()]
-    return len(lines) >= 2 and all(_looks_like_table_line(line) for line in lines)
-
-
-def _chunk_text(text: str, max_tokens: int = 1500, overlap_tokens: int = 150) -> List[str]:
-    """
-    Chunking Smart Header-Aware & Table-Protected dengan Token Estimation (~4 char/token).
-    - Mempertahankan Active Section Header (Markdown #, ##, ###) pada chunk turunan.
-    - Melindungi baris tabel agar tidak terpisah di tengah baris.
-    - Menyediakan overlap antar-chunk untuk menjaga kontinuitas konteks.
-    """
-    max_chars = max_tokens * 4
-    overlap_chars = overlap_tokens * 4
-
-    lines = text.splitlines()
-    blocks: List[tuple[str | None, str]] = []  # (active_header, block_text)
-    current_block: List[str] = []
-    current_header: str | None = None
-    in_table = False
-
-    header_re = re.compile(r"^\s*(#{1,4}\s+.+|[A-Z0-9\.\s]{3,60}:)\s*$")
-
-    for line in lines:
-        stripped = line.strip()
-        if header_re.match(stripped) and not in_table:
-            if current_block:
-                blocks.append((current_header, "\n".join(current_block)))
-                current_block = []
-            current_header = stripped
-            current_block.append(line)
-            continue
-
-        is_table_line = _looks_like_table_line(stripped)
-        if is_table_line:
-            if not in_table and current_block:
-                blocks.append((current_header, "\n".join(current_block)))
-                current_block = []
-            in_table = True
-            current_block.append(line)
-        else:
-            if in_table and current_block:
-                delims = [l.count("|") if "|" in l else l.count(",") for l in current_block if l.strip()]
-                if delims and len(set(delims)) > 1:
-                    logger.warning(f"[TABLE_GUARDRAIL_WARNING] Inconsistent delimiter count across table rows: {set(delims)}")
-                    current_block.insert(0, "[NEEDS_REVIEW: Struktur Baris/Kolom Tabel Tidak Konsisten]")
-                blocks.append((current_header, "\n".join(current_block)))
-                current_block = []
-            in_table = False
-            if not stripped:
-                if current_block:
-                    blocks.append((current_header, "\n".join(current_block)))
-                    current_block = []
-            else:
-                current_block.append(line)
-
-    if current_block:
-        if in_table:
-            delims = [l.count("|") if "|" in l else l.count(",") for l in current_block if l.strip()]
-            if delims and len(set(delims)) > 1:
-                logger.warning(f"[TABLE_GUARDRAIL_WARNING] Inconsistent delimiter count across table rows: {set(delims)}")
-                current_block.insert(0, "[NEEDS_REVIEW: Struktur Baris/Kolom Tabel Tidak Konsisten]")
-        blocks.append((current_header, "\n".join(current_block)))
-
-    chunks: List[str] = []
-    current_chunk = ""
-
-    for hdr, block_text in blocks:
-        b_str = block_text.strip()
-        if not b_str:
-            continue
-        hdr_prefix = f"[{hdr}]\n" if (hdr and hdr not in b_str) else ""
-        candidate = f"{current_chunk}\n\n{b_str}".strip() if current_chunk else f"{hdr_prefix}{b_str}".strip()
-
-        if len(candidate) <= max_chars:
-            current_chunk = candidate
-        else:
-            if current_chunk:
-                chunks.append(current_chunk)
-            if len(b_str) <= max_chars:
-                current_chunk = f"{hdr_prefix}{b_str}".strip()
-            elif _looks_like_table_block(b_str):
-                chunks.append(f"{hdr_prefix}{b_str}".strip())
-                current_chunk = ""
-            else:
-                sub_lines = b_str.splitlines()
-                sub_chunk = ""
-                for sub_line in sub_lines:
-                    next_sub = f"{sub_chunk}\n{sub_line}".strip() if sub_chunk else f"{hdr_prefix}{sub_line}".strip()
-                    if len(next_sub) <= max_chars:
-                        sub_chunk = next_sub
-                    else:
-                        if sub_chunk:
-                            chunks.append(sub_chunk)
-                        sub_chunk = f"{hdr_prefix}{sub_line}".strip()
-                current_chunk = sub_chunk
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    if len(chunks) <= 1:
-        return chunks
-
-    with_overlap: List[str] = [chunks[0]]
-    for index in range(1, len(chunks)):
-        if len(chunks[index]) > max_chars:
-            with_overlap.append(chunks[index])
-            continue
-        prefix = chunks[index - 1][-overlap_chars:].strip()
-        merged = f"{prefix}\n\n{chunks[index]}".strip()
-        with_overlap.append(merged[: max_chars + overlap_chars])
-    return with_overlap
-
-
-class ReadableTextParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.parts: List[str] = []
-        self.skip_depth = 0
-
-    def handle_starttag(self, tag: str, attrs: List[tuple[str, str | None]]) -> None:
-        if tag in IGNORED_HTML_TAGS:
-            self.skip_depth += 1
-        if tag in {"p", "br", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6"}:
-            self.parts.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in IGNORED_HTML_TAGS and self.skip_depth > 0:
-            self.skip_depth -= 1
-        if tag in {"p", "li", "tr", "section", "article", "div"}:
-            self.parts.append("\n")
-
-    def handle_data(self, data: str) -> None:
-        if self.skip_depth > 0:
-            return
-        text = data.strip()
-        if text:
-            self.parts.append(text)
-
-    def get_text(self) -> str:
-        return _clean_text(" ".join(self.parts))
-
-
-def _resolve_and_validate_host(hostname: str) -> str:
-    try:
-        addresses = socket.getaddrinfo(hostname, None)
-    except socket.gaierror as exc:
-        raise HTTPException(status_code=400, detail=f"Hostname {hostname} tidak bisa di-resolve.") from exc
-
-    resolved_ip = None
-    for address in addresses:
-        ip_str = address[4][0]
-        try:
-            ip = ipaddress.ip_address(ip_str)
-        except ValueError:
-            continue
-        
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-            or ip.is_unspecified
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=f"IP private/internal ({ip_str}) tidak diperbolehkan sebagai knowledge source."
-            )
-        
-        if not resolved_ip:
-            resolved_ip = ip_str
-
-    if not resolved_ip:
-        raise HTTPException(status_code=400, detail=f"Tidak ada IP publik yang valid ditemukan untuk {hostname}.")
-    
-    return resolved_ip
-
-
-def _validate_public_web_url(url: str) -> str:
-    parsed = urlparse(url.strip())
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc or not parsed.hostname:
-        raise HTTPException(status_code=400, detail="URL web harus memakai http/https publik.")
-    return parsed.geturl()
-
-
-def _extract_web_page_text(url: str) -> str:
-    current_url = _validate_public_web_url(url)
-    headers = {
-        "User-Agent": "SAISOKU-OMNIX-KnowledgeBot/1.0",
-        "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1",
-    }
-
-    for _ in range(4):
-        parsed = urlparse(current_url)
-        if not parsed.hostname:
-            raise HTTPException(status_code=400, detail="URL redirect tidak valid.")
-        
-        # Resolve and validate host to prevent SSRF
-        ip = _resolve_and_validate_host(parsed.hostname)
-        
-        session = requests.Session()
-        adapter = HostPinnedHTTPAdapter(parsed.hostname, ip)
-        session.mount(f"http://{parsed.hostname}", adapter)
-        session.mount(f"https://{parsed.hostname}", adapter)
-
-        response = session.get(
-            current_url,
-            headers=headers,
-            timeout=(5, 20),
-            stream=True,
-            allow_redirects=False,
-        )
-            
-        if response.is_redirect or response.is_permanent_redirect:
-            location = response.headers.get("location")
-            if not location:
-                raise HTTPException(status_code=400, detail="Redirect URL web tidak valid.")
-            current_url = _validate_public_web_url(urljoin(current_url, location))
-            continue
-
-        if not response.ok:
-            raise HTTPException(status_code=400, detail=f"Gagal membaca URL web: HTTP {response.status_code}.")
-
-        content = bytearray()
-        for chunk in response.iter_content(chunk_size=65536):
-            if not chunk:
-                continue
-            content.extend(chunk)
-            if len(content) > MAX_WEB_PAGE_BYTES:
-                raise HTTPException(status_code=413, detail="Konten web terlalu besar untuk knowledge URL.")
-
-        content_type = response.headers.get("content-type", "")
-        encoding = response.encoding or "utf-8"
-        raw_text = bytes(content).decode(encoding, errors="ignore")
-        if "html" not in content_type.lower():
-            return _clean_text(raw_text)
-
-        parser = ReadableTextParser()
-        parser.feed(raw_text)
-        return parser.get_text()
-
-    raise HTTPException(status_code=400, detail="URL web terlalu banyak redirect.")
-
-
-def _extract_pdf(content: bytes) -> str:
-    try:
-        from pypdf import PdfReader
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="PDF support requires pypdf to be installed",
-        ) from exc
-
-    reader = PdfReader(io.BytesIO(content))
-    pages = [(page.extract_text() or "") for page in reader.pages]
-    return "\n\n".join(pages)
-
-
-def _extract_pdf_with_gemini_ocr(content: bytes) -> str:
-    keys = _get_gemini_keys()
-    if not keys:
-        try:
-            keys = [_gemini_api_key()]
-        except Exception:
-            keys = []
-    candidate_models = chat_fallback_chain()
-    encoded_pdf = base64.b64encode(content).decode("ascii")
-    prompt = (
-        "Transkripsikan teks dari PDF ini untuk knowledge base RAG. "
-        "Baca juga halaman scan/gambar dengan OCR. "
-        "Kembalikan hanya teks dokumen yang terbaca, pertahankan heading, tabel sederhana, "
-        "nomor langkah, dan FAQ jika ada. Jangan membuat ringkasan atau menambah informasi."
-    )
-    last_err = ""
-    for m in candidate_models:
-        for key in keys:
-            try:
-                response = _HTTPX_CLIENT.post(
-                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={
-                        "contents": [
-                            {
-                                "parts": [
-                                    {"text": prompt},
-                                    {
-                                        "inlineData": {
-                                            "mimeType": "application/pdf",
-                                            "data": encoded_pdf,
-                                        }
-                                    },
-                                ]
-                            }
-                        ],
-                        "generationConfig": {"temperature": 0.1},
-                    },
-                )
-                if response.status_code == 200:
-                    candidates = response.json().get("candidates") or []
-                    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-                    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-                    cleaned = _clean_text(text)
-                    if cleaned:
-                        return cleaned
-                else:
-                    last_err = f"Model {m} HTTP {response.status_code}: {response.text[:200]}"
-                    logger.warning(f"Gemini PDF OCR {last_err}")
-            except Exception as exc:
-                last_err = str(exc)
-                logger.warning(f"Gemini PDF OCR request exception: {exc}")
-
-    raise HTTPException(status_code=502, detail=f"Gagal mengekstrak teks dari PDF scan/OCR: {last_err}")
-
-
-def _extract_docx(content: bytes) -> str:
-    try:
-        from docx import Document
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="DOCX support requires python-docx to be installed",
-        ) from exc
-
-    document = Document(io.BytesIO(content))
-    parts: List[str] = []
-    for paragraph in document.paragraphs:
-        text = paragraph.text.strip()
-        if text:
-            parts.append(text)
-    for index, table in enumerate(document.tables, start=1):
-        rows = [
-            [cell.text.strip() for cell in row.cells]
-            for row in table.rows
-            if any(cell.text.strip() for cell in row.cells)
-        ]
-        if rows:
-            parts.append(f"### TABLE {index}\n{_markdown_table(rows)}")
-    return "\n\n".join(parts)
-
-
-def _markdown_table(rows: List[List[Any]]) -> str:
-    if not rows:
-        return ""
-    width = max(len(row) for row in rows)
-    normalized_rows = [
-        [str(cell).replace("\n", " ").strip() for cell in row] + [""] * (width - len(row))
-        for row in rows
-    ]
-    header = normalized_rows[0]
-    body = normalized_rows[1:]
-    lines = [
-        "| " + " | ".join(header) + " |",
-        "| " + " | ".join(["---"] * width) + " |",
-    ]
-    lines.extend("| " + " | ".join(row) + " |" for row in body)
-    return "\n".join(lines)
-
-
-def _dataframe_to_markdown(df: pd.DataFrame) -> str:
-    cleaned_df = df.dropna(how="all").dropna(axis=1, how="all").fillna("")
-    if cleaned_df.empty:
-        return ""
-    rows: List[List[Any]] = [list(cleaned_df.columns)]
-    rows.extend(cleaned_df.astype(str).values.tolist())
-    return _markdown_table(rows)
 
 
 def _without_context_prefix(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -628,694 +98,6 @@ def _without_context_prefix(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         {key: value for key, value in row.items() if key != "context_prefix"}
         for row in rows
     ]
-
-
-def _extract_spreadsheet(content: bytes, filename: str) -> str:
-    file_obj = io.BytesIO(content)
-    if filename.lower().endswith(".csv"):
-        df = pd.read_csv(file_obj)
-        if df.empty:
-            return ""
-        return _dataframe_to_markdown(df)
-    else:
-        excel_file = pd.ExcelFile(file_obj)
-        sheet_texts: List[str] = []
-        for sheet_name in excel_file.sheet_names:
-            df = pd.read_excel(excel_file, sheet_name=sheet_name)
-            if not df.empty:
-                sheet_table = _dataframe_to_markdown(df)
-                if sheet_table:
-                    sheet_texts.append(f"### SHEET: {sheet_name}\n\n{sheet_table}")
-        return "\n\n".join(sheet_texts)
-
-
-
-def _extract_pptx(content: bytes) -> str:
-    try:
-        from pptx import Presentation
-    except ImportError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="PPTX support requires python-pptx to be installed",
-        ) from exc
-
-    prs = Presentation(io.BytesIO(content))
-    slide_texts: List[str] = []
-    for idx, slide in enumerate(prs.slides, start=1):
-        slide_lines = [f"### SLIDE {idx}"]
-        for shape in slide.shapes:
-            if hasattr(shape, "text") and shape.text and shape.text.strip():
-                slide_lines.append(shape.text.strip())
-        if hasattr(slide, "has_notes_slide") and slide.has_notes_slide and slide.notes_slide:
-            notes_frame = getattr(slide.notes_slide, "notes_text_frame", None)
-            if notes_frame and notes_frame.text and notes_frame.text.strip():
-                slide_lines.append(f"[Catatan Speaker Slide {idx}]: {notes_frame.text.strip()}")
-        if len(slide_lines) > 1:
-            slide_texts.append("\n".join(slide_lines))
-    return "\n\n".join(slide_texts)
-
-
-def _extract_image_with_gemini_ocr(content: bytes, mime_type: str = "image/png") -> str:
-    keys = _get_gemini_keys()
-    if not keys:
-        try:
-            keys = [_gemini_api_key()]
-        except Exception:
-            keys = []
-    candidate_models = chat_fallback_chain()
-    encoded_img = base64.b64encode(content).decode("ascii")
-    prompt = (
-        "Transkripsikan seluruh teks, tabel, spesifikasi produk, dan informasi penting "
-        "yang ada di dalam gambar/foto ini untuk Knowledge Base RAG. "
-        "Kembalikan hanya teks dokumen yang terbaca secara rapi tanpa membuat ringkasan opini atau menambah informasi."
-    )
-    last_err = ""
-    for m in candidate_models:
-        for key in keys:
-            try:
-                response = _HTTPX_CLIENT.post(
-                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={
-                        "contents": [
-                            {
-                                "parts": [
-                                    {"text": prompt},
-                                    {
-                                        "inlineData": {
-                                            "mimeType": mime_type,
-                                            "data": encoded_img,
-                                        }
-                                    },
-                                ]
-                            }
-                        ],
-                        "generationConfig": {"temperature": 0.1},
-                    },
-                )
-                if response.status_code == 200:
-                    candidates = response.json().get("candidates") or []
-                    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-                    text = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-                    cleaned = _clean_text(text)
-                    if cleaned:
-                        return cleaned
-                else:
-                    last_err = f"Model {m} HTTP {response.status_code}: {response.text[:200]}"
-                    logger.warning(f"Gemini Image OCR {last_err}")
-            except Exception as exc:
-                last_err = str(exc)
-                logger.warning(f"Gemini Image OCR exception: {exc}")
-
-    raise HTTPException(status_code=502, detail=f"Gagal mengekstrak teks dari gambar: {last_err}")
-
-
-def extract_document_text(content: bytes, filename: str, content_type: str | None) -> str:
-    lower_name = filename.lower()
-    if lower_name.endswith(".pdf") or content_type == "application/pdf":
-        extracted_text = _clean_text(_extract_pdf(content))
-        if len(extracted_text) >= MIN_EXTRACTED_TEXT_CHARS:
-            return extracted_text
-        return _extract_pdf_with_gemini_ocr(content)
-    if lower_name.endswith(".docx"):
-        return _clean_text(_extract_docx(content))
-    if lower_name.endswith((".pptx", ".ppt")):
-        return _clean_text(_extract_pptx(content))
-    if lower_name.endswith((".xlsx", ".xls", ".csv")):
-        return _clean_text(_extract_spreadsheet(content, filename))
-    if lower_name.endswith((".jpg", ".jpeg", ".png", ".webp")) or (content_type and content_type.startswith("image/")):
-        mtype = content_type if (content_type and "/" in content_type) else ("image/png" if lower_name.endswith(".png") else "image/jpeg")
-        return _extract_image_with_gemini_ocr(content, mime_type=mtype)
-    try:
-        return _clean_text(content.decode("utf-8"))
-    except UnicodeDecodeError:
-        return _clean_text(content.decode("latin-1", errors="ignore"))
-
-
-def _normalize_l2(values: List[float], expected_dim: int = EMBEDDING_DIMENSION) -> List[float]:
-    if not values or len(values) != expected_dim:
-        return [0.0] * expected_dim
-    arr = np.array(values, dtype=np.float32)
-    norm = np.linalg.norm(arr)
-    if norm > 0:
-        arr = arr / norm
-    return arr.tolist()
-
-
-def _embed_text(text: str, *, title: str | None = None, is_query: bool = False) -> List[float]:
-    keys = _get_gemini_keys()
-    if not keys:
-        try:
-            keys = [_gemini_api_key()]
-        except Exception:
-            keys = []
-    model = _embedding_model()
-    prefix = "task: search result | query: " if is_query else f"title: {title or 'none'} | text: "
-    payload = {
-        "content": {"parts": [{"text": f"{prefix}{text}"}]},
-        "output_dimensionality": EMBEDDING_DIMENSION,
-    }
-
-    for key in keys:
-        try:
-            response = _HTTPX_CLIENT.post(
-                f"{GEMINI_API_BASE}/models/{model}:embedContent",
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json=payload,
-            )
-            if response.status_code == 200:
-                values = response.json().get("embedding", {}).get("values")
-                if isinstance(values, list) and len(values) == EMBEDDING_DIMENSION:
-                    return _normalize_l2([float(v) for v in values])
-            elif response.status_code == 429:
-                logger.warning("Gemini embedding key hit rate limit (429). Trying next key...")
-                continue
-        except Exception as exc:
-            logger.warning(f"Gemini embedding exception: {exc}")
-
-    # Fallback to zero vector if embedding fails or rate limited
-    logger.warning("All Gemini embedding keys failed. Returning 768-dim zero vector fallback.")
-    return [0.0] * EMBEDDING_DIMENSION
-
-
-
-def _embed_texts(texts: List[str], *, title: str | None = None) -> List[List[float]]:
-    if not texts:
-        return []
-    keys = _get_gemini_keys()
-    if not keys:
-        keys = [_gemini_api_key()]
-    model = _embedding_model()
-    model_name = model if model.startswith("models/") else f"models/{model}"
-    
-    # Max batch size for Gemini batchEmbedContents is 100
-    batch_size = 100
-    all_embeddings = []
-    
-    for i in range(0, len(texts), batch_size):
-        chunk_batch = texts[i : i + batch_size]
-        requests_payload = []
-        for text in chunk_batch:
-            prefix = f"title: {title or 'none'} | text: "
-            requests_payload.append({
-                "model": model_name,
-                "content": {"parts": [{"text": f"{prefix}{text}"}]},
-                "output_dimensionality": EMBEDDING_DIMENSION,
-            })
-            
-        payload = {"requests": requests_payload}
-        response = None
-        last_error = ""
-        # Rotasi API key: satu key kena rate limit (429) jangan bikin seluruh ingest gagal.
-        for key in keys:
-            response = _HTTPX_CLIENT.post(
-                f"{GEMINI_API_BASE}/models/{model}:batchEmbedContents",
-                headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                json=payload,
-            )
-            if response.status_code == 200:
-                break
-            last_error = response.text[:300]
-            if response.status_code == 429:
-                logger.warning("Gemini batch embedding key rate limited (429). Trying next key...")
-                continue
-            break  # non-429 error, no point retrying other keys with same bad payload
-        if not response or response.status_code != 200:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Gemini batch embedding request failed: {last_error}",
-            )
-        
-        embeddings_data = response.json().get("embeddings") or []
-        if len(embeddings_data) != len(chunk_batch):
-            raise HTTPException(
-                status_code=502,
-                detail="Gemini batch embedding returned mismatching number of embeddings"
-            )
-            
-        for emb in embeddings_data:
-            values = emb.get("values")
-            if not isinstance(values, list) or len(values) != EMBEDDING_DIMENSION:
-                raise HTTPException(status_code=502, detail="Gemini batch embedding response is invalid")
-            all_embeddings.append(_normalize_l2([float(v) for v in values]))
-            
-    return all_embeddings
-
-
-def _vector_literal(values: List[float]) -> str:
-    return "[" + ",".join(f"{v:.8f}" for v in values) + "]"
-
-
-_CHUNK_CONTEXT_SYSTEM_INSTRUCTION = (
-    "Anda membantu menyiapkan Knowledge Base RAG. Diberikan SATU DOKUMEN PENUH dan SATU "
-    "POTONGAN (chunk) dari dokumen tersebut, tulis 1-2 kalimat singkat (maks 40 kata) dalam "
-    "Bahasa Indonesia yang menjelaskan POSISI chunk ini di dalam dokumen — misalnya produk/model "
-    "apa, bagian/section apa (spesifikasi, garansi, troubleshooting, indikator lampu, dst). "
-    "JANGAN meringkas isi chunk. JANGAN menambah informasi yang tidak ada di dokumen. "
-    "Jawab HANYA dengan kalimat context tersebut, tanpa embel-embel lain."
-)
-
-
-def _generate_chunk_context(document_text: str, chunk: str, document_title: str) -> str:
-    """
-    Contextual retrieval (Anthropic, 2024): generate kalimat singkat yang menempatkan
-    posisi chunk dalam dokumen asalnya, supaya chunk yang ambigu (mis. "merah berkedip")
-    jadi jelas konteksnya (mis. "robot Ecovacs T30C MAX OMNI, bagian indikator lampu").
-
-    Kalau gagal (rate limit / error), return string kosong -> fallback ke chunk tanpa context,
-    JANGAN sampai gagal generate context menggagalkan seluruh proses ingest dokumen.
-    """
-    keys = _get_gemini_keys()
-    if not keys:
-        return ""
-
-    truncated_doc = document_text[:12000]
-    candidate_models = chat_fallback_chain()
-    prompt = (
-        f"<dokumen judul=\"{document_title}\">\n{truncated_doc}\n</dokumen>\n\n"
-        f"<chunk>\n{chunk[:2000]}\n</chunk>\n\n"
-        "Tulis kalimat context untuk chunk di atas sesuai instruksi."
-    )
-
-    for m in candidate_models:
-        for key in keys:
-            try:
-                response = _HTTPX_CLIENT.post(
-                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={
-                        "systemInstruction": {"parts": [{"text": _CHUNK_CONTEXT_SYSTEM_INSTRUCTION}]},
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 100},
-                    },
-                )
-                if response.status_code == 200:
-                    candidates = response.json().get("candidates") or []
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts") or []
-                        text = " ".join(str(p.get("text", "")) for p in parts if p.get("text"))
-                        cleaned = _clean_text(text)
-                        if cleaned:
-                            return cleaned[:300]
-                elif response.status_code == 429:
-                    continue
-            except Exception as exc:
-                logger.warning(f"Chunk context generation failed: {exc}")
-
-    return ""
-
-
-def _normalize_entity_value(value: Any) -> str:
-    normalized = re.sub(r"[^A-Z0-9]+", " ", str(value or "").upper()).strip()
-    return re.sub(r"\s+", " ", normalized)
-
-
-def _compact_entity_value(value: Any) -> str:
-    return re.sub(r"[^A-Z0-9]+", "", str(value or "").upper())
-
-
-def _entity_row(
-    document_id: str,
-    chunk_id: str | None,
-    entity_type: str,
-    entity_value: str,
-    normalized_value: str | None = None,
-    confidence: float = 1.0,
-    source: str = "regex",
-) -> Dict[str, Any]:
-    return {
-        "document_id": document_id,
-        "chunk_id": chunk_id,
-        "entity_type": entity_type,
-        "entity_value": entity_value.strip(),
-        "normalized_value": normalized_value or _normalize_entity_value(entity_value),
-        "confidence": confidence,
-        "source": source,
-    }
-
-
-def _extract_product_codes(text: str) -> List[str]:
-    values: List[str] = []
-    for match in COMPACT_PRODUCT_CODE_RE.finditer(text or ""):
-        value = _compact_entity_value(match.group(0))
-        if len(value) >= 2 and any(char.isdigit() for char in value):
-            values.append(value)
-    seen: Set[str] = set()
-    result: List[str] = []
-    for value in values:
-        if value not in seen:
-            seen.add(value)
-            result.append(value)
-    return result
-
-
-def _series_from_product_code(product_code: str) -> str | None:
-    match = re.match(r"^([A-Z]+\d+)", _compact_entity_value(product_code))
-    if not match:
-        return None
-    return match.group(1)
-
-
-def extract_knowledge_entities(document: Dict[str, Any], chunk: Dict[str, Any]) -> List[Dict[str, Any]]:
-    document_id = str(document.get("id") or chunk.get("document_id") or "")
-    chunk_id = chunk.get("id") or chunk.get("chunk_id")
-    if not document_id:
-        return []
-
-    title = str(chunk.get("title") or document.get("title") or "")
-    source_file = str(document.get("source_file") or "")
-    content = str(chunk.get("content") or "")
-    combined_text = f"{title}\n{source_file}\n{content}"
-
-    rows: List[Dict[str, Any]] = []
-    for brand, pattern in BRAND_PATTERNS.items():
-        if pattern.search(combined_text):
-            rows.append(_entity_row(document_id, chunk_id, "brand", brand.title(), brand.upper(), 0.95))
-
-    for product_code in _extract_product_codes(combined_text):
-        rows.append(_entity_row(document_id, chunk_id, "product_code", product_code, product_code, 0.95))
-        series = _series_from_product_code(product_code)
-        if series and series != product_code:
-            rows.append(_entity_row(document_id, chunk_id, "series", series, series, 0.9))
-
-    for pattern in [PRODUCT_CODE_RE, MODEL_LINE_RE]:
-        for match in pattern.finditer(combined_text):
-            model = _normalize_entity_value(match.group(0))
-            if any(char.isdigit() for char in model) and len(model) >= 3:
-                rows.append(_entity_row(document_id, chunk_id, "model", model, model, 0.85))
-
-    for document_type, pattern in DOCUMENT_TYPE_PATTERNS.items():
-        if pattern.search(combined_text):
-            rows.append(_entity_row(document_id, chunk_id, "document_type", document_type, document_type.upper(), 0.85))
-
-    for topic, pattern in TOPIC_PATTERNS.items():
-        if pattern.search(combined_text):
-            rows.append(_entity_row(document_id, chunk_id, "topic", topic, topic.upper(), 0.9))
-
-    deduped: List[Dict[str, Any]] = []
-    seen_keys: Set[tuple] = set()
-    for row in rows:
-        key = (row["document_id"], row.get("chunk_id"), row["entity_type"], row["normalized_value"])
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        deduped.append(row)
-    return deduped
-
-
-def _indicator_query_terms(question: str) -> Dict[str, Any]:
-    if not INDICATOR_QUERY_RE.search(question or ""):
-        return {"is_indicator_query": False, "product_codes": [], "series": [], "topic_groups": []}
-
-    product_codes = _extract_product_codes(question)
-    series: List[str] = []
-    for product_code in product_codes:
-        value = _series_from_product_code(product_code)
-        if value and value not in series:
-            series.append(value)
-
-    return {
-        "is_indicator_query": True,
-        "product_codes": product_codes,
-        "series": series,
-        "topic_groups": INDICATOR_EXPANSION_GROUPS,
-    }
-
-
-def _chunk_matches_any_term(chunk: Dict[str, Any], terms: List[str]) -> bool:
-    haystack = f"{chunk.get('title') or ''}\n{chunk.get('content') or ''}".lower()
-    return any(term.lower() in haystack for term in terms)
-
-
-def _to_query_source(chunk: Dict[str, Any], similarity: float) -> Dict[str, Any]:
-    return {
-        "chunk_id": chunk.get("id") or chunk.get("chunk_id"),
-        "document_id": chunk.get("document_id"),
-        "title": chunk.get("title"),
-        "content": chunk.get("content"),
-        "context_prefix": chunk.get("context_prefix"),
-        "chunk_index": chunk.get("chunk_index"),
-        "similarity": similarity,
-    }
-
-
-def _execute_chunk_select(select_builder_fn, limit: int) -> List[Dict[str, Any]]:
-    try:
-        builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, context_prefix, chunk_index")
-        return select_builder_fn(builder).limit(limit).execute().data or []
-    except Exception as exc:
-        if "context_prefix" in str(exc).lower():
-            builder = supabase.table("knowledge_chunks").select("id, document_id, title, content, chunk_index")
-            return select_builder_fn(builder).limit(limit).execute().data or []
-        logger.warning(f"Knowledge chunk select failed: {exc}")
-        return []
-
-
-def _fetch_keyword_chunks(keyword_groups: List[List[str]], limit: int) -> List[Dict[str, Any]]:
-    found: List[Dict[str, Any]] = []
-    seen_ids: Set[str] = set()
-    for group in keyword_groups:
-        terms = [term.strip() for term in group if term and term.strip()]
-        if not terms:
-            continue
-        def _build(builder):
-            for term in terms:
-                builder = builder.ilike("content", f"%{term}%")
-            return builder
-        for chunk in _execute_chunk_select(_build, limit):
-            chunk_id = chunk.get("id")
-            if chunk_id and chunk_id not in seen_ids:
-                seen_ids.add(chunk_id)
-                found.append(chunk)
-    return found
-
-
-def _fetch_entity_index_chunks(indicator_terms: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
-    product_values = [
-        *_extract_product_codes(" ".join(indicator_terms.get("product_codes") or [])),
-        *(indicator_terms.get("series") or []),
-    ]
-    topic_values = ["INDICATOR_STATUS", "WIFI_STATUS", "OMNI_STATION", "ROBOT_STATUS", "CHARGING_STATUS"]
-
-    try:
-        product_chunk_ids: Set[str] = set()
-        topic_chunk_ids: Set[str] = set()
-
-        for value in product_values:
-            res = (
-                supabase.table("knowledge_entities")
-                .select("chunk_id")
-                .in_("entity_type", ["product_code", "series", "model"])
-                .eq("normalized_value", value)
-                .limit(limit * 4)
-                .execute()
-            )
-            product_chunk_ids.update(row.get("chunk_id") for row in (res.data or []) if row.get("chunk_id"))
-
-        for value in topic_values:
-            res = (
-                supabase.table("knowledge_entities")
-                .select("chunk_id")
-                .eq("entity_type", "topic")
-                .eq("normalized_value", value)
-                .limit(limit * 4)
-                .execute()
-            )
-            topic_chunk_ids.update(row.get("chunk_id") for row in (res.data or []) if row.get("chunk_id"))
-
-        candidate_ids = topic_chunk_ids
-        if product_chunk_ids:
-            intersected = product_chunk_ids & topic_chunk_ids
-            candidate_ids = intersected or product_chunk_ids
-        if not candidate_ids:
-            return []
-
-        return _execute_chunk_select(lambda b: b.in_("id", list(candidate_ids)[: limit * 4]), limit * 4)
-    except Exception as exc:
-        logger.info(f"Knowledge entity index lookup unavailable, using keyword expansion only: {exc}")
-        return []
-
-
-def _parse_datetime(value: Any) -> datetime | None:
-    if not value:
-        return None
-    if isinstance(value, datetime):
-        parsed = value
-    else:
-        try:
-            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
-def _trust_rank(value: Any) -> int:
-    return TRUST_LEVEL_RANK.get(str(value or "internal").lower(), TRUST_LEVEL_RANK["internal"])
-
-
-def _is_active_knowledge_document(document: Dict[str, Any], *, now: datetime | None = None) -> bool:
-    if document.get("status") != "ready":
-        return False
-    current_time = now or datetime.now(timezone.utc)
-    effective_until = _parse_datetime(document.get("effective_until"))
-    if effective_until and effective_until <= current_time:
-        return False
-    return True
-
-
-def _filter_rank_keyword_chunks(chunks: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
-    if not chunks:
-        return []
-
-    document_ids = sorted({chunk.get("document_id") for chunk in chunks if chunk.get("document_id")})
-    if not document_ids:
-        return []
-
-    try:
-        docs_res = (
-            supabase.table("knowledge_documents")
-            .select("id,status,trust_level,effective_until,needs_reindex")
-            .in_("id", document_ids)
-            .execute()
-        )
-    except Exception as exc:
-        if not any(column in str(exc) for column in ["trust_level", "effective_until", "needs_reindex"]):
-            logger.warning(f"Failed to load knowledge document metadata for keyword filtering: {exc}")
-            return []
-        logger.warning(
-            "Knowledge metadata columns are not available yet. "
-            "Falling back to status-only retrieval filtering."
-        )
-        try:
-            docs_res = (
-                supabase.table("knowledge_documents")
-                .select("id,status")
-                .in_("id", document_ids)
-                .execute()
-            )
-        except Exception as fallback_exc:
-            logger.warning(f"Failed to load fallback knowledge document status: {fallback_exc}")
-            return []
-
-    now = datetime.now(timezone.utc)
-    doc_meta = {
-        doc.get("id"): doc
-        for doc in (docs_res.data or [])
-        if doc.get("id") and _is_active_knowledge_document(doc, now=now)
-    }
-    if not doc_meta:
-        return []
-
-    ranked_chunks = [
-        chunk
-        for chunk in chunks
-        if chunk.get("document_id") in doc_meta
-    ]
-    ranked_chunks.sort(
-        key=lambda chunk: (
-            -_trust_rank(doc_meta.get(chunk.get("document_id"), {}).get("trust_level")),
-            -float(chunk.get("similarity") or 0),
-            int(chunk.get("chunk_index") or 0),
-        )
-    )
-    return ranked_chunks[:limit]
-
-
-_KB_SYSTEM_INSTRUCTION = (
-    "Anda adalah AI Knowledge Base untuk SAISOKU OMNIX. "
-    "Jawab dalam Bahasa Indonesia yang ringkas, rapi, dan HANYA berdasarkan konteks yang diberikan. "
-    "DILARANG MENAMPILKAN CATATAN INTERNAL, VERIFIKASI BARIS/KOLOM, ATAU PROSES BERPIKIR DRAFT DI DALAM JAWABAN. "
-    "PERHATIKAN DENGAN SEKSAMA VARIAN MODEL DAN NAMA DOKUMEN: "
-    "Varian model seperti 'T30 MAX', 'T30C MAX OMNI', 'T30 PRO OMNI', 'T30C Prime' adalah varian yang spesifik. "
-    "Jika dokumen sumber memuat varian yang cocok dengan pertanyaan pengguna (misal: 'Buku Manual dan Kartu Garansi Ecovacs T30C MAX OMNI.pdf' atau 'T30C MAX' untuk pertanyaan 't30 max'), WAJIB gunakan dokumen tersebut sebagai rujukan utama spesifikasi model yang dimaksud. "
-    "DILARANG MENYATAKAN bahwa 'dokumen tidak ditemukan' atau 'knowledge base tidak memiliki dokumen T30 MAX' apabila di dalam sumber referensi jelas-jelas terdapat dokumen bernama atau membahas model tersebut (seperti Ecovacs T30C MAX OMNI). "
-    "Jika pengguna meminta spesifikasi satu model tertentu (seperti 'spek t30 max'), berikan spesifikasi lengkap model tersebut dari dokumen rujukannya secara langsung. "
-    "JIKA PERTANYAAN MENANYAKAN 'SERI' ATAU DAFTAR VARIAN MODEL (seperti 'seri t30', 'daftar varian t30', 'seri s5'): "
-    "WAJIB sebutkan SEMUA varian model yang terdapat di dalam sumber referensi (misalnya: T30 PRO OMNI, T30C MAX OMNI, T30C PRIME, dst). "
-    "Rangkum spesifikasi / poin utama dari MASING-MASING varian model tersebut secara berurutan atau gunakan Tabel Perbandingan Markdown. "
-    "DILARANG BERHENTI ATAU MEMOTONG JAWABAN HANYA PADA 1 VARIAN JIKA KONTEKS SUMBER MEMUAT BEBERAPA VARIAN MODEL DARI SERI TERSEBUT. "
-    "JANGAN mengubah pertanyaan menjadi perbandingan dua model lain kecuali jika pengguna secara eksplisit meminta perbandingan ('vs' atau 'perbedaan'). "
-    "JIKA TERDETEKSI KETIDAK-KONSISTENAN / PERBEDAAN DATA ANTAR-DOKUMEN DI DALAM KONTEKS UNTUK MODEL YANG SAMA: "
-    "WAJIB gunakan PRINSIP TRANSPARANSI dengan menyajikan: "
-    "1. Menyebutkan nilai/informasi pada dokumen versi lama/terdahulu. "
-    "2. Menyebutkan nilai/informasi pada dokumen versi baru/terbaru. "
-    "3. Menyampaikan rekomendasi rujukan utama secara tegas berdasarkan publikasi dokumen yang paling baru. "
-    "Jika pertanyaan berupa PERBANDINGAN / PERBEDAAAN (seperti 'beda X dan Y', 'vs', 'perbandingan'), WAJIB sajikan dengan: "
-    "1. Tabel Markdown perbandingan fitur yang berbeda. "
-    "2. Poin-poin persamaan fitur. "
-    "3. Ringkasan kesimpulan singkat. "
-    "Jika pertanyaan membahas LAMPU INDIKATOR / STATUS LAMPU / WI-FI / OMNI STATION, WAJIB kelompokkan jawaban berdasarkan bagian yang tersedia di konteks: "
-    "1. Lampu Indikator pada Robot. "
-    "2. Lampu Indikator pada OMNI Station atau dok. "
-    "3. Indikator Status Wi-Fi. "
-    "Jika salah satu bagian tidak tersedia di konteks, sebutkan singkat bahwa bagian itu belum ditemukan di knowledge base. "
-    "Untuk pertanyaan spesifikasi produk atau informasi umum, sajikan poin spesifikasi secara terstruktur lalu AKHIRI DENGAN '📌 Ringkasan Keunggulan / Kesimpulan' singkat di bagian bawah. "
-    "Jika konteks tidak cukup untuk menjawab, katakan dengan jelas bahwa knowledge base belum punya "
-    "informasi yang cukup, jangan menebak atau mengarang."
-)
-
-
-def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
-    context_blocks = []
-    for idx, source in enumerate(sources):
-        ctx_prefix = source.get("context_prefix")
-        body = f"Konteks Posisi: {ctx_prefix}\n{source['content']}" if ctx_prefix else source['content']
-        context_blocks.append(f"[Source {idx + 1}: {source['title']}]\n{body}")
-    context = "\n\n".join(context_blocks)
-    prompt = f"KONTEKS:\n{context}\n\nPERTANYAAN:\n{question}"
-
-    # Try Gemini API Keys
-    keys = _get_gemini_keys()
-    if not keys:
-        try:
-            keys = [_gemini_api_key()]
-        except Exception:
-            keys = []
-    candidate_models = chat_fallback_chain()
-
-    for m in candidate_models:
-        for key in keys:
-            try:
-                response = _HTTPX_CLIENT.post(
-                    f"{GEMINI_API_BASE}/models/{m}:generateContent",
-                    headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                    json={
-                        "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
-                        "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
-                    },
-                )
-                if response.status_code == 200:
-                    candidates = response.json().get("candidates") or []
-                    if candidates:
-                        content = candidates[0].get("content", {})
-                        parts = content.get("parts") or []
-                        final_parts = [p for p in parts if not p.get("thought") and not p.get("thoughtSignature")]
-                        if not final_parts:
-                            final_parts = [p for p in parts if not p.get("thought")]
-                        if not final_parts and parts:
-                            final_parts = [parts[-1]]
-                        text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
-                        if text.strip():
-                            return text.strip()
-                elif response.status_code == 429:
-                    logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
-                    continue
-                else:
-                    logger.warning(f"Gemini model {m} call failed HTTP {response.status_code}: {response.text[:150]}")
-            except Exception as exc:
-                logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
-
-    # Do not dump raw retrieved context when LLM generation is unavailable.
-    return (
-        "Saya menemukan sumber Knowledge Base yang relevan, tetapi AI penyusun jawaban sedang tidak tersedia. "
-        "Silakan coba lagi beberapa saat lagi."
-    )
-
-
-
 
 
 class KnowledgeService:
@@ -1483,10 +265,6 @@ class KnowledgeService:
             if not chunks:
                 raise HTTPException(status_code=400, detail="Dokumen tidak menghasilkan chunk knowledge base.")
 
-            # Contextual retrieval: generate context_prefix per chunk (sequential, reuse key rotation).
-            # Di-cap supaya dokumen dengan chunk sangat banyak tidak bikin ingest bermenit-menit
-            # atau menghabiskan rate limit Gemini dalam satu background task. Chunk di luar cap
-            # tetap diproses normal, cuma tanpa context_prefix.
             if len(chunks) > MAX_CONTEXTUAL_CHUNKS_PER_DOCUMENT:
                 logger.warning(
                     f"Dokumen '{document_title}' punya {len(chunks)} chunk, melebihi "
@@ -1500,7 +278,6 @@ class KnowledgeService:
                 for index, chunk in enumerate(chunks)
             ]
 
-            # Embedding pakai gabungan context_prefix + chunk (kalau context_prefix kosong, fallback ke chunk asli)
             texts_to_embed = [
                 f"{ctx}\n\n{chunk}" if ctx else chunk
                 for ctx, chunk in zip(context_prefixes, chunks)
@@ -1808,7 +585,7 @@ class KnowledgeService:
         sources: List[Dict[str, Any]] = []
         retrieval_methods_used: Set[str] = set()
 
-        # 1. Vector Search (if Gemini Embedding API key is valid & non-zero)
+        # 1. Vector Search
         t0_embed = time.perf_counter()
         t_embed_ms = 0
         try:
@@ -1860,7 +637,6 @@ class KnowledgeService:
                 keywords.append(w)
         keywords.sort(key=lambda w: (not any(c.isdigit() for c in w), len(w)))
 
-        # Poin 4: Deteksi product code robust via regex _extract_product_codes
         extracted_pks = _extract_product_codes(cleaned_question)
         product_code_keywords = extracted_pks if extracted_pks else [w for w in keywords if any(c.isdigit() for c in w) and len(w) <= 8]
         indicator_terms = _indicator_query_terms(cleaned_question)
@@ -1877,7 +653,6 @@ class KnowledgeService:
                 sources = []
                 retrieval_methods_used.discard("vector")
 
-        # Multi-product check: Ensure EVERY product code mentioned in query has candidate chunks retrieved
         if product_code_keywords:
             existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
             for pk in product_code_keywords:
@@ -1893,7 +668,6 @@ class KnowledgeService:
                     for kc in pk_chunks:
                         chunk_id = kc.get("id")
                         if chunk_id and chunk_id not in existing_ids:
-                            # Poin 3: Assign similarity 0.85 untuk keyword fetch (bukan 0.95)
                             sources.append({
                                 "chunk_id": chunk_id,
                                 "document_id": kc.get("document_id"),
@@ -1937,19 +711,16 @@ class KnowledgeService:
                     existing_ids.add(chunk_id)
                     retrieval_methods_used.add("entity_index")
 
-        # 2. Keyword Search Fallback if vector search yields insufficient relevant sources
         if len(sources) < match_count:
             if keywords:
                 existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
 
-                # Tier 1: AND semua top-3 keyword (periksa kolom content maupun title)
                 def _build_t1(b):
                     for kw in keywords[:3]:
                         b = b.or_(f"content.ilike.%{kw}%,title.ilike.%{kw}%")
                     return b
                 kw_chunks = _filter_rank_keyword_chunks(_execute_chunk_select(_build_t1, match_count * 4), match_count * 2)
 
-                # Tier 2: OR top keyword-keyword spesifik (periksa kolom content maupun title)
                 if not kw_chunks and len(keywords) > 1:
                     or_filter = ",".join(
                         item
@@ -1958,7 +729,6 @@ class KnowledgeService:
                     )
                     kw_chunks = _filter_rank_keyword_chunks(_execute_chunk_select(lambda b: b.or_(or_filter), match_count * 4), match_count * 2)
 
-                # Tier 3: fallback ke keyword TERSPESIFIK (periksa kolom content maupun title)
                 if not kw_chunks and keywords:
                     keyword = keywords[0]
                     kw_chunks = _filter_rank_keyword_chunks(_execute_chunk_select(lambda b: b.or_(f"content.ilike.%{keyword}%,title.ilike.%{keyword}%"), match_count * 4), match_count)
@@ -1982,7 +752,6 @@ class KnowledgeService:
 
         t_retrieval_ms = int((time.perf_counter() - t0_retrieval) * 1000)
 
-        # Determine consolidated retrieval_method
         if len(retrieval_methods_used) > 1:
             retrieval_method = "hybrid"
         elif "vector" in retrieval_methods_used:
@@ -2034,7 +803,6 @@ class KnowledgeService:
 
             sources.sort(key=lambda s: (-_keyword_overlap_score(s), -float(s.get("similarity") or 0)))
 
-        # For comparison / multi-product queries, guarantee balanced representation and quota redistribution
         if sources and product_code_keywords and len(product_code_keywords) > 1:
             pk_map: Dict[str, List[Dict[str, Any]]] = {pk: [] for pk in product_code_keywords}
 
@@ -2047,7 +815,6 @@ class KnowledgeService:
             per_pk_limit = max(2, match_count // len(product_code_keywords))
             total_budget = match_count * 2
 
-            # Pass 1: Take up to per_pk_limit chunks per product
             selected: Dict[str, List[Dict[str, Any]]] = {pk: [] for pk in product_code_keywords}
             seen_ids: Set[str] = set()
             for pk in product_code_keywords:
@@ -2059,7 +826,6 @@ class KnowledgeService:
                         seen_ids.add(cid)
                         selected[pk].append(s)
 
-            # Poin 2: Redistribusi kuota sisa dari produk yang punya < per_pk_limit chunks
             unused_quota = sum(per_pk_limit - len(selected[pk]) for pk in product_code_keywords)
             if unused_quota > 0:
                 remaining_pool = {
@@ -2082,7 +848,6 @@ class KnowledgeService:
                                 unused_quota -= 1
                                 progress = True
 
-            # Poin 5: Interleave urutan akhir (T90, T80, T90, T80) untuk konteks optimal LLM
             balanced_sources: List[Dict[str, Any]] = []
             max_len = max((len(v) for v in selected.values()), default=0)
             for i in range(max_len):
@@ -2090,7 +855,6 @@ class KnowledgeService:
                     if i < len(selected[pk]):
                         balanced_sources.append(selected[pk][i])
 
-            # Top-up sisa budget dari kandidat lain
             for s in sources:
                 if len(balanced_sources) >= total_budget:
                     break
