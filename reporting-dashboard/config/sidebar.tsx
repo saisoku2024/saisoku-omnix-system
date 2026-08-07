@@ -3,6 +3,7 @@ import {
   AudioLinesIcon,
   BotIcon,
   BookOpenIcon,
+  BrainIcon,
   DatabaseIcon,
   FileSpreadsheetIcon,
   PieChartIcon,
@@ -72,9 +73,16 @@ export const sidebarMenu: SidebarMenuItem[] = [
     ],
   },
   {
-    title: "AI Knowledge Base",
-    url: "/ai/knowledge-base",
-    icon: <BookOpenIcon />,
+    title: "AI System",
+    url: "#",
+    icon: <SparklesIcon />,
+    items: [
+      {
+        title: "AI Knowledge Base",
+        url: "/dashboard/ai/knowledge-base",
+        icon: <BrainIcon />,
+      },
+    ],
   },
   {
     title: "Data Management",
