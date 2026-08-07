@@ -2031,12 +2031,47 @@ class KnowledgeService:
 
             sources.sort(key=lambda s: (-_keyword_overlap_score(s), -float(s.get("similarity") or 0)))
 
+        # For comparison / multi-product queries, guarantee balanced representation of each product code
+        if sources and product_code_keywords and len(product_code_keywords) > 1:
+            balanced_sources: List[Dict[str, Any]] = []
+            pk_map: Dict[str, List[Dict[str, Any]]] = {pk: [] for pk in product_code_keywords}
+            other_sources: List[Dict[str, Any]] = []
+
+            for s in sources:
+                content_title = f"{s.get('title') or ''} {s.get('content') or ''}".lower()
+                matched_pks = [pk for pk in product_code_keywords if pk.lower() in content_title]
+                if matched_pks:
+                    for pk in matched_pks:
+                        pk_map[pk].append(s)
+                else:
+                    other_sources.append(s)
+
+            per_pk_limit = max(2, match_count // len(product_code_keywords))
+            seen_ids: Set[str] = set()
+            for pk in product_code_keywords:
+                for s in pk_map[pk][:per_pk_limit]:
+                    cid = s.get("chunk_id")
+                    if cid and cid not in seen_ids:
+                        seen_ids.add(cid)
+                        balanced_sources.append(s)
+
+            for s in sources:
+                if len(balanced_sources) >= match_count * 2:
+                    break
+                cid = s.get("chunk_id")
+                if cid and cid not in seen_ids:
+                    seen_ids.add(cid)
+                    balanced_sources.append(s)
+
+            matched_sources = balanced_sources
+        else:
+            matched_sources = sources[:match_count]
+
         t0_gen = time.perf_counter()
-        answer = _generate_answer(cleaned_question, sources[:match_count])
+        answer = _generate_answer(cleaned_question, matched_sources)
         t_gen_ms = int((time.perf_counter() - t0_gen) * 1000)
         t_total_ms = int((time.perf_counter() - t_start) * 1000)
 
-        matched_sources = sources[:match_count]
         matched_chunk_ids = [str(s.get("chunk_id")) for s in matched_sources if s.get("chunk_id")]
 
         try:
