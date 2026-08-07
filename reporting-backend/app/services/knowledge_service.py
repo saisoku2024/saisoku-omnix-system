@@ -1875,6 +1875,34 @@ class KnowledgeService:
                 sources = []
                 retrieval_methods_used.discard("vector")
 
+        # Multi-product check: Ensure EVERY product code mentioned in query has candidate chunks retrieved
+        if product_code_keywords:
+            existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
+            for pk in product_code_keywords:
+                has_pk = any(
+                    pk.lower() in (s.get("content") or "").lower() or pk.lower() in (s.get("title") or "").lower()
+                    for s in sources
+                )
+                if not has_pk:
+                    logger.info(f"Product code '{pk}' missing from vector sources. Fetching targeted chunks for '{pk}'.")
+                    def _build_pk_filter(b, target_pk=pk):
+                        return b.or_(f"content.ilike.%{target_pk}%,title.ilike.%{target_pk}%")
+                    pk_chunks = _filter_rank_keyword_chunks(_execute_chunk_select(_build_pk_filter, match_count * 4), match_count)
+                    for kc in pk_chunks:
+                        chunk_id = kc.get("id")
+                        if chunk_id and chunk_id not in existing_ids:
+                            sources.append({
+                                "chunk_id": chunk_id,
+                                "document_id": kc.get("document_id"),
+                                "title": kc.get("title"),
+                                "content": kc.get("content"),
+                                "context_prefix": kc.get("context_prefix"),
+                                "chunk_index": kc.get("chunk_index"),
+                                "similarity": 0.95,
+                            })
+                            existing_ids.add(chunk_id)
+                            retrieval_methods_used.add("keyword")
+
         t0_retrieval = time.perf_counter()
         if indicator_terms.get("is_indicator_query"):
             existing_ids = {s.get("chunk_id") for s in sources if s.get("chunk_id")}
