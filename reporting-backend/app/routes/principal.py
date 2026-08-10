@@ -3,8 +3,11 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from app.core.security import require_admin_token
 from app.services.principal_service import get_principal_report, get_principal_summary
+from app.utils.converters import normalize_ticket_id
 import pandas as pd
 import io
+
+
 
 router = APIRouter(
     prefix="/principal-report",
@@ -103,6 +106,9 @@ def export_principal_report(
                 .astype(str)
                 .replace({"nan": "", "None": ""})
             )
+
+        if "ticket_id" in df.columns:
+            df["ticket_id"] = df["ticket_id"].apply(normalize_ticket_id)
 
         # ==========================================
         # RENAME KOLOM

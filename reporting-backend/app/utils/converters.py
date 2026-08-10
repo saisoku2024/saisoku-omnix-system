@@ -22,6 +22,24 @@ def safe_numeric(v):
         return None
 
 
+def normalize_ticket_id(v):
+    s = safe_str(v)
+    if not s:
+        return None
+
+    if s.endswith(".0") and s[:-2].isdigit():
+        s = s[:-2]
+
+    match = re.match(r"^(?:TICKET\s*[-_]?\s*)?(\d+)$", s, re.IGNORECASE)
+    if match:
+        digits = match.group(1).lstrip("0")
+        if not digits:
+            digits = "0"
+        return f"TICKET-{digits.zfill(10)}"
+
+    return s
+
+
 # 🔥 FIX UTAMA DI SINI
 def safe_datetime(v):
     if pd.isna(v) or v == "":

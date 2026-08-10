@@ -64,7 +64,7 @@ def parse_omnix_rows(df, upload_id):
     for _, row in df.iterrows():
         row_dict = row.to_dict()
 
-        ticket_id = safe_str(
+        ticket_id = normalize_ticket_id(
             row.get("ticket_id")
             or row.get("ticket_number")
             or row.get("ticket_no")
@@ -140,7 +140,7 @@ def parse_omnix_rows(df, upload_id):
     return rows
 
 
-from app.utils.converters import safe_datetime
+from app.utils.converters import safe_datetime, normalize_ticket_id
 
 
 def safe_int(val):
