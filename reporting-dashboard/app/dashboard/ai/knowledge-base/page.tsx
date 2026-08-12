@@ -197,9 +197,11 @@ export default function KnowledgeBaseDashboardPage() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
   const [loadingDocuments, setLoadingDocuments] = useState(true)
   
-  // Search, Filter, Pagination
+  // Search, Filter, Sort, Pagination
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<"created_desc" | "created_asc" | "title_asc" | "title_desc" | "chunks_desc" | "chunks_asc">("created_desc")
+  const [pageSize, setPageSize] = useState<number>(10)
   const [currentPage, setCurrentPage] = useState(1)
 
   // Modals state
@@ -235,9 +237,9 @@ export default function KnowledgeBaseDashboardPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
 
-  // Filtered & Paginated documents
-  const filteredDocuments = useMemo(() => {
-    return documents.filter((doc) => {
+  // Filtered, Sorted, & Paginated documents
+  const filteredAndSortedDocuments = useMemo(() => {
+    const filtered = documents.filter((doc) => {
       const q = searchQuery.toLowerCase().trim()
       const matchesSearch =
         !q ||
@@ -252,19 +254,41 @@ export default function KnowledgeBaseDashboardPage() {
 
       return matchesSearch && matchesCategory
     })
-  }, [documents, searchQuery, selectedCategory])
 
-  const totalPages = Math.max(1, Math.ceil(filteredDocuments.length / PAGE_SIZE))
+    return filtered.sort((a, b) => {
+      if (sortBy === "created_desc") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+      if (sortBy === "created_asc") {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      }
+      if (sortBy === "title_asc") {
+        return a.title.localeCompare(b.title)
+      }
+      if (sortBy === "title_desc") {
+        return b.title.localeCompare(a.title)
+      }
+      if (sortBy === "chunks_desc") {
+        return (b.chunk_count || 0) - (a.chunk_count || 0)
+      }
+      if (sortBy === "chunks_asc") {
+        return (a.chunk_count || 0) - (b.chunk_count || 0)
+      }
+      return 0
+    })
+  }, [documents, searchQuery, selectedCategory, sortBy])
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedDocuments.length / pageSize))
 
   const paginatedDocuments = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE
-    return filteredDocuments.slice(start, start + PAGE_SIZE)
-  }, [filteredDocuments, currentPage])
+    const start = (currentPage - 1) * pageSize
+    return filteredAndSortedDocuments.slice(start, start + pageSize)
+  }, [filteredAndSortedDocuments, currentPage, pageSize])
 
-  // Reset pagination on filter change
+  // Reset pagination on filter/sort/pageSize change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, selectedCategory])
+  }, [searchQuery, selectedCategory, sortBy, pageSize])
 
   const loadDocuments = async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoadingDocuments(true)
@@ -574,24 +598,63 @@ export default function KnowledgeBaseDashboardPage() {
             )}
           </div>
 
-          {/* Category Dropdown Filter */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--c-muted)] shrink-0">
-              <FilterIcon size={14} className="text-sky-400" />
-              Kategori:
+          {/* Filter & Sort Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Category Dropdown Filter */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 text-xs font-semibold text-[var(--c-muted)] shrink-0">
+                <FilterIcon size={14} className="text-sky-400" />
+                Kategori:
+              </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="h-10 rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs font-semibold text-[var(--c-text)] outline-none transition-all focus:border-sky-500"
+              >
+                <option value="all">Semua Kategori ({documents.length})</option>
+                {KNOWLEDGE_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="h-10 rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs font-semibold text-[var(--c-text)] outline-none transition-all focus:border-sky-500"
-            >
-              <option value="all">Semua Kategori ({documents.length})</option>
-              {KNOWLEDGE_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+
+            {/* Sort By Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 text-xs font-semibold text-[var(--c-muted)] shrink-0">
+                Urutkan:
+              </div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="h-10 rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs font-semibold text-[var(--c-text)] outline-none transition-all focus:border-sky-500"
+              >
+                <option value="created_desc">🕒 Terbaru (Default)</option>
+                <option value="created_asc">⌛ Terlama</option>
+                <option value="title_asc">🔤 Judul (A - Z)</option>
+                <option value="title_desc">🔤 Judul (Z - A)</option>
+                <option value="chunks_desc">📊 Chunks Terbanyak</option>
+                <option value="chunks_asc">📉 Chunks Tersedikit</option>
+              </select>
+            </div>
+
+            {/* Page Size Selector */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 text-xs font-semibold text-[var(--c-muted)] shrink-0">
+                Tampilkan:
+              </div>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="h-10 rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-2.5 text-xs font-semibold text-[var(--c-text)] outline-none transition-all focus:border-sky-500"
+              >
+                <option value={10}>10 Data / Hal</option>
+                <option value={25}>25 Data / Hal</option>
+                <option value={50}>50 Data / Hal</option>
+                <option value={100}>100 Data / Hal</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -720,11 +783,11 @@ export default function KnowledgeBaseDashboardPage() {
             </table>
           </div>
 
-          {/* ── PAGINATION BAR (10 Data per Halaman) ── */}
+          {/* ── PAGINATION BAR ── */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-3 text-xs">
             <div className="text-[var(--c-muted)]">
               Menampilkan <span className="font-bold text-[var(--c-text)]">{paginatedDocuments.length}</span> dari{" "}
-              <span className="font-bold text-[var(--c-text)]">{filteredDocuments.length}</span> data (Halaman {currentPage} dari {totalPages})
+              <span className="font-bold text-[var(--c-text)]">{filteredAndSortedDocuments.length}</span> data (Halaman {currentPage} dari {totalPages})
             </div>
 
             <div className="flex items-center gap-2">
