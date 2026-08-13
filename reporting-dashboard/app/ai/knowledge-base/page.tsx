@@ -353,16 +353,36 @@ export default function RAGQueryPage() {
                 <span className="flex size-7 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400 ring-1 ring-sky-500/30">
                   <BotIcon size={16} />
                 </span>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-sky-400 flex items-center gap-1.5">
-                  AI System · RAG Engine
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-sky-400/80 flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-sky-400/70" />
+                  RAG System · Ask AI
                 </p>
               </div>
-              <h1 className="mt-1.5 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl">
+              <h1 className="mt-1.5 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-[1.6rem] font-extrabold tracking-tight text-transparent sm:text-[2rem] leading-tight">
                 Tanya AI Knowledge Base
               </h1>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-(--c-muted) sm:text-sm">
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-(--c-muted)">
                 Asisten AI cerdas untuk menjawab pertanyaan seputar SOP CS, spesifikasi produk, dan troubleshooting berdasarkan basis data terverifikasi.
               </p>
+
+              {/* RAG Explanation Strip */}
+              <div className="mt-3 flex flex-wrap items-center gap-0 rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-2.5 text-[11px]">
+                <span className="mr-2 font-semibold text-sky-400/70 uppercase tracking-widest text-[10px]">Cara kerja:</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="flex size-5 items-center justify-center rounded-md bg-sky-500/15 text-sky-400 font-bold text-[10px]">1</span>
+                  <span className="text-[var(--c-muted)]"><span className="font-semibold text-[var(--c-text)]">Retrieve</span> — mencari potongan dokumen paling relevan dari Knowledge Base</span>
+                </span>
+                <span className="mx-2.5 text-[var(--c-border)]">→</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="flex size-5 items-center justify-center rounded-md bg-indigo-500/15 text-indigo-400 font-bold text-[10px]">2</span>
+                  <span className="text-[var(--c-muted)]"><span className="font-semibold text-[var(--c-text)]">Augment</span> — menyertakan konteks dokumen ke dalam prompt AI</span>
+                </span>
+                <span className="mx-2.5 text-[var(--c-border)]">→</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="flex size-5 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-400 font-bold text-[10px]">3</span>
+                  <span className="text-[var(--c-muted)]"><span className="font-semibold text-[var(--c-text)]">Generate</span> — AI merangkai jawaban akurat berbasis sumber terverifikasi</span>
+                </span>
+              </div>
 
               {/* KPI Stat Chips */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -384,6 +404,7 @@ export default function RAGQueryPage() {
                   </div>
                 )}
               </div>
+
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
