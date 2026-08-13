@@ -5,6 +5,9 @@ import { API_ORIGIN } from "@/lib/api"
 import { readProxyResponse } from "@/lib/proxy-response"
 import { getCurrentSession } from "@/lib/server-auth"
 
+export const maxDuration = 60
+export const dynamic = "force-dynamic"
+
 export async function POST(request: Request) {
   const session = await getCurrentSession()
   if (!session) {

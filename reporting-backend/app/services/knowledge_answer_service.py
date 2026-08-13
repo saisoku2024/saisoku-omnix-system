@@ -86,7 +86,7 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
                             "temperature": 0.2,
                             "topP": 0.95,
                             "topK": 40,
-                            "maxOutputTokens": 8192,
+                            "maxOutputTokens": 3500,
                         },
                     },
                 )
