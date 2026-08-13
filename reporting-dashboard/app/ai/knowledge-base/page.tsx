@@ -605,27 +605,25 @@ export default function RAGQueryPage() {
 
                 {/* Sources / Citations */}
                 {queryAnswer.sources.length > 0 && (
-                  <div className="border-t border-(--c-border) pt-4 space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                      <BookOpenIcon size={13} />
-                      Sumber Kutipan Dokumen ({queryAnswer.sources.length}):
+                  <div className="border-t border-(--c-border) pt-3 space-y-2">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wider text-sky-400/70 flex items-center gap-1.5">
+                      <BookOpenIcon size={12} />
+                      Sumber ({queryAnswer.sources.length} dokumen)
                     </h4>
-
-                    <div className="grid gap-2.5 sm:grid-cols-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {queryAnswer.sources.map((src, idx) => (
-                        <div key={idx} className="rounded-xl border border-(--c-border) bg-(--c-overlay) p-3 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate text-xs font-bold text-sky-300 flex items-center gap-1.5">
-                              {getFileIcon(src.title)}
-                              {src.title}
-                            </span>
-                            <span className="shrink-0 font-mono text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                              Sim: {(src.similarity * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                          <p className="line-clamp-3 text-[11px] leading-relaxed text-(--c-muted)">
-                            {src.content}
-                          </p>
+                        <div
+                          key={idx}
+                          title={src.title}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-(--c-border) bg-(--c-overlay) px-2.5 py-1.5 text-xs"
+                        >
+                          {getFileIcon(src.title)}
+                          <span className="max-w-[200px] truncate font-medium text-(--c-text)/75">
+                            {src.title}
+                          </span>
+                          <span className="shrink-0 font-mono text-[10px] text-emerald-400/60">
+                            {(src.similarity * 100).toFixed(0)}%
+                          </span>
                         </div>
                       ))}
                     </div>
