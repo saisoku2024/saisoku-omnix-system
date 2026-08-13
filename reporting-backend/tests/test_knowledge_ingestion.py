@@ -98,3 +98,34 @@ def test_without_context_prefix_keeps_insertable_chunk_fields():
     assert "context_prefix" not in stripped[0]
     assert stripped[0]["document_id"] == "doc-1"
     assert stripped[0]["embedding"] == "[0.1,0.2]"
+
+
+def test_check_duplicate_document_raises_http_exception(monkeypatch):
+    from fastapi import HTTPException
+    from app.services.knowledge_service import KnowledgeService
+
+    class MockResponse:
+        data = [{"id": "existing-doc-1", "title": "Buku Manual Tineco S6", "status": "ready"}]
+
+    class MockTable:
+        def select(self, *args, **kwargs):
+            return self
+        def ilike(self, *args, **kwargs):
+            return self
+        def eq(self, *args, **kwargs):
+            return self
+        def execute(self):
+            return MockResponse()
+
+    class MockSupabase:
+        def table(self, table_name):
+            return MockTable()
+
+    monkeypatch.setattr("app.services.knowledge_service.supabase", MockSupabase())
+
+    with pytest.raises(HTTPException) as exc_info:
+        KnowledgeService._check_duplicate_document("Buku Manual Tineco S6")
+
+    assert exc_info.value.status_code == 400
+    assert "Duplicate Rejected" in exc_info.value.detail
+

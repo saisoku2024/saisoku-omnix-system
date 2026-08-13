@@ -35,7 +35,7 @@ def test_indicator_query_terms_expand_product_series():
     assert terms["is_indicator_query"] is True
     assert "T30C" in terms["product_codes"]
     assert "T30" in terms["series"]
-    assert ["merah", "berkedip"] in terms["topic_groups"]
+    assert ["lampu", "indikator"] in terms["topic_groups"]
 
 
 def test_llm_fallback_does_not_dump_raw_context(monkeypatch):

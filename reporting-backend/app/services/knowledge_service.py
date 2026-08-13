@@ -168,11 +168,43 @@ class KnowledgeService:
             raise HTTPException(status_code=500, detail=f"Gagal membersihkan database knowledge: {exc}")
 
     @staticmethod
+    def _check_duplicate_document(title: str, source_file: str | None = None) -> None:
+        clean_title = title.strip()
+        if clean_title:
+            try:
+                res = supabase.table("knowledge_documents").select("id, title, status").ilike("title", clean_title).execute()
+                if res.data and len(res.data) > 0:
+                    existing = res.data[0]
+                    raise HTTPException(
+                        status_code= status.HTTP_400_BAD_REQUEST,
+                        detail=f"Dokumen dengan judul '{existing['title']}' sudah ada di Knowledge Base (Duplicate Rejected).",
+                    )
+            except HTTPException:
+                raise
+            except Exception as exc:
+                logger.warning(f"Duplicate title check error: {exc}")
+
+        if source_file and source_file not in ("manual:text", "web:url"):
+            try:
+                res_file = supabase.table("knowledge_documents").select("id, title, source_file").eq("source_file", source_file).execute()
+                if res_file.data and len(res_file.data) > 0:
+                    existing = res_file.data[0]
+                    raise HTTPException(
+                        status_code= status.HTTP_400_BAD_REQUEST,
+                        detail=f"File '{source_file}' (Judul: {existing['title']}) sudah ada di Knowledge Base (Duplicate Rejected).",
+                    )
+            except HTTPException:
+                raise
+            except Exception as exc:
+                logger.warning(f"Duplicate source_file check error: {exc}")
+
+    @staticmethod
     async def prepare_upload(file: UploadFile, title: str | None, user_email: str = "admin@omnix.com") -> Dict[str, Any]:
         content = await file.read()
         validate_storage_upload("knowledge", file.filename or "", len(content))
 
         document_title = (title or file.filename or "Untitled Knowledge Document").strip()
+        KnowledgeService._check_duplicate_document(document_title, source_file=file.filename)
         doc_res = (
             supabase.table("knowledge_documents")
             .insert(
@@ -211,6 +243,7 @@ class KnowledgeService:
         user_email: str = "admin@omnix.com",
     ) -> Dict[str, Any]:
         document_title = (title or filename or "Untitled Knowledge Document").strip()
+        KnowledgeService._check_duplicate_document(document_title, source_file=filename)
         payload = {
             "title": document_title,
             "source_file": filename,
@@ -387,6 +420,7 @@ class KnowledgeService:
         if len(cleaned_text) < MIN_EXTRACTED_TEXT_CHARS:
             raise HTTPException(status_code=400, detail="Teks knowledge manual terlalu pendek.")
 
+        KnowledgeService._check_duplicate_document(document_title, source_file="manual:text")
         doc_res = (
             supabase.table("knowledge_documents")
             .insert(
@@ -428,6 +462,8 @@ class KnowledgeService:
         document_title = (title or parsed.netloc).strip()
         if len(document_title) < 3:
             raise HTTPException(status_code=400, detail="Judul web knowledge minimal 3 karakter.")
+
+        KnowledgeService._check_duplicate_document(document_title, source_file=source_url)
 
         doc_res = (
             supabase.table("knowledge_documents")
@@ -517,20 +553,27 @@ class KnowledgeService:
             }
 
         try:
-            supabase.table("knowledge_entities").delete().eq("document_id", document_id).execute()
-            if entity_rows:
-                supabase.table("knowledge_entities").insert(entity_rows).execute()
-            (
-                supabase.table("knowledge_documents")
-                .update(
+            try:
+                supabase.table("knowledge_entities").delete().eq("document_id", document_id).execute()
+                if entity_rows:
+                    supabase.table("knowledge_entities").insert(entity_rows).execute()
+            except Exception as table_exc:
+                if "knowledge_entities" in str(table_exc) or "PGRST205" in str(table_exc):
+                    logger.warning(f"Tabel 'knowledge_entities' belum tersedia di Supabase schema cache ({table_exc}). Updating document metadata only.")
+                else:
+                    raise
+            try:
+                supabase.table("knowledge_documents").update(
                     {
                         "entity_indexed_at": datetime.now(timezone.utc).isoformat(),
                         "entity_index_version": ENTITY_INDEX_VERSION,
                     }
-                )
-                .eq("id", document_id)
-                .execute()
-            )
+                ).eq("id", document_id).execute()
+            except Exception as meta_exc:
+                if "entity_index_version" in str(meta_exc) or "PGRST204" in str(meta_exc):
+                    logger.warning(f"Kolom metadata entity belum tersedia di Supabase schema ({meta_exc}). Skipped document status update.")
+                else:
+                    raise
         except Exception as exc:
             logger.warning(f"Failed to write knowledge entity index for document {document_id}: {exc}")
             raise
@@ -597,7 +640,7 @@ class KnowledgeService:
                         "match_knowledge_chunks",
                         {
                             "query_embedding": _vector_literal(embedding),
-                            "match_count": match_count,
+                            "match_count": max(match_count * 3, 18),
                         },
                     )
                     .execute()
@@ -609,6 +652,33 @@ class KnowledgeService:
                     retrieval_methods_used.add("vector")
         except Exception as exc:
             logger.warning(f"Vector search embedding failed or unconfigured: {exc}")
+
+        # Check for service / sparepart policy terms (e.g., discontinued memo)
+        service_terms = {"service", "servis", "sparepart", "baterai", "onderdil", "discontinued", "pemberhentian", "ganti", "rusak", "perbaikan"}
+        is_service_related = any(term in cleaned_question.lower() for term in service_terms)
+        if is_service_related:
+            try:
+                existing_ids = {s.get("chunk_id") or s.get("id") for s in sources}
+                memo_chunks = _execute_chunk_select(
+                    lambda b: b.or_("content.ilike.%pemberhentian%,title.ilike.%pemberhentian%,content.ilike.%sparepart%"),
+                    limit=6,
+                )
+                for mc in memo_chunks:
+                    cid = mc.get("id")
+                    if cid and cid not in existing_ids:
+                        sources.append({
+                            "chunk_id": cid,
+                            "document_id": mc.get("document_id"),
+                            "title": mc.get("title"),
+                            "content": mc.get("content"),
+                            "context_prefix": mc.get("context_prefix"),
+                            "chunk_index": mc.get("chunk_index"),
+                            "similarity": 0.88,
+                        })
+                        existing_ids.add(cid)
+                        retrieval_methods_used.add("memo_policy")
+            except Exception as memo_exc:
+                logger.warning(f"Failed to fetch memo policy chunks for service query: {memo_exc}")
 
         stop_words = {
             "apa", "yang", "dan", "atau", "dengan", "pada", "untuk", "dari", "ke", "ini", "itu",
