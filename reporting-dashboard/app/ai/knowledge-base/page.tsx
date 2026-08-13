@@ -23,6 +23,7 @@ import {
   SendIcon,
   SparklesIcon,
   Trash2Icon,
+  XIcon,
   ZapIcon,
 } from "lucide-react"
 
@@ -128,12 +129,14 @@ export default function RAGQueryPage() {
   const [copiedAnswer, setCopiedAnswer] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
+  const [queryError, setQueryError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [exportingBackup, setExportingBackup] = useState(false)
   const [restoringBackup, setRestoringBackup] = useState(false)
   const [clearingAll, setClearingAll] = useState(false)
 
   const answerRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchSession = async () => {
     try {
@@ -184,6 +187,13 @@ export default function RAGQueryPage() {
     fetchInconsistencies()
   }, [])
 
+  // Auto-dismiss success banner setelah 4 detik
+  useEffect(() => {
+    if (!success) return
+    const t = setTimeout(() => setSuccess(null), 4000)
+    return () => clearTimeout(t)
+  }, [success])
+
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
 
   const readyDocuments = useMemo(() => documents.filter((d) => d.status === "ready"), [documents])
@@ -198,15 +208,20 @@ export default function RAGQueryPage() {
     const q = (customQ ?? question).trim()
     if (!q || querying) return
 
+    // Abort request sebelumnya agar tidak terjadi race condition
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = new AbortController()
+
     try {
       setQuerying(true)
-      setError(null)
+      setQueryError(null)
       setQueryAnswer(null)
 
       const res = await fetch(QUERY_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, match_count: 6 }),
+        signal: abortControllerRef.current.signal,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(readError(data, "Gagal memproses pertanyaan RAG"))
@@ -222,7 +237,8 @@ export default function RAGQueryPage() {
         answerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
       }, 100)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal bertanya ke RAG AI")
+      if (err instanceof Error && err.name === "AbortError") return
+      setQueryError(err instanceof Error ? err.message : "Gagal bertanya ke RAG AI")
     } finally {
       setQuerying(false)
     }
@@ -416,16 +432,18 @@ export default function RAGQueryPage() {
                 Dokumentasi & Upload KB →
               </a>
 
-              <button
-                type="button"
-                onClick={handleExportBackup}
-                disabled={exportingBackup}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-(--c-border) bg-(--c-overlay) px-3.5 text-xs font-semibold text-(--c-text) transition-all duration-150 hover:border-sky-500/50 hover:bg-sky-500/8 hover:text-sky-400 disabled:opacity-50"
-                title="Download backup lengkap Knowledge Base (.zip)"
-              >
-                {exportingBackup ? <Loader2Icon size={14} className="animate-spin" /> : <ArchiveIcon size={14} className="text-sky-400" />}
-                Export Backup
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleExportBackup}
+                  disabled={exportingBackup}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-(--c-border) bg-(--c-overlay) px-3.5 text-xs font-semibold text-(--c-text) transition-all duration-150 hover:border-sky-500/50 hover:bg-sky-500/8 hover:text-sky-400 disabled:opacity-50"
+                  title="Download backup lengkap Knowledge Base (.zip)"
+                >
+                  {exportingBackup ? <Loader2Icon size={14} className="animate-spin" /> : <ArchiveIcon size={14} className="text-sky-400" />}
+                  Export Backup
+                </button>
+              )}
 
               {isAdmin && (
                 <>
@@ -471,6 +489,14 @@ export default function RAGQueryPage() {
           <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/8 px-4 py-3 text-sm text-red-400 shadow-sm">
             <AlertTriangleIcon size={16} className="shrink-0" />
             <span className="flex-1 text-[13px]">{error}</span>
+            <button onClick={() => setError(null)} className="shrink-0 text-red-400/60 hover:text-red-300"><XIcon size={14} /></button>
+          </div>
+        )}
+        {queryError && (
+          <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-orange-500/8 px-4 py-3 text-sm text-orange-400 shadow-sm">
+            <AlertTriangleIcon size={16} className="shrink-0" />
+            <span className="flex-1 text-[13px]">{queryError}</span>
+            <button onClick={() => setQueryError(null)} className="shrink-0 text-orange-400/60 hover:text-orange-300"><XIcon size={14} /></button>
           </div>
         )}
         {success && (
@@ -481,7 +507,7 @@ export default function RAGQueryPage() {
         )}
 
         {/* ── MAIN CONTENT GRID ── */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="grid gap-6 md:grid-cols-[1fr_300px] lg:grid-cols-[1fr_340px]">
 
           {/* ── LEFT/MAIN AREA: RAG SEARCH & ANSWER GENERATOR ── */}
           <div className="space-y-6">
@@ -518,7 +544,7 @@ export default function RAGQueryPage() {
                   <button
                     type="submit"
                     disabled={querying || !question.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-8.5 items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-40"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-[34px] items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-40"
                   >
                     {querying ? <Loader2Icon size={14} className="animate-spin" /> : <SendIcon size={13} />}
                     Tanyakan
@@ -634,30 +660,7 @@ export default function RAGQueryPage() {
           {/* ── RIGHT PANEL: KNOWLEDGE BASE STATUS & MANAGEMENT SHORTCUT ── */}
           <div className="space-y-5">
 
-            {/* Quick Upload CTA Box */}
-            <section className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/10 via-(--c-surface) to-indigo-500/10 p-5 shadow-sm space-y-3">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-8 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400">
-                  <BrainIcon size={16} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Upload & Kelola Dokumentasi</h3>
-                  <p className="text-[11px] text-(--c-muted)">Halaman terpusat manajemen KB</p>
-                </div>
-              </div>
 
-              <p className="text-xs leading-relaxed text-(--c-muted)">
-                Untuk mengunggah SOP baru, FAQ, manual produk, atau mengelola dokumen tersimpan lengkap dengan filter & pagination:
-              </p>
-
-              <a
-                href="/dashboard/ai/knowledge-base"
-                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-sky-500/20 transition-all hover:opacity-90"
-              >
-                <BookOpenIcon size={14} />
-                Buka Halaman Dokumentasi KB →
-              </a>
-            </section>
 
             {/* Active Knowledge Documents Summary */}
             <section className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5 shadow-sm space-y-3">
