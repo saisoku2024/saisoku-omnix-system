@@ -68,7 +68,12 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
                     json={
                         "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
                         "contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
+                        "generationConfig": {
+                            "temperature": 0.2,
+                            "topP": 0.95,
+                            "topK": 40,
+                            "maxOutputTokens": 8192,
+                        },
                     },
                 )
                 if response.status_code == 200:
