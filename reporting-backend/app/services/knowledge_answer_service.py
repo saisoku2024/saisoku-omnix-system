@@ -28,7 +28,7 @@ _KB_SYSTEM_INSTRUCTION = (
     "2. Menyebutkan nilai/informasi pada dokumen versi baru/terbaru. "
     "3. Menyampaikan rekomendasi rujukan utama secara tegas berdasarkan publikasi dokumen yang paling baru. "
     "Jika pertanyaan berupa PERBANDINGAN / PERBEDAAAN (seperti 'beda X dan Y', 'vs', 'perbandingan'), WAJIB sajikan dengan: "
-    "1. Tabel Markdown perbandingan fitur yang berbeda. "
+    "1. Tabel Markdown perbandingan fitur yang berbeda (Wajib berikan baris kosong sebelum dan sesudah tabel, serta dipisahkan newline tegas per baris). "
     "2. Poin-poin persamaan fitur. "
     "3. Ringkasan kesimpulan singkat. "
     "Jika pertanyaan membahas LAMPU INDIKATOR / STATUS LAMPU / WI-FI / OMNI STATION, WAJIB kelompokkan jawaban berdasarkan bagian yang tersedia di konteks: "

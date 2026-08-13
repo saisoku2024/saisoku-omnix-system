@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import type { Components } from "react-markdown"
+import remarkGfm from "remark-gfm"
 import {
   AlertTriangleIcon,
   ArchiveIcon,
@@ -113,6 +114,14 @@ function getFileIcon(title: string, sourceFile?: string) {
   if (name.match(/\.(jpg|jpeg|png|webp)$/))
     return <ImageIcon size={14} className="text-purple-400 shrink-0" />
   return <FileTextIcon size={14} className="text-[var(--c-accent)] shrink-0" />
+}
+
+function formatMarkdownAnswer(raw: string): string {
+  if (!raw) return ""
+  let text = raw.replace(/\|\s*\|/g, "|\n|")
+  text = text.replace(/(\|(?::?---+:?\|)+)\s*\|/g, "$1\n|")
+  text = text.replace(/([^\n])\n(\|[\s\S]*?\|)/g, "$1\n\n$2")
+  return text
 }
 
 export default function RAGQueryPage() {
@@ -339,15 +348,15 @@ export default function RAGQueryPage() {
       </blockquote>
     ),
     table: ({ children }) => (
-      <div className="my-3 overflow-x-auto rounded-xl border border-(--c-border) bg-(--c-surface)">
-        <table className="w-full text-left text-xs">{children}</table>
+      <div className="my-3 overflow-x-auto rounded-xl border border-(--c-border) bg-(--c-surface) shadow-xs">
+        <table className="w-full border-collapse text-left text-xs">{children}</table>
       </div>
     ),
-    thead: ({ children }) => <thead className="bg-(--c-overlay) border-b border-(--c-border) font-bold text-sky-400">{children}</thead>,
-    tbody: ({ children }) => <tbody className="divide-y divide-(--c-border)/50">{children}</tbody>,
-    tr: ({ children }) => <tr className="transition-colors hover:bg-(--c-overlay)/50">{children}</tr>,
-    th: ({ children }) => <th className="px-3 py-2 text-[11px] font-bold tracking-wide uppercase">{children}</th>,
-    td: ({ children }) => <td className="px-3 py-2 text-xs text-(--c-text)/90">{children}</td>,
+    thead: ({ children }) => <thead className="bg-sky-500/10 border-b border-(--c-border) font-bold text-sky-300">{children}</thead>,
+    tbody: ({ children }) => <tbody className="divide-y divide-(--c-border)/40">{children}</tbody>,
+    tr: ({ children }) => <tr className="transition-colors hover:bg-sky-500/5">{children}</tr>,
+    th: ({ children }) => <th className="px-3.5 py-2.5 text-[11px] font-bold tracking-wide text-sky-300 border-r border-(--c-border)/30 last:border-r-0 uppercase">{children}</th>,
+    td: ({ children }) => <td className="px-3.5 py-2 text-xs text-(--c-text)/90 border-r border-(--c-border)/30 last:border-r-0 leading-relaxed font-normal">{children}</td>,
     code: ({ children }) => (
       <code className="rounded bg-(--c-overlay) px-1.5 py-0.5 font-mono text-[11px] text-sky-300 border border-(--c-border)">
         {children}
@@ -600,7 +609,9 @@ export default function RAGQueryPage() {
 
                 {/* Markdown Text */}
                 <div className="prose prose-invert max-w-none text-xs leading-relaxed">
-                  <ReactMarkdown components={markdownComponents}>{queryAnswer.answer}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {formatMarkdownAnswer(queryAnswer.answer)}
+                  </ReactMarkdown>
                 </div>
 
                 {/* Sources / Citations */}
