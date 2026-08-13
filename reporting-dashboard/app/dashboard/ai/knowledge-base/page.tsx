@@ -498,23 +498,18 @@ export default function KnowledgeBaseDashboardPage() {
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 via-purple-500/15 to-emerald-500/20 ring-1 ring-white/10 text-sky-400">
+                <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 via-purple-500/15 to-emerald-500/20 ring-1 ring-white/10">
                   <BrainIcon size={18} className="text-[#4285F4]" />
                 </span>
-                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-sky-400 flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="size-1.5 rounded-full bg-[#4285F4]" />
-                    <span className="size-1.5 rounded-full bg-[#EA4335]" />
-                    <span className="size-1.5 rounded-full bg-[#FBBC05]" />
-                    <span className="size-1.5 rounded-full bg-[#34A853]" />
-                  </span>
-                  AI System · Knowledge Base Management
+                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-sky-400/80 flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-sky-400/70" />
+                  AI System — RAG Workspace
                 </span>
               </div>
-              <h1 className="mt-2 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl">
+              <h1 className="mt-2 bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-[1.6rem] font-extrabold tracking-tight text-transparent sm:text-[2rem] leading-tight">
                 AI Knowledge Base
               </h1>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--c-muted)] sm:text-sm">
+              <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[var(--c-muted)]">
                 Kelola dokumen RAG, SOP System, Product Guide, FAQ, dan data training AI. Mencegah duplikasi data training secara presisi.
               </p>
             </div>
@@ -661,17 +656,17 @@ export default function KnowledgeBaseDashboardPage() {
         {/* ── KNOWLEDGE BASE DATA TABLE ── */}
         <div className="overflow-hidden rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] shadow-md">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-[var(--c-border)] bg-[var(--c-offset)] text-[var(--c-muted)] uppercase tracking-wider font-semibold">
-                  <th className="px-4 py-3.5">Dokumen / Judul</th>
-                  <th className="px-4 py-3.5">Kategori</th>
-                  <th className="px-4 py-3.5">Sumber File</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-center">Chunks</th>
-                  <th className="px-4 py-3.5">Dibuat Oleh</th>
-                  <th className="px-4 py-3.5">Tanggal</th>
-                  <th className="px-4 py-3.5 text-right">Aksi</th>
+                <tr className="border-b border-[var(--c-border)] bg-[var(--c-offset)] text-[var(--c-muted)] text-[11px] uppercase tracking-widest font-semibold">
+                  <th className="px-5 py-3.5 w-[34%]">Dokumen / Judul</th>
+                  <th className="px-4 py-3.5 w-[11%]">Kategori</th>
+                  <th className="px-4 py-3.5 w-[13%]">Sumber File</th>
+                  <th className="px-4 py-3.5 text-center w-[9%]">Status</th>
+                  <th className="px-4 py-3.5 text-center w-[7%]">Chunks</th>
+                  <th className="px-4 py-3.5 w-[10%]">Dibuat Oleh</th>
+                  <th className="px-4 py-3.5 w-[11%]">Tanggal</th>
+                  <th className="px-4 py-3.5 text-right w-[8%]">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--c-border)]">
@@ -702,17 +697,17 @@ export default function KnowledgeBaseDashboardPage() {
                   paginatedDocuments.map((doc) => (
                     <tr key={doc.id} className="transition-colors hover:bg-[var(--c-overlay)]/50">
                       {/* Title */}
-                      <td className="px-4 py-3.5 font-semibold text-[var(--c-text)]">
-                        <div className="flex items-center gap-2.5">
-                          {getFileIcon(doc.title, doc.source_file)}
-                          <div>
-                            <span className="font-medium hover:text-sky-400 cursor-pointer" onClick={() => setDetailDoc(doc)}>
+                      <td className="px-5 py-4 text-[var(--c-text)]">
+                        <div className="flex items-start gap-2.5">
+                          <span className="mt-0.5 shrink-0">{getFileIcon(doc.title, doc.source_file)}</span>
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium leading-snug hover:text-sky-400 cursor-pointer line-clamp-2 block" onClick={() => setDetailDoc(doc)}>
                               {doc.title}
                             </span>
                             {doc.tags && doc.tags.length > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-1">
+                              <div className="mt-1.5 flex flex-wrap gap-1">
                                 {doc.tags.map((tag) => (
-                                  <span key={tag} className="inline-flex items-center gap-0.5 rounded bg-sky-500/10 px-1.5 py-0.2 text-[9px] text-sky-300">
+                                  <span key={tag} className="inline-flex items-center gap-0.5 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300">
                                     <TagIcon size={8} /> {tag}
                                   </span>
                                 ))}
@@ -723,55 +718,59 @@ export default function KnowledgeBaseDashboardPage() {
                       </td>
 
                       {/* Category */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-4">
                         <CategoryBadge category={doc.category} />
                       </td>
 
                       {/* Source */}
-                      <td className="px-4 py-3.5 text-[var(--c-muted)]">
-                        {doc.source_file || doc.source_type || "Manual Text"}
+                      <td className="px-4 py-4 text-xs text-[var(--c-muted)] max-w-[10rem]">
+                        <span className="truncate block" title={doc.source_file || doc.source_type || "Manual Text"}>
+                          {doc.source_file || doc.source_type || "Manual Text"}
+                        </span>
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-4 py-4 text-center">
                         <StatusBadge status={doc.status} />
                       </td>
 
                       {/* Chunk count */}
-                      <td className="px-4 py-3.5 text-center font-mono text-sky-300 font-semibold">
+                      <td className="px-4 py-4 text-center font-mono text-sm text-sky-300 font-semibold">
                         {doc.chunk_count}
                       </td>
 
                       {/* Created by */}
-                      <td className="px-4 py-3.5 text-[var(--c-muted)]">
-                        {doc.created_by}
+                      <td className="px-4 py-4 text-xs text-[var(--c-muted)] max-w-[8rem]">
+                        <span className="truncate block" title={doc.created_by}>
+                          {doc.created_by}
+                        </span>
                       </td>
 
                       {/* Date */}
-                      <td className="px-4 py-3.5 text-[var(--c-muted)] whitespace-nowrap">
+                      <td className="px-4 py-4 text-xs text-[var(--c-muted)] whitespace-nowrap">
                         {formatDate(doc.created_at)}
                       </td>
 
                       {/* Actions (Detail & Delete) */}
-                      <td className="px-4 py-3.5 text-right">
+                      <td className="px-4 py-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => setDetailDoc(doc)}
-                            className="inline-flex size-7 items-center justify-center rounded-lg border border-[var(--c-border)] bg-[var(--c-overlay)] text-[var(--c-muted)] transition hover:border-sky-500/50 hover:text-sky-400"
+                            className="inline-flex size-8 items-center justify-center rounded-lg border border-[var(--c-border)] bg-[var(--c-overlay)] text-[var(--c-muted)] transition hover:border-sky-500/50 hover:text-sky-400"
                             title="Lihat Detail Dokumen"
                           >
-                            <EyeIcon size={13} />
+                            <EyeIcon size={14} />
                           </button>
 
                           {isAdmin && (
                             <button
                               type="button"
                               onClick={() => setDeleteTargetDoc(doc)}
-                              className="inline-flex size-7 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 transition hover:border-red-500 hover:bg-red-500/20 hover:text-red-300"
-                              title="Hapus Dokumen (Hapus Training AI Duplicate)"
+                              className="inline-flex size-8 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 transition hover:border-red-500 hover:bg-red-500/20 hover:text-red-300"
+                              title="Hapus Dokumen"
                             >
-                              <Trash2Icon size={13} />
+                              <Trash2Icon size={14} />
                             </button>
                           )}
                         </div>
@@ -784,10 +783,10 @@ export default function KnowledgeBaseDashboardPage() {
           </div>
 
           {/* ── PAGINATION BAR ── */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-[var(--c-border)] bg-[var(--c-surface)] px-4 py-3 text-xs">
-            <div className="text-[var(--c-muted)]">
-              Menampilkan <span className="font-bold text-[var(--c-text)]">{paginatedDocuments.length}</span> dari{" "}
-              <span className="font-bold text-[var(--c-text)]">{filteredAndSortedDocuments.length}</span> data (Halaman {currentPage} dari {totalPages})
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-[var(--c-border)] bg-[var(--c-surface)] px-5 py-3.5 text-sm">
+            <div className="text-[var(--c-muted)] text-xs">
+              Menampilkan <span className="font-semibold text-[var(--c-text)]">{paginatedDocuments.length}</span> dari{" "}
+              <span className="font-semibold text-[var(--c-text)]">{filteredAndSortedDocuments.length}</span> data · Halaman <span className="font-semibold text-[var(--c-text)]">{currentPage}</span> dari <span className="font-semibold text-[var(--c-text)]">{totalPages}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -864,11 +863,11 @@ export default function KnowledgeBaseDashboardPage() {
             {/* Metadata (Category & Tags) */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold uppercase text-[var(--c-muted)]">Kategori KB</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Kategori KB</label>
                 <select
                   value={addCategory}
                   onChange={(e) => setAddCategory(e.target.value as KnowledgeCategory)}
-                  className="mt-1 h-9 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs text-[var(--c-text)] outline-none focus:border-sky-500"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-sm text-[var(--c-text)] outline-none focus:border-sky-500"
                 >
                   {KNOWLEDGE_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -879,28 +878,28 @@ export default function KnowledgeBaseDashboardPage() {
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold uppercase text-[var(--c-muted)]">Tags (Pisahkan koma)</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Tags (Pisahkan koma)</label>
                 <input
                   type="text"
                   value={addTags}
                   onChange={(e) => setAddTags(e.target.value)}
                   placeholder="misal: garansi, tineco, sop"
-                  className="mt-1 h-9 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs text-[var(--c-text)] outline-none focus:border-sky-500"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-sm text-[var(--c-text)] outline-none focus:border-sky-500"
                 />
               </div>
             </div>
 
             {/* Mode Form implementation */}
             {inputMode === "file" && (
-              <form onSubmit={handleUpload} className="space-y-3">
+              <form onSubmit={handleUpload} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase text-[var(--c-muted)]">Judul Dokumen</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Judul Dokumen</label>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     disabled={uploading}
                     placeholder="Judul dokumen (opsional jika multiple)"
-                    className="mt-1 h-9 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs text-[var(--c-text)] outline-none focus:border-sky-500"
+                    className="mt-1.5 h-10 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-sm text-[var(--c-text)] outline-none focus:border-sky-500"
                   />
                 </div>
 
@@ -954,27 +953,27 @@ export default function KnowledgeBaseDashboardPage() {
             )}
 
             {inputMode === "text" && (
-              <form onSubmit={handleAddText} className="space-y-3">
+              <form onSubmit={handleAddText} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase text-[var(--c-muted)]">Judul Manual KB</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Judul Manual KB</label>
                   <input
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
                     disabled={addingText}
                     placeholder="Contoh: Prosedur Pengembalian Barang"
-                    className="mt-1 h-9 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs text-[var(--c-text)] outline-none focus:border-sky-500"
+                    className="mt-1.5 h-10 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-sm text-[var(--c-text)] outline-none focus:border-sky-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase text-[var(--c-muted)]">Konten Teks</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Konten Teks</label>
                   <textarea
                     value={manualText}
                     onChange={(e) => setManualText(e.target.value)}
                     disabled={addingText}
                     rows={5}
                     placeholder="Tuliskan detail SOP, FAQ, atau informasi di sini (min. 20 karakter)..."
-                    className="mt-1 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-3 text-xs text-[var(--c-text)] outline-none focus:border-sky-500"
+                    className="mt-1.5 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-3 text-sm text-[var(--c-text)] outline-none focus:border-sky-500 leading-relaxed"
                   />
                 </div>
 
@@ -998,26 +997,26 @@ export default function KnowledgeBaseDashboardPage() {
             )}
 
             {inputMode === "url" && (
-              <form onSubmit={handleAddUrl} className="space-y-3">
+              <form onSubmit={handleAddUrl} className="space-y-4">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase text-[var(--c-muted)]">Judul Web (Opsional)</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Judul Web (Opsional)</label>
                   <input
                     value={webTitle}
                     onChange={(e) => setWebTitle(e.target.value)}
                     disabled={addingUrl}
                     placeholder="Contoh: FAQ Halaman Web Resmi"
-                    className="mt-1 h-9 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs text-[var(--c-text)] outline-none focus:border-sky-500"
+                    className="mt-1.5 h-10 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-sm text-[var(--c-text)] outline-none focus:border-sky-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase text-[var(--c-muted)]">URL Web (http/https)</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">URL Web (http/https)</label>
                   <input
                     value={webUrl}
                     onChange={(e) => setWebUrl(e.target.value)}
                     disabled={addingUrl}
                     placeholder="https://example.com/sop-faq"
-                    className="mt-1 h-9 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs text-[var(--c-text)] outline-none focus:border-sky-500"
+                    className="mt-1.5 h-10 w-full rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-sm text-[var(--c-text)] outline-none focus:border-sky-500"
                   />
                 </div>
 
