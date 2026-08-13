@@ -118,9 +118,14 @@ function getFileIcon(title: string, sourceFile?: string) {
 
 function formatMarkdownAnswer(raw: string): string {
   if (!raw) return ""
-  let text = raw.replace(/\|\s*\|/g, "|\n|")
+  let text = raw
+  // Replace inline pipe joins with newlines
+  text = text.replace(/\|\s*\|/g, "|\n|")
   text = text.replace(/(\|(?::?---+:?\|)+)\s*\|/g, "$1\n|")
-  text = text.replace(/([^\n])\n(\|[\s\S]*?\|)/g, "$1\n\n$2")
+  // Ensure DOUBLE NEWLINE (\n\n) before any table line starting with a pipe | (GFM spec requirement)
+  text = text.replace(/([^\n])\s*\n\s*(\|(?:\s*[^|\n]+\s*\|)+)/g, "$1\n\n$2")
+  // Ensure DOUBLE NEWLINE (\n\n) after table blocks
+  text = text.replace(/(\|(?:\s*[^|\n]+\s*\|)+)\s*\n\s*([^|\n\s])/g, "$1\n\n$2")
   return text
 }
 

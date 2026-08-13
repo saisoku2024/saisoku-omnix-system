@@ -42,6 +42,20 @@ _KB_SYSTEM_INSTRUCTION = (
 )
 
 
+import re
+
+
+def _format_markdown_tables(raw: str) -> str:
+    if not raw:
+        return ""
+    text = raw
+    text = re.sub(r"\|\s*\|", "|\n|", text)
+    text = re.sub(r"(\|(?::?---+:?\|)+)\s*\|", r"\1\n|", text)
+    text = re.sub(r"([^\n])\s*\n\s*(\|(?:\s*[^|\n]+\s*\|)+)", r"\1\n\n\2", text)
+    text = re.sub(r"(\|(?:\s*[^|\n]+\s*\|)+)\s*\n\s*([^|\n\s])", r"\1\n\n\2", text)
+    return text.strip()
+
+
 def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
     context_blocks = []
     for idx, source in enumerate(sources):
@@ -88,7 +102,7 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
                             final_parts = [parts[-1]]
                         text = "\n".join(str(part.get("text", "")) for part in final_parts if part.get("text"))
                         if text.strip():
-                            return text.strip()
+                            return _format_markdown_tables(text)
                 elif response.status_code == 429:
                     logger.warning(f"Gemini API key ({key[:6]}...) rate limited on {m}. Trying next key...")
                     continue
