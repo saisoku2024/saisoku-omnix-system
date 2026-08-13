@@ -502,7 +502,12 @@ export default function KnowledgeBaseDashboardPage() {
                   <BrainIcon size={18} className="text-[#4285F4]" />
                 </span>
                 <span className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-sky-400/80 flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-sky-400/70" />
+                  <span className="inline-flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-[#4285F4]" />
+                    <span className="size-1.5 rounded-full bg-[#EA4335]" />
+                    <span className="size-1.5 rounded-full bg-[#FBBC05]" />
+                    <span className="size-1.5 rounded-full bg-[#34A853]" />
+                  </span>
                   AI System — RAG Workspace
                 </span>
               </div>
