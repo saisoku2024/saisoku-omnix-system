@@ -89,6 +89,7 @@ from app.services.knowledge_answer_service import (
     _generate_answer,
     _stream_generate_answer,
 )
+from app.services.knowledge_cache_service import KnowledgeCacheService
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,7 @@ class KnowledgeService:
                 pass
             supabase.table("knowledge_chunks").delete().eq("document_id", document_id).execute()
             supabase.table("knowledge_documents").delete().eq("id", document_id).execute()
+            KnowledgeCacheService.clear_cache()
             return {"success": True, "document_id": document_id}
         except Exception as exc:
             logger.error(f"Failed to delete document {document_id}: {exc}")
@@ -164,6 +166,7 @@ class KnowledgeService:
                 pass
             supabase.table("knowledge_chunks").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
             res = supabase.table("knowledge_documents").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            KnowledgeCacheService.clear_cache()
             deleted_count = len(res.data or [])
             return {"success": True, "deleted_count": deleted_count}
         except Exception as exc:
@@ -367,6 +370,7 @@ class KnowledgeService:
                 )
             except Exception as entity_exc:
                 logger.warning(f"Knowledge entity indexing skipped for document {document_id}: {entity_exc}")
+            KnowledgeCacheService.clear_cache()
             AuditLogService.log(
                 action="KNOWLEDGE_UPLOAD",
                 resource="knowledge_documents",
@@ -626,6 +630,7 @@ class KnowledgeService:
         cleaned_question: str,
         match_count: int,
         t_start: float,
+        precomputed_embedding: Optional[List[float]] = None,
     ) -> Dict[str, Any]:
         """
         Orkestrasi Hybrid Retrieval: Vector search (pgvector) + FTS (Postgres BM25) +
@@ -637,10 +642,12 @@ class KnowledgeService:
         # 1. Vector Search (Dense)
         t0_embed = time.perf_counter()
         t_embed_ms = 0
+        embedding = precomputed_embedding
         try:
-            embedding = _embed_text(cleaned_question, is_query=True)
-            t_embed_ms = int((time.perf_counter() - t0_embed) * 1000)
-            if any(v != 0.0 for v in embedding):
+            if embedding is None:
+                embedding = _embed_text(cleaned_question, is_query=True)
+                t_embed_ms = int((time.perf_counter() - t0_embed) * 1000)
+            if embedding and any(v != 0.0 for v in embedding):
                 res = (
                     supabase.rpc(
                         "match_knowledge_chunks",
@@ -997,12 +1004,55 @@ class KnowledgeService:
         if len(cleaned_question) < 3:
             raise HTTPException(status_code=400, detail="Pertanyaan terlalu pendek.")
 
-        retrieval_res = KnowledgeService._run_retrieval_pipeline(question, cleaned_question, match_count, t_start)
+        # 1. Check Semantic Query Cache (TTL 365 Days, Similarity ≥ 0.96)
+        t0_embed = time.perf_counter()
+        embedding: List[float] = []
+        try:
+            embedding = _embed_text(cleaned_question, is_query=True)
+        except Exception as embed_exc:
+            logger.warning(f"Failed to generate query embedding: {embed_exc}")
+
+        if embedding and any(v != 0.0 for v in embedding):
+            cached = KnowledgeCacheService.get_cached_query(embedding, similarity_threshold=0.96)
+            if cached:
+                t_total_ms = int((time.perf_counter() - t_start) * 1000)
+                query_id = None
+                try:
+                    from app.services.knowledge_query_log_service import KnowledgeQueryLogService
+                    query_id = KnowledgeQueryLogService.log(
+                        question=question,
+                        cleaned_question=cleaned_question,
+                        retrieval_method="semantic_cache",
+                        matched_chunk_ids=[s.get("chunk_id") for s in cached.get("sources", []) if s.get("chunk_id")],
+                        source_count=len(cached.get("sources", [])),
+                        top_similarity=cached.get("similarity", 0.98),
+                        answer_text=cached.get("answer", ""),
+                        embedding_latency_ms=int((time.perf_counter() - t0_embed) * 1000),
+                        retrieval_latency_ms=0,
+                        generation_latency_ms=0,
+                        total_latency_ms=t_total_ms,
+                        chat_model="semantic_cache",
+                    )
+                except Exception as log_exc:
+                    logger.warning(f"Failed to log cached query: {log_exc}")
+
+                return {
+                    "query_id": query_id,
+                    "answer": cached["answer"],
+                    "sources": cached.get("sources", []),
+                    "cached": True,
+                }
+
+        # 2. Cache miss: Jalankan hybrid retrieval pipeline biasa
+        retrieval_res = KnowledgeService._run_retrieval_pipeline(
+            question, cleaned_question, match_count, t_start, precomputed_embedding=embedding
+        )
         if retrieval_res.get("is_empty"):
             return {
                 "query_id": retrieval_res.get("query_id"),
                 "answer": "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini.",
                 "sources": [],
+                "cached": False,
             }
 
         matched_sources = retrieval_res["matched_sources"]
@@ -1010,6 +1060,17 @@ class KnowledgeService:
         answer = _generate_answer(cleaned_question, matched_sources)
         t_gen_ms = int((time.perf_counter() - t0_gen) * 1000)
         t_total_ms = int((time.perf_counter() - t_start) * 1000)
+
+        # 3. Simpan hasil sukses ke Semantic Query Cache (TTL 365 Days)
+        if embedding and answer:
+            KnowledgeCacheService.set_cached_query(
+                question=question,
+                cleaned_question=cleaned_question,
+                embedding=embedding,
+                answer=answer,
+                sources=matched_sources,
+                ttl_days=365,
+            )
 
         try:
             from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
@@ -1056,6 +1117,7 @@ class KnowledgeService:
                 }
                 for source in matched_sources
             ],
+            "cached": False,
         }
 
     @staticmethod
@@ -1068,7 +1130,55 @@ class KnowledgeService:
             yield f"data: {err_json}\n\n"
             return
 
-        retrieval_res = KnowledgeService._run_retrieval_pipeline(question, cleaned_question, match_count, t_start)
+        # 1. Check Semantic Query Cache (TTL 365 Days, Similarity ≥ 0.96)
+        t0_embed = time.perf_counter()
+        embedding: List[float] = []
+        try:
+            embedding = _embed_text(cleaned_question, is_query=True)
+        except Exception as embed_exc:
+            logger.warning(f"Failed to generate query embedding: {embed_exc}")
+
+        if embedding and any(v != 0.0 for v in embedding):
+            cached = KnowledgeCacheService.get_cached_query(embedding, similarity_threshold=0.96)
+            if cached:
+                cached_sources = cached.get("sources", [])
+                yield f"data: {json.dumps({'type': 'sources', 'sources': cached_sources, 'cached': True})}\n\n"
+
+                # Stream cached answer in fast chunks
+                cached_answer = cached.get("answer", "")
+                words = cached_answer.split(" ")
+                for i in range(0, len(words), 5):
+                    chunk_str = " ".join(words[i:i + 5]) + " "
+                    yield f"data: {json.dumps({'type': 'chunk', 'text': chunk_str})}\n\n"
+
+                t_total_ms = int((time.perf_counter() - t_start) * 1000)
+                query_id = None
+                try:
+                    from app.services.knowledge_query_log_service import KnowledgeQueryLogService
+                    query_id = KnowledgeQueryLogService.log(
+                        question=question,
+                        cleaned_question=cleaned_question,
+                        retrieval_method="semantic_cache",
+                        matched_chunk_ids=[s.get("chunk_id") for s in cached_sources if s.get("chunk_id")],
+                        source_count=len(cached_sources),
+                        top_similarity=cached.get("similarity", 0.98),
+                        answer_text=cached_answer,
+                        embedding_latency_ms=int((time.perf_counter() - t0_embed) * 1000),
+                        retrieval_latency_ms=0,
+                        generation_latency_ms=0,
+                        total_latency_ms=t_total_ms,
+                        chat_model="semantic_cache",
+                    )
+                except Exception as log_exc:
+                    logger.warning(f"Failed to log cached query: {log_exc}")
+
+                yield f"data: {json.dumps({'type': 'done', 'query_id': query_id, 'sources': cached_sources, 'cached': True})}\n\n"
+                return
+
+        # 2. Cache miss: Jalankan hybrid retrieval pipeline biasa
+        retrieval_res = KnowledgeService._run_retrieval_pipeline(
+            question, cleaned_question, match_count, t_start, precomputed_embedding=embedding
+        )
         if retrieval_res.get("is_empty"):
             no_answer_text = "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini."
             yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
@@ -1089,10 +1199,10 @@ class KnowledgeService:
             for source in matched_sources
         ]
 
-        # 1. Kirim sources metadata terlebih dahulu ke client
-        yield f"data: {json.dumps({'type': 'sources', 'sources': formatted_sources})}\n\n"
+        # Kirim sources metadata terlebih dahulu ke client
+        yield f"data: {json.dumps({'type': 'sources', 'sources': formatted_sources, 'cached': False})}\n\n"
 
-        # 2. Stream potongan token teks dari Gemini
+        # Stream potongan token teks dari Gemini
         t0_gen = time.perf_counter()
         streamed_chunks: List[str] = []
         for chunk in _stream_generate_answer(cleaned_question, matched_sources):
@@ -1103,7 +1213,18 @@ class KnowledgeService:
         t_gen_ms = int((time.perf_counter() - t0_gen) * 1000)
         t_total_ms = int((time.perf_counter() - t_start) * 1000)
 
-        # 3. Log Inconsistency & Query Log
+        # Simpan ke Semantic Query Cache jika jawaban valid (TTL 365 Days)
+        if embedding and full_answer:
+            KnowledgeCacheService.set_cached_query(
+                question=question,
+                cleaned_question=cleaned_question,
+                embedding=embedding,
+                answer=full_answer,
+                sources=matched_sources,
+                ttl_days=365,
+            )
+
+        # Log Inconsistency & Query Log
         try:
             from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
             KnowledgeInconsistencyService.extract_and_log_from_answer(cleaned_question, full_answer)
@@ -1136,6 +1257,7 @@ class KnowledgeService:
             details={"question": cleaned_question, "source_count": len(matched_sources)},
         )
 
-        # 4. Kirim event selesai beserta query_id untuk feedback loop
-        yield f"data: {json.dumps({'type': 'done', 'query_id': query_id, 'sources': formatted_sources})}\n\n"
+        # Kirim event selesai beserta query_id untuk feedback loop
+        yield f"data: {json.dumps({'type': 'done', 'query_id': query_id, 'sources': formatted_sources, 'cached': False})}\n\n"
+
 

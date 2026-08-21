@@ -70,6 +70,7 @@ interface KnowledgeAnswer {
   answer: string
   sources: KnowledgeSource[]
   feedback?: { score: number; comment?: string }
+  cached?: boolean
 }
 
 const DOCUMENT_API = "/api/backend/knowledge/documents"
@@ -269,6 +270,7 @@ export default function RAGQueryPage() {
       let accumulatedText = ""
       let finalSources: KnowledgeSource[] = []
       let receivedQueryId: string | undefined
+      let isCachedResult = false
 
       while (!doneReading) {
         const { value, done } = await reader.read()
@@ -288,10 +290,12 @@ export default function RAGQueryPage() {
               const event = JSON.parse(jsonStr)
               if (event.type === "sources") {
                 finalSources = event.sources || []
+                if (event.cached !== undefined) isCachedResult = Boolean(event.cached)
                 setQueryAnswer((prev) => ({
                   answer: prev?.answer || "",
                   sources: finalSources,
                   query_id: prev?.query_id,
+                  cached: isCachedResult,
                 }))
               } else if (event.type === "chunk") {
                 accumulatedText += event.text || ""
@@ -299,9 +303,11 @@ export default function RAGQueryPage() {
                   answer: accumulatedText,
                   sources: prev?.sources || finalSources,
                   query_id: prev?.query_id,
+                  cached: isCachedResult,
                 }))
               } else if (event.type === "done") {
                 receivedQueryId = event.query_id
+                if (event.cached !== undefined) isCachedResult = Boolean(event.cached)
                 if (event.sources && event.sources.length > 0) {
                   finalSources = event.sources
                 }
@@ -309,6 +315,7 @@ export default function RAGQueryPage() {
                   answer: accumulatedText || prev?.answer || "",
                   sources: finalSources,
                   query_id: receivedQueryId || prev?.query_id,
+                  cached: isCachedResult,
                 }))
               } else if (event.type === "error") {
                 throw new Error(event.detail || "Terjadi kendala saat streaming jawaban.")
@@ -324,6 +331,7 @@ export default function RAGQueryPage() {
         answer: accumulatedText || "Tidak ada jawaban yang dihasilkan.",
         sources: finalSources,
         query_id: receivedQueryId,
+        cached: isCachedResult,
       }
       setQueryAnswer(completedAnswer)
       setQueryHistory((prev) => [
@@ -709,8 +717,19 @@ export default function RAGQueryPage() {
                       <BotIcon size={16} />
                     </span>
                     <div>
-                      <h3 className="text-sm font-bold text-white">Jawaban AI RAG Engine</h3>
-                      <p className="text-[11px] text-(--c-muted)">Berdasarkan {queryAnswer.sources.length} sumber referensi dokumen</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-white">Jawaban AI RAG Engine</h3>
+                        {queryAnswer.cached && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
+                            <ZapIcon size={10} /> Cache Instan (&lt;50ms)
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-(--c-muted)">
+                        {queryAnswer.cached
+                          ? "Disajikan instan dari Semantic Cache 365-Hari"
+                          : `Berdasarkan ${queryAnswer.sources.length} sumber referensi dokumen`}
+                      </p>
                     </div>
                   </div>
 
