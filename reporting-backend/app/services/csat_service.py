@@ -23,18 +23,24 @@ class CsatService:
             ).execute()
 
             data = res.data if res.data else {}
+            if isinstance(data, list) and data:
+                data = data[0] if isinstance(data[0], dict) else {}
+            elif not isinstance(data, dict):
+                data = {}
+
+            summary = data.get("summary") or {}
 
             return {
-                "summary": data.get("summary", {
-                    "total_response": 0,
-                    "high_score": 0,
-                    "low_score": 0,
-                    "avg_csat": 0
-                }),
-                "distribution": data.get("distribution", []),
-                "trend": data.get("trend", []),
-                "top_agent_total": data.get("top_agent_total", []),
-                "top_agent_avg": data.get("top_agent_avg", [])
+                "summary": {
+                    "total_response": int(summary.get("total_response") or 0),
+                    "high_score": int(summary.get("high_score") or 0),
+                    "low_score": int(summary.get("low_score") or 0),
+                    "avg_csat": round(float(summary.get("avg_csat") or 0), 2)
+                },
+                "distribution": data.get("distribution") or [],
+                "trend": data.get("trend") or [],
+                "top_agent_total": data.get("top_agent_total") or [],
+                "top_agent_avg": data.get("top_agent_avg") or []
             }
 
         except Exception as e:
@@ -44,7 +50,7 @@ class CsatService:
                     "total_response": 0,
                     "high_score": 0,
                     "low_score": 0,
-                    "avg_csat": 0
+                    "avg_csat": 0.0
                 },
                 "distribution": [],
                 "trend": [],

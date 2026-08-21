@@ -26,8 +26,14 @@ export type CsatPayload = {
 }
 
 function normalizeCsatResponse(response: CsatResponse): CsatPayload {
+  const rawSummary = response.summary ?? EMPTY_SUMMARY
   return {
-    summary: response.summary ?? EMPTY_SUMMARY,
+    summary: {
+      total_response: Number(rawSummary.total_response || 0),
+      high_score: Number(rawSummary.high_score || 0),
+      low_score: Number(rawSummary.low_score || 0),
+      avg_csat: Number(rawSummary.avg_csat || 0),
+    },
     rawTrend: Array.isArray(response.trend) ? response.trend : [],
     rawDistribution: Array.isArray(response.distribution) ? response.distribution : [],
     topAgentTotal: Array.isArray(response.top_agent_total) ? response.top_agent_total : [],

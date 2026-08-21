@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.security import require_admin_token
@@ -19,6 +19,12 @@ MAX_BATCH_UPLOAD_FILES = 5
 class KnowledgeQueryRequest(BaseModel):
     question: str = Field(..., min_length=3, max_length=2000)
     match_count: int = Field(6, ge=1, le=12)
+
+
+class KnowledgeFeedbackRequest(BaseModel):
+    query_id: str = Field(..., min_length=1)
+    feedback: int = Field(..., description="1 for thumbs up, -1 for thumbs down")
+    comment: Optional[str] = Field(default=None, max_length=1000)
 
 
 class KnowledgeTextRequest(BaseModel):
@@ -200,6 +206,39 @@ def add_web_knowledge_url(
 @router.post("/query")
 def query_knowledge(payload: KnowledgeQueryRequest):
     return KnowledgeService.query(payload.question, payload.match_count)
+
+
+@router.post("/query-stream")
+def query_knowledge_stream(payload: KnowledgeQueryRequest):
+    """
+    Streaming response (SSE) yang mengirim potongan token secara realtime
+    ke frontend Next.js untuk mereduksi Time-To-First-Token (TTFT).
+    """
+    return StreamingResponse(
+        KnowledgeService.query_stream(payload.question, payload.match_count),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/feedback")
+def submit_knowledge_feedback(payload: KnowledgeFeedbackRequest):
+    """
+    Mencatat rating feedback (+1 / -1) dari pengguna untuk observabilitas & peningkatan RAG.
+    """
+    from app.services.knowledge_query_log_service import KnowledgeQueryLogService
+    result = KnowledgeQueryLogService.submit_feedback(
+        query_id=payload.query_id,
+        feedback_score=payload.feedback,
+        comment=payload.comment,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("detail", "Gagal menyimpan feedback."))
+    return result
 
 
 @router.get("/backup/export")

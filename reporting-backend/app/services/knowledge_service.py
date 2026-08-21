@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
+import json
 import logging
 import re
 import time
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, Generator, List, Optional, Set
 
 from fastapi import HTTPException, UploadFile, status
 
@@ -74,6 +75,7 @@ from app.services.knowledge_retrieval_service import (
     _chunk_matches_any_term,
     _execute_chunk_select,
     _fetch_entity_index_chunks,
+    _fetch_fts_chunks,
     _fetch_keyword_chunks,
     _filter_rank_keyword_chunks,
     _indicator_query_terms,
@@ -85,6 +87,7 @@ from app.services.knowledge_retrieval_service import (
 from app.services.knowledge_answer_service import (
     _KB_SYSTEM_INSTRUCTION,
     _generate_answer,
+    _stream_generate_answer,
 )
 
 logger = logging.getLogger(__name__)
@@ -618,17 +621,20 @@ class KnowledgeService:
         }
 
     @staticmethod
-    def query(question: str, match_count: int = 6) -> Dict[str, Any]:
-        t_start = time.perf_counter()
-        _check_and_flag_embedding_reindex_if_needed()
-        cleaned_question = question.strip()
-        if len(cleaned_question) < 3:
-            raise HTTPException(status_code=400, detail="Pertanyaan terlalu pendek.")
-
+    def _run_retrieval_pipeline(
+        question: str,
+        cleaned_question: str,
+        match_count: int,
+        t_start: float,
+    ) -> Dict[str, Any]:
+        """
+        Orkestrasi Hybrid Retrieval: Vector search (pgvector) + FTS (Postgres BM25) +
+        Entity Index lookup + Targeted Keyword/Policy matching + Multi-entity balancing.
+        """
         sources: List[Dict[str, Any]] = []
         retrieval_methods_used: Set[str] = set()
 
-        # 1. Vector Search
+        # 1. Vector Search (Dense)
         t0_embed = time.perf_counter()
         t_embed_ms = 0
         try:
@@ -653,7 +659,30 @@ class KnowledgeService:
         except Exception as exc:
             logger.warning(f"Vector search embedding failed or unconfigured: {exc}")
 
-        # Check for service / sparepart policy terms (e.g., discontinued memo)
+        # 2. PostgreSQL Full-Text Search (FTS / BM25) via RPC
+        try:
+            fts_raw = _fetch_fts_chunks(cleaned_question, match_count * 2)
+            if fts_raw:
+                ranked_fts = _filter_rank_keyword_chunks(fts_raw, match_count)
+                existing_ids = {s.get("chunk_id") or s.get("id") for s in sources}
+                for fc in ranked_fts:
+                    cid = fc.get("chunk_id") or fc.get("id")
+                    if cid and cid not in existing_ids:
+                        sources.append({
+                            "chunk_id": cid,
+                            "document_id": fc.get("document_id"),
+                            "title": fc.get("title"),
+                            "content": fc.get("content"),
+                            "context_prefix": fc.get("context_prefix"),
+                            "chunk_index": fc.get("chunk_index"),
+                            "similarity": float(fc.get("rank") or 0.82),
+                        })
+                        existing_ids.add(cid)
+                        retrieval_methods_used.add("fts")
+        except Exception as fts_exc:
+            logger.debug(f"FTS search error: {fts_exc}")
+
+        # 3. Check for service / sparepart policy terms (e.g., discontinued memo)
         service_terms = {"service", "servis", "sparepart", "baterai", "onderdil", "discontinued", "pemberhentian", "ganti", "rusak", "perbaikan"}
         is_service_related = any(term in cleaned_question.lower() for term in service_terms)
         if is_service_related:
@@ -826,6 +855,8 @@ class KnowledgeService:
             retrieval_method = "hybrid"
         elif "vector" in retrieval_methods_used:
             retrieval_method = "vector"
+        elif "fts" in retrieval_methods_used:
+            retrieval_method = "fts"
         elif "entity_index" in retrieval_methods_used:
             retrieval_method = "entity_index"
         elif "keyword" in retrieval_methods_used:
@@ -838,9 +869,10 @@ class KnowledgeService:
         if not sources:
             no_answer_text = "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini."
             t_total_ms = int((time.perf_counter() - t_start) * 1000)
+            logged_id = None
             try:
                 from app.services.knowledge_query_log_service import KnowledgeQueryLogService
-                KnowledgeQueryLogService.log(
+                logged_id = KnowledgeQueryLogService.log(
                     question=question,
                     cleaned_question=cleaned_question,
                     retrieval_method=retrieval_method,
@@ -858,8 +890,15 @@ class KnowledgeService:
                 logger.warning(f"Failed to log unanswered query: {log_exc}")
 
             return {
-                "answer": no_answer_text,
+                "is_empty": True,
+                "query_id": logged_id,
                 "sources": [],
+                "matched_sources": [],
+                "retrieval_method": retrieval_method,
+                "top_similarity": None,
+                "t_embed_ms": t_embed_ms,
+                "t_retrieval_ms": t_retrieval_ms,
+                "matched_chunk_ids": [],
             }
 
         if sources and keywords:
@@ -937,12 +976,40 @@ class KnowledgeService:
         else:
             matched_sources = sources[:match_count]
 
+        matched_chunk_ids = [str(s.get("chunk_id")) for s in matched_sources if s.get("chunk_id")]
+
+        return {
+            "is_empty": False,
+            "sources": sources,
+            "matched_sources": matched_sources,
+            "retrieval_method": retrieval_method,
+            "top_similarity": top_similarity,
+            "t_embed_ms": t_embed_ms,
+            "t_retrieval_ms": t_retrieval_ms,
+            "matched_chunk_ids": matched_chunk_ids,
+        }
+
+    @staticmethod
+    def query(question: str, match_count: int = 6) -> Dict[str, Any]:
+        t_start = time.perf_counter()
+        _check_and_flag_embedding_reindex_if_needed()
+        cleaned_question = question.strip()
+        if len(cleaned_question) < 3:
+            raise HTTPException(status_code=400, detail="Pertanyaan terlalu pendek.")
+
+        retrieval_res = KnowledgeService._run_retrieval_pipeline(question, cleaned_question, match_count, t_start)
+        if retrieval_res.get("is_empty"):
+            return {
+                "query_id": retrieval_res.get("query_id"),
+                "answer": "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini.",
+                "sources": [],
+            }
+
+        matched_sources = retrieval_res["matched_sources"]
         t0_gen = time.perf_counter()
         answer = _generate_answer(cleaned_question, matched_sources)
         t_gen_ms = int((time.perf_counter() - t0_gen) * 1000)
         t_total_ms = int((time.perf_counter() - t_start) * 1000)
-
-        matched_chunk_ids = [str(s.get("chunk_id")) for s in matched_sources if s.get("chunk_id")]
 
         try:
             from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
@@ -950,18 +1017,19 @@ class KnowledgeService:
         except Exception as inc_exc:
             logger.warning(f"Failed auto-logging inconsistency: {inc_exc}")
 
+        query_id = None
         try:
             from app.services.knowledge_query_log_service import KnowledgeQueryLogService
-            KnowledgeQueryLogService.log(
+            query_id = KnowledgeQueryLogService.log(
                 question=question,
                 cleaned_question=cleaned_question,
-                retrieval_method=retrieval_method,
-                matched_chunk_ids=matched_chunk_ids,
+                retrieval_method=retrieval_res["retrieval_method"],
+                matched_chunk_ids=retrieval_res["matched_chunk_ids"],
                 source_count=len(matched_sources),
-                top_similarity=top_similarity,
+                top_similarity=retrieval_res["top_similarity"],
                 answer_text=answer,
-                embedding_latency_ms=t_embed_ms,
-                retrieval_latency_ms=t_retrieval_ms,
+                embedding_latency_ms=retrieval_res["t_embed_ms"],
+                retrieval_latency_ms=retrieval_res["t_retrieval_ms"],
                 generation_latency_ms=t_gen_ms,
                 total_latency_ms=t_total_ms,
                 chat_model=resolve_chat_model(),
@@ -975,6 +1043,7 @@ class KnowledgeService:
             details={"question": cleaned_question, "source_count": len(matched_sources)},
         )
         return {
+            "query_id": query_id,
             "answer": answer,
             "sources": [
                 {
@@ -988,3 +1057,85 @@ class KnowledgeService:
                 for source in matched_sources
             ],
         }
+
+    @staticmethod
+    def query_stream(question: str, match_count: int = 6) -> Generator[str, None, None]:
+        t_start = time.perf_counter()
+        _check_and_flag_embedding_reindex_if_needed()
+        cleaned_question = question.strip()
+        if len(cleaned_question) < 3:
+            err_json = json.dumps({"type": "error", "detail": "Pertanyaan terlalu pendek."})
+            yield f"data: {err_json}\n\n"
+            return
+
+        retrieval_res = KnowledgeService._run_retrieval_pipeline(question, cleaned_question, match_count, t_start)
+        if retrieval_res.get("is_empty"):
+            no_answer_text = "Knowledge base belum punya informasi yang cukup untuk menjawab pertanyaan ini."
+            yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
+            yield f"data: {json.dumps({'type': 'chunk', 'text': no_answer_text})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'query_id': retrieval_res.get('query_id'), 'sources': []})}\n\n"
+            return
+
+        matched_sources = retrieval_res["matched_sources"]
+        formatted_sources = [
+            {
+                "chunk_id": source.get("chunk_id"),
+                "document_id": source.get("document_id"),
+                "title": source.get("title"),
+                "content": source.get("content"),
+                "chunk_index": source.get("chunk_index"),
+                "similarity": source.get("similarity"),
+            }
+            for source in matched_sources
+        ]
+
+        # 1. Kirim sources metadata terlebih dahulu ke client
+        yield f"data: {json.dumps({'type': 'sources', 'sources': formatted_sources})}\n\n"
+
+        # 2. Stream potongan token teks dari Gemini
+        t0_gen = time.perf_counter()
+        streamed_chunks: List[str] = []
+        for chunk in _stream_generate_answer(cleaned_question, matched_sources):
+            streamed_chunks.append(chunk)
+            yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
+
+        full_answer = "".join(streamed_chunks)
+        t_gen_ms = int((time.perf_counter() - t0_gen) * 1000)
+        t_total_ms = int((time.perf_counter() - t_start) * 1000)
+
+        # 3. Log Inconsistency & Query Log
+        try:
+            from app.services.knowledge_inconsistency_service import KnowledgeInconsistencyService
+            KnowledgeInconsistencyService.extract_and_log_from_answer(cleaned_question, full_answer)
+        except Exception as inc_exc:
+            logger.warning(f"Failed auto-logging inconsistency in stream: {inc_exc}")
+
+        query_id = None
+        try:
+            from app.services.knowledge_query_log_service import KnowledgeQueryLogService
+            query_id = KnowledgeQueryLogService.log(
+                question=question,
+                cleaned_question=cleaned_question,
+                retrieval_method=retrieval_res["retrieval_method"],
+                matched_chunk_ids=retrieval_res["matched_chunk_ids"],
+                source_count=len(matched_sources),
+                top_similarity=retrieval_res["top_similarity"],
+                answer_text=full_answer,
+                embedding_latency_ms=retrieval_res["t_embed_ms"],
+                retrieval_latency_ms=retrieval_res["t_retrieval_ms"],
+                generation_latency_ms=t_gen_ms,
+                total_latency_ms=t_total_ms,
+                chat_model=resolve_chat_model(),
+            )
+        except Exception as log_exc:
+            logger.warning(f"Failed to log stream query execution: {log_exc}")
+
+        AuditLogService.log(
+            action="KNOWLEDGE_QUERY",
+            resource="knowledge_chunks",
+            details={"question": cleaned_question, "source_count": len(matched_sources)},
+        )
+
+        # 4. Kirim event selesai beserta query_id untuk feedback loop
+        yield f"data: {json.dumps({'type': 'done', 'query_id': query_id, 'sources': formatted_sources})}\n\n"
+

@@ -11,7 +11,7 @@ import React, {
 } from "react"
 
 import { useTheme } from "@/providers/theme-provider"
-import { Sun, Moon, Calendar, Star, Database } from "lucide-react"
+import { Sun, Moon, Calendar, Star, Database, MessageSquareHeart, Smile, Frown } from "lucide-react"
 
 import {
   MONTHS,
@@ -29,6 +29,7 @@ import { useCsatData } from "@/features/csat/hooks/useCsatData"
 
 import Card from "@/components/ui/card"
 import Skeleton from "@/components/ui/skeleton"
+import KpiCard from "@/components/ui/KpiCard"
 import PeriodDropdown from "@/features/csat/components/PeriodDropdown"
 import AgentRow from "@/features/csat/components/AgentRow"
 
@@ -155,10 +156,34 @@ export default function CSATPage() {
     : ({ "--c-bg": "#f0f2f5", "--c-surface": "#ffffff", "--c-control": "#f7f8fa", "--c-border": "rgba(0,0,0,0.08)", "--c-text": "#1a1d27", "--c-muted": "#6b7280", "--c-skeleton": "#e5e7eb", "--c-accent": "#0ea5e9" } as React.CSSProperties)
 
   const KPI_CARDS = useMemo(() => [
-    { label: "Total Response", value: fmt(summary.total_response || 0), color: "#0ea5e9" },
-    { label: "High Score (4-5)", value: fmt(summary.high_score || 0), color: "#22c55e" },
-    { label: "Low Score (1-2)", value: fmt(summary.low_score || 0), color: "#ef4444" },
-    { label: "Avg CSAT Score", value: `${summary.avg_csat || 0} ⭐`, color: "#f59e0b" },
+    {
+      label: "Total Response",
+      value: fmt(summary?.total_response || 0),
+      rawValue: summary?.total_response || 0,
+      color: "#0ea5e9",
+      Icon: MessageSquareHeart,
+    },
+    {
+      label: "High Score (4-5)",
+      value: fmt(summary?.high_score || 0),
+      rawValue: summary?.high_score || 0,
+      color: "#22c55e",
+      Icon: Smile,
+    },
+    {
+      label: "Low Score (1-2)",
+      value: fmt(summary?.low_score || 0),
+      rawValue: summary?.low_score || 0,
+      color: "#ef4444",
+      Icon: Frown,
+    },
+    {
+      label: "Avg CSAT Score",
+      value: `${summary?.avg_csat ? Number(summary.avg_csat).toFixed(2) : "0.00"} ⭐`,
+      rawValue: summary?.avg_csat || 0,
+      color: "#f59e0b",
+      Icon: Star,
+    },
   ], [summary])
 
   return (
@@ -169,7 +194,7 @@ export default function CSATPage() {
         color: "var(--c-text)", 
         fontFamily: "'Plus Jakarta Sans','Inter','Segoe UI',sans-serif", 
         display: "flex", 
-        flexDirection: "column",
+        flexDirection: "column", 
         overflowX: "hidden" 
     }}>
       <style>{`
@@ -220,22 +245,18 @@ export default function CSATPage() {
       <main style={{ padding: 20, maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
         {error && <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "#ef4444", borderRadius: 10, fontSize: 13 }}>Error: {error}</div>}
         
-        <div className="responsive-grid-kpi">
+        {/* KPI CARDS */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {KPI_CARDS.map((kpi) => (
-            <Card key={kpi.label}>
-              <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 11 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontSize: 10, fontWeight: 700, color: "var(--c-muted)", textTransform: "uppercase" }}>{kpi.label}</span><Star size={13} color={kpi.color} /></div>
-                {loading ? <Skeleton w="60%" h={24} /> : <span style={{ fontSize: 22, fontWeight: 700 }}>{kpi.value}</span>}
-                <div style={{ height: 2, background: `${kpi.color}20`, borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{ 
-                      height: "100%", 
-                      width: loading ? "0%" : (kpi.label === "Avg CSAT Score" ? `${(summary.avg_csat / 5) * 100}%` : "100%"), 
-                      background: kpi.color, 
-                      transition: "width 1s ease" 
-                  }} />
-                </div>
-              </div>
-            </Card>
+            <KpiCard
+              key={kpi.label}
+              label={kpi.label}
+              value={kpi.value}
+              rawValue={kpi.rawValue}
+              color={kpi.color}
+              Icon={kpi.Icon}
+              loading={loading}
+            />
           ))}
         </div>
 

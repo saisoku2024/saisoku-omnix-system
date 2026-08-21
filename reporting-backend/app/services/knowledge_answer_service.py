@@ -111,7 +111,80 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
             except Exception as exc:
                 logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
 
-    return (
-        "Saya menemukan sumber Knowledge Base yang relevan, tetapi AI penyusun jawaban sedang tidak tersedia. "
-        "Silakan coba lagi beberapa saat lagi."
-    )
+import json
+from typing import Generator
+
+def _stream_generate_answer(question: str, sources: List[Dict[str, Any]]) -> Generator[str, None, None]:
+    """
+    Generator streaming yang memanggil Gemini streamGenerateContent?alt=sse
+    dan menghasilkan potongan token teks secara real-time.
+    """
+    context_blocks = []
+    for idx, source in enumerate(sources):
+        ctx_prefix = source.get("context_prefix")
+        body = f"Konteks Posisi: {ctx_prefix}\n{source['content']}" if ctx_prefix else source['content']
+        context_blocks.append(f"[Source {idx + 1}: {source['title']}]\n{body}")
+    context = "\n\n".join(context_blocks)
+    prompt = f"KONTEKS:\n{context}\n\nPERTANYAAN:\n{question}"
+
+    keys = _get_gemini_keys()
+    if not keys:
+        try:
+            keys = [_gemini_api_key()]
+        except Exception:
+            keys = []
+    candidate_models = chat_fallback_chain()
+
+    for m in candidate_models:
+        for key in keys:
+            try:
+                url = f"{GEMINI_API_BASE}/models/{m}:streamGenerateContent?alt=sse"
+                headers = {"x-goog-api-key": key, "Content-Type": "application/json"}
+                payload = {
+                    "systemInstruction": {"parts": [{"text": _KB_SYSTEM_INSTRUCTION}]},
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "topP": 0.95,
+                        "topK": 40,
+                        "maxOutputTokens": 3500,
+                    },
+                }
+                with _HTTPX_CLIENT.stream("POST", url, headers=headers, json=payload, timeout=60.0) as response:
+                    if response.status_code == 200:
+                        streamed_any = False
+                        for line in response.iter_lines():
+                            if not line:
+                                continue
+                            line_str = line.strip()
+                            if line_str.startswith("data:"):
+                                raw_json = line_str[5:].strip()
+                                if not raw_json or raw_json == "[DONE]":
+                                    continue
+                                try:
+                                    chunk_data = json.loads(raw_json)
+                                    candidates = chunk_data.get("candidates") or []
+                                    if candidates:
+                                        content = candidates[0].get("content", {})
+                                        parts = content.get("parts") or []
+                                        for part in parts:
+                                            if not part.get("thought") and not part.get("thoughtSignature"):
+                                                chunk_text = part.get("text", "")
+                                                if chunk_text:
+                                                    streamed_any = True
+                                                    yield chunk_text
+                                except Exception as parse_err:
+                                    logger.debug(f"SSE JSON parse chunk err: {parse_err}")
+                        if streamed_any:
+                            return
+                    elif response.status_code == 429:
+                        logger.warning(f"Gemini streaming API key ({key[:6]}...) rate limited on {m}. Trying next...")
+                        continue
+                    else:
+                        logger.warning(f"Gemini stream model {m} failed HTTP {response.status_code}")
+            except Exception as exc:
+                logger.warning(f"Gemini streaming request failed for model {m}: {exc}")
+
+    # Fallback jika stream gagal
+    yield "Saya menemukan sumber Knowledge Base yang relevan, tetapi AI penyusun jawaban sedang tidak tersedia. Silakan coba lagi beberapa saat lagi."
+

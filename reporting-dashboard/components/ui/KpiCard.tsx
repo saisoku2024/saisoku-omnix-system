@@ -58,7 +58,7 @@ function KpiCard({ label, value, Icon, color, loading }: KpiCardProps) {
             <span
               className="font-heading text-[20px] font-extrabold leading-none tracking-tight tabular-nums text-white"
             >
-              {value || "0m 0s"}
+              {value || "0"}
             </span>
           )}
         </div>

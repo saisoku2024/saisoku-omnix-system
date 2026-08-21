@@ -71,6 +71,31 @@ def _execute_chunk_select(select_builder_fn, limit: int) -> List[Dict[str, Any]]
         return []
 
 
+def _fetch_fts_chunks(query_text: str, limit: int) -> List[Dict[str, Any]]:
+    """
+    Menjalankan pencarian Full-Text Search (BM25 / tsvector) di Supabase via RPC.
+    Jika RPC database belum aktif atau gagal, return list kosong sebagai graceful fallback.
+    """
+    clean_query = query_text.strip()
+    if not clean_query:
+        return []
+    try:
+        res = (
+            supabase.rpc(
+                "search_knowledge_chunks_fts",
+                {
+                    "query_text": clean_query,
+                    "match_count": limit,
+                },
+            )
+            .execute()
+        )
+        return res.data or []
+    except Exception as exc:
+        logger.info(f"FTS search RPC search_knowledge_chunks_fts not available or failed: {exc}")
+        return []
+
+
 def _fetch_keyword_chunks(keyword_groups: List[List[str]], limit: int) -> List[Dict[str, Any]]:
     found: List[Dict[str, Any]] = []
     seen_ids: Set[str] = set()

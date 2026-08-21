@@ -23,6 +23,8 @@ import {
   SearchIcon,
   SendIcon,
   SparklesIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
   Trash2Icon,
   XIcon,
   ZapIcon,
@@ -64,13 +66,17 @@ interface KnowledgeSource {
 }
 
 interface KnowledgeAnswer {
+  query_id?: string
   answer: string
   sources: KnowledgeSource[]
+  feedback?: { score: number; comment?: string }
 }
 
 const DOCUMENT_API = "/api/backend/knowledge/documents"
 const INCONSISTENCY_API = "/api/backend/knowledge/inconsistencies"
 const QUERY_API = "/api/backend/knowledge/query"
+const QUERY_STREAM_API = "/api/backend/knowledge/query-stream"
+const FEEDBACK_API = "/api/backend/knowledge/feedback"
 const BACKUP_EXPORT_API = "/api/backend/knowledge/backup/export"
 const BACKUP_RESTORE_API = "/api/backend/knowledge/backup/restore"
 
@@ -141,6 +147,8 @@ export default function RAGQueryPage() {
   const [queryAnswer, setQueryAnswer] = useState<KnowledgeAnswer | null>(null)
   const [queryHistory, setQueryHistory] = useState<Array<{ question: string; answer: KnowledgeAnswer; time: string }>>([])
   const [copiedAnswer, setCopiedAnswer] = useState(false)
+  const [submittingFeedback, setSubmittingFeedback] = useState(false)
+  const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null)
 
   const [error, setError] = useState<string | null>(null)
   const [queryError, setQueryError] = useState<string | null>(null)
@@ -186,7 +194,7 @@ export default function RAGQueryPage() {
 
   const fetchInconsistencies = async () => {
     try {
-      const res = await fetch(INCONSISTENCY_API)
+      const res = await fetch(`${INCONSISTENCY_API}?limit=10`)
       const data = await res.json()
       if (!res.ok) return
       setInconsistencies(data.inconsistencies || [])
@@ -229,23 +237,99 @@ export default function RAGQueryPage() {
     try {
       setQuerying(true)
       setQueryError(null)
-      setQueryAnswer(null)
+      setFeedbackSuccess(null)
+      
+      const currentAnswerObj: KnowledgeAnswer = {
+        answer: "",
+        sources: [],
+      }
+      setQueryAnswer(currentAnswerObj)
 
-      const res = await fetch(QUERY_API, {
+      // Coba panggil streaming endpoint terlebih dahulu
+      const res = await fetch(QUERY_STREAM_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q, match_count: 6 }),
         signal: abortControllerRef.current.signal,
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(readError(data, "Gagal memproses pertanyaan RAG"))
 
-      const answerObj: KnowledgeAnswer = {
-        answer: data.answer || "Tidak ada jawaban yang dihasilkan.",
-        sources: data.sources || [],
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(readError(errorData, "Gagal memproses pertanyaan RAG"))
       }
-      setQueryAnswer(answerObj)
-      setQueryHistory((prev) => [{ question: q, answer: answerObj, time: new Date().toLocaleTimeString("id-ID") }, ...prev])
+
+      if (!res.body) {
+        throw new Error("Streaming response tidak tersedia.")
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let doneReading = false
+      let buffer = ""
+      let accumulatedText = ""
+      let finalSources: KnowledgeSource[] = []
+      let receivedQueryId: string | undefined
+
+      while (!doneReading) {
+        const { value, done } = await reader.read()
+        doneReading = done
+        if (value) {
+          buffer += decoder.decode(value, { stream: !done })
+          const lines = buffer.split("\n\n")
+          buffer = lines.pop() || ""
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed.startsWith("data:")) continue
+            const jsonStr = trimmed.slice(5).trim()
+            if (!jsonStr) continue
+
+            try {
+              const event = JSON.parse(jsonStr)
+              if (event.type === "sources") {
+                finalSources = event.sources || []
+                setQueryAnswer((prev) => ({
+                  answer: prev?.answer || "",
+                  sources: finalSources,
+                  query_id: prev?.query_id,
+                }))
+              } else if (event.type === "chunk") {
+                accumulatedText += event.text || ""
+                setQueryAnswer((prev) => ({
+                  answer: accumulatedText,
+                  sources: prev?.sources || finalSources,
+                  query_id: prev?.query_id,
+                }))
+              } else if (event.type === "done") {
+                receivedQueryId = event.query_id
+                if (event.sources && event.sources.length > 0) {
+                  finalSources = event.sources
+                }
+                setQueryAnswer((prev) => ({
+                  answer: accumulatedText || prev?.answer || "",
+                  sources: finalSources,
+                  query_id: receivedQueryId || prev?.query_id,
+                }))
+              } else if (event.type === "error") {
+                throw new Error(event.detail || "Terjadi kendala saat streaming jawaban.")
+              }
+            } catch (pErr) {
+              console.debug("SSE parse line error:", pErr)
+            }
+          }
+        }
+      }
+
+      const completedAnswer: KnowledgeAnswer = {
+        answer: accumulatedText || "Tidak ada jawaban yang dihasilkan.",
+        sources: finalSources,
+        query_id: receivedQueryId,
+      }
+      setQueryAnswer(completedAnswer)
+      setQueryHistory((prev) => [
+        { question: q, answer: completedAnswer, time: new Date().toLocaleTimeString("id-ID") },
+        ...prev,
+      ])
 
       setTimeout(() => {
         answerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
@@ -255,6 +339,34 @@ export default function RAGQueryPage() {
       setQueryError(err instanceof Error ? err.message : "Gagal bertanya ke RAG AI")
     } finally {
       setQuerying(false)
+    }
+  }
+
+  const handleFeedback = async (score: 1 | -1) => {
+    if (!queryAnswer?.query_id || submittingFeedback) return
+    setSubmittingFeedback(true)
+    setFeedbackSuccess(null)
+    try {
+      const res = await fetch(FEEDBACK_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query_id: queryAnswer.query_id,
+          feedback: score,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(readError(data, "Gagal menyimpan feedback"))
+      setQueryAnswer((prev) => (prev ? { ...prev, feedback: { score } } : null))
+      setFeedbackSuccess(
+        score === 1
+          ? "Terima kasih atas feedback positif Anda!"
+          : "Terima kasih atas masukannya, kami akan terus meningkatkan data knowledge base."
+      )
+    } catch (err) {
+      console.error("Feedback error:", err)
+    } finally {
+      setSubmittingFeedback(false)
     }
   }
 
@@ -642,6 +754,48 @@ export default function RAGQueryPage() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* User Feedback Loop */}
+                {queryAnswer.query_id && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-(--c-border) pt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-(--c-muted)">Apakah jawaban ini membantu?</span>
+                      <button
+                        type="button"
+                        disabled={submittingFeedback || queryAnswer.feedback?.score === 1}
+                        onClick={() => handleFeedback(1)}
+                        title="Jawaban Membantu (Thumbs Up)"
+                        className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all ${
+                          queryAnswer.feedback?.score === 1
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                            : "border-(--c-border) bg-(--c-overlay) text-(--c-muted) hover:border-emerald-500/40 hover:text-emerald-400"
+                        } disabled:opacity-50`}
+                      >
+                        <ThumbsUpIcon size={12} />
+                        <span>Bagus</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submittingFeedback || queryAnswer.feedback?.score === -1}
+                        onClick={() => handleFeedback(-1)}
+                        title="Jawaban Kurang Tepat (Thumbs Down)"
+                        className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all ${
+                          queryAnswer.feedback?.score === -1
+                            ? "border-red-500/50 bg-red-500/15 text-red-300"
+                            : "border-(--c-border) bg-(--c-overlay) text-(--c-muted) hover:border-red-500/40 hover:text-red-400"
+                        } disabled:opacity-50`}
+                      >
+                        <ThumbsDownIcon size={12} />
+                        <span>Kurang Tepat</span>
+                      </button>
+                      {feedbackSuccess && (
+                        <span className="text-[11px] font-medium text-emerald-400">
+                          {feedbackSuccess}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
