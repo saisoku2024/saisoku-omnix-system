@@ -180,6 +180,7 @@ Input User → Analisa & Check Project → Hasil Temuan → Plan Perbaikan → P
 - **Native PostgreSQL Full-Text Search (FTS)**: Menambahkan kolom terindeks `fts tsvector` (GIN Index) pada tabel `knowledge_chunks` dan RPC `search_knowledge_chunks_fts` untuk hybrid search berkecepatan tinggi.
 - **User Feedback Loop**: Menambahkan tracking rating pengguna (👍 / 👎) dengan endpoint `POST /knowledge/feedback`, metrik *satisfaction rate*, dan integrasi UI interaktif.
 - **365-Day Semantic Query Caching**: Menambahkan tabel `knowledge_semantic_cache` dan RPC `match_semantic_cache` ($\ge 0.96$ similarity) untuk menyajikan respon instan (<50ms) dengan **Smart Auto-Invalidation** saat dokumen diperbarui.
+- **Automated Re-index & Health Diagnostics Dashboard**: Menambahkan endpoint `/knowledge/maintenance/health`, `reindex-embeddings`, `reindex-entities`, dan `clear-cache` beserta panel interaktif diagnosa sistem vektor dan tombol 1-klik pemeliharaan di dashboard Knowledge Base.
 - **Dokumentasi & Tech Stack Update**: Memperbarui README master dengan rincian lengkap arsitektur enterprise RAG, dependency stack, dan panduan deployment.
 
 ### 2026-08-04

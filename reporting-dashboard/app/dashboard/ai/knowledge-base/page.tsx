@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import type { Components } from "react-markdown"
 import {
+  ActivityIcon,
   AlertTriangleIcon,
   ArchiveIcon,
   BookOpenIcon,
@@ -13,6 +14,7 @@ import {
   ChevronRightIcon,
   ClipboardIcon,
   CopyIcon,
+  CpuIcon,
   DatabaseIcon,
   EyeIcon,
   FileSpreadsheetIcon,
@@ -26,12 +28,14 @@ import {
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
+  ShieldCheckIcon,
   SparklesIcon,
   TagIcon,
   Trash2Icon,
   TypeIcon,
   UploadIcon,
   XIcon,
+  ZapIcon,
 } from "lucide-react"
 
 import { uploadFileToStorage } from "@/lib/storage-upload"
@@ -71,6 +75,43 @@ interface KnowledgeDocument {
   updated_at?: string
 }
 
+export interface KnowledgeHealthData {
+  status: "healthy" | "degraded" | "critical" | "error"
+  warnings?: string[]
+  models?: {
+    chat_model: string
+    default_chat_model: string
+    embedding_model: string
+    default_embedding_model: string
+    embedding_dimension: number
+  }
+  documents?: {
+    total: number
+    ready: number
+    processing: number
+    failed: number
+    needs_reindex: number
+  }
+  chunks?: {
+    total_chunks: number
+    avg_chunks_per_doc: number
+    chunks_with_context: number
+    total_estimated_tokens: number
+  }
+  entities?: {
+    total_entities: number
+  }
+  semantic_cache?: {
+    total_cached_queries: number
+    total_cache_hits: number
+    ttl_days: number
+  }
+  inconsistencies?: {
+    unresolved_count: number
+  }
+  checked_at?: string
+}
+
 const DOCUMENT_API = "/api/backend/knowledge/documents"
 const STORAGE_INGEST_API = "/api/backend/knowledge/storage-ingest"
 const TEXT_API = "/api/backend/knowledge/text"
@@ -78,6 +119,10 @@ const URL_API = "/api/backend/knowledge/url"
 const QUERY_API = "/api/backend/knowledge/query"
 const BACKUP_EXPORT_API = "/api/backend/knowledge/backup/export"
 const BACKUP_RESTORE_API = "/api/backend/knowledge/backup/restore"
+const MAINTENANCE_HEALTH_API = "/api/backend/knowledge/maintenance/health"
+const MAINTENANCE_REINDEX_EMBEDDINGS_API = "/api/backend/knowledge/maintenance/reindex-embeddings"
+const MAINTENANCE_REINDEX_ENTITIES_API = "/api/backend/knowledge/maintenance/reindex-entities"
+const MAINTENANCE_CLEAR_CACHE_API = "/api/backend/knowledge/maintenance/clear-cache"
 const MAX_UPLOAD_FILE_SIZE_BYTES = 50 * 1024 * 1024
 const PAGE_SIZE = 10
 
@@ -234,6 +279,14 @@ export default function KnowledgeBaseDashboardPage() {
   const [restoringBackup, setRestoringBackup] = useState(false)
   const [clearingAll, setClearingAll] = useState(false)
 
+  // Health & Maintenance state
+  const [isHealthModalOpen, setIsHealthModalOpen] = useState(false)
+  const [healthData, setHealthData] = useState<KnowledgeHealthData | null>(null)
+  const [loadingHealth, setLoadingHealth] = useState(false)
+  const [reindexingEmbeddings, setReindexingEmbeddings] = useState(false)
+  const [reindexingEntities, setReindexingEntities] = useState(false)
+  const [flushingCache, setFlushingCache] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin"
 
@@ -302,6 +355,75 @@ export default function KnowledgeBaseDashboardPage() {
       setError(err instanceof Error ? err.message : "Gagal memuat dokumen knowledge base")
     } finally {
       if (!options?.silent) setLoadingDocuments(false)
+    }
+  }
+
+  const loadHealthData = async () => {
+    setLoadingHealth(true)
+    try {
+      const res = await fetch(MAINTENANCE_HEALTH_API, { cache: "no-store" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(readError(data, "Gagal memuat status kesehatan knowledge base"))
+      setHealthData(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat diagnosa kesehatan")
+    } finally {
+      setLoadingHealth(false)
+    }
+  }
+
+  const handleReindexEmbeddings = async () => {
+    if (!confirm("Jalankan 1-Click Re-index Embeddings untuk semua dokumen? Proses ini akan mere-embedding seluruh vektor di Supabase dan me-refresh cache.")) return
+    setReindexingEmbeddings(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await fetch(MAINTENANCE_REINDEX_EMBEDDINGS_API, { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(readError(data, "Gagal menjalankan re-index embeddings"))
+      setSuccess(data.message || "Berhasil mere-index embeddings dan memperbarui database vektor.")
+      loadDocuments({ silent: true })
+      loadHealthData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal re-index embeddings")
+    } finally {
+      setReindexingEmbeddings(false)
+    }
+  }
+
+  const handleReindexEntities = async () => {
+    if (!confirm("Bangun ulang index entitas/topik terstruktur (Knowledge Entities)?")) return
+    setReindexingEntities(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await fetch(MAINTENANCE_REINDEX_ENTITIES_API, { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(readError(data, "Gagal re-index entitas"))
+      setSuccess(`Berhasil mere-index entitas (${data.entity_count || 0} entitas diperbarui).`)
+      loadHealthData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal re-index entitas")
+    } finally {
+      setReindexingEntities(false)
+    }
+  }
+
+  const handleFlushCache = async () => {
+    if (!confirm("Bersihkan seluruh Semantic Query Cache sekarang?")) return
+    setFlushingCache(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await fetch(MAINTENANCE_CLEAR_CACHE_API, { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(readError(data, "Gagal membersihkan semantic cache"))
+      setSuccess(`Semantic Query Cache berhasil dibersihkan (${data.cleared_count || 0} entri dibuang).`)
+      loadHealthData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal membersihkan cache")
+    } finally {
+      setFlushingCache(false)
     }
   }
 
@@ -540,6 +662,19 @@ export default function KnowledgeBaseDashboardPage() {
                   Tambah Data KB Baru
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsHealthModalOpen(true)
+                  loadHealthData()
+                }}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 hover:text-emerald-300"
+                title="Buka Panel Diagnosa & Kesehatan RAG"
+              >
+                <ShieldCheckIcon size={14} className="text-emerald-400" />
+                Health & Maintenance
+              </button>
 
               <button
                 type="button"
@@ -1170,6 +1305,183 @@ export default function KnowledgeBaseDashboardPage() {
               <button
                 type="button"
                 onClick={() => setDetailDoc(null)}
+                className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-white hover:bg-sky-400"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── HEALTH & MAINTENANCE MODAL ── */}
+      {isHealthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--c-border)] pb-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                  <ShieldCheckIcon size={18} />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-[var(--c-text)]">RAG System Health & Automated Re-index</h3>
+                  <p className="text-[11px] text-[var(--c-muted)]">Diagnosa status vektor, integritas chunk, dan pemeliharaan embedding 1-klik</p>
+                </div>
+              </div>
+              <button onClick={() => setIsHealthModalOpen(false)} className="text-[var(--c-muted)] hover:text-white">
+                <XIcon size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto my-4 space-y-5 pr-1 text-xs">
+              {loadingHealth ? (
+                <div className="py-16 text-center text-[var(--c-muted)] space-y-2">
+                  <Loader2Icon size={24} className="animate-spin text-emerald-400 mx-auto" />
+                  <p className="font-semibold text-xs">Menganalisis status kesehatan Vector Store & AI Engine...</p>
+                </div>
+              ) : healthData ? (
+                <>
+                  {/* Status Banner */}
+                  <div className={`flex items-center justify-between rounded-xl border p-4 ${
+                    healthData.status === "healthy"
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      : healthData.status === "degraded"
+                      ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                      : "border-red-500/30 bg-red-500/10 text-red-300"
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`size-3 rounded-full animate-pulse ${
+                        healthData.status === "healthy" ? "bg-emerald-400" : "bg-amber-400"
+                      }`} />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider block">
+                          Status Sistem: {healthData.status.toUpperCase()}
+                        </span>
+                        <span className="text-[11px] opacity-80">
+                          {healthData.warnings && healthData.warnings.length > 0
+                            ? healthData.warnings.join(" | ")
+                            : "Semua sistem vector store, full-text search, dan model embedding berjalan optimal."}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => loadHealthData()}
+                      className="rounded-lg border border-current px-2.5 py-1 text-[11px] font-semibold hover:opacity-80"
+                    >
+                      Periksa Ulang
+                    </button>
+                  </div>
+
+                  {/* Active Models Card */}
+                  <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-4 space-y-2">
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                      <CpuIcon size={13} />
+                      Konfigurasi Model AI & Embedding
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                      <div className="rounded-lg border border-[var(--c-border)] bg-[var(--c-surface)] p-2.5">
+                        <span className="block text-[10px] text-[var(--c-muted)]">Generative Chat Model</span>
+                        <span className="font-mono text-xs font-bold text-white">{healthData.models?.chat_model}</span>
+                      </div>
+                      <div className="rounded-lg border border-[var(--c-border)] bg-[var(--c-surface)] p-2.5">
+                        <span className="block text-[10px] text-[var(--c-muted)]">Vector Embedding Model</span>
+                        <span className="font-mono text-xs font-bold text-white">{healthData.models?.embedding_model}</span>
+                      </div>
+                      <div className="rounded-lg border border-[var(--c-border)] bg-[var(--c-surface)] p-2.5">
+                        <span className="block text-[10px] text-[var(--c-muted)]">Vector Dimension</span>
+                        <span className="font-mono text-xs font-bold text-emerald-400">{healthData.models?.embedding_dimension} dims (pgvector)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Metrics Breakdown Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-3 space-y-1">
+                      <span className="text-[10px] text-[var(--c-muted)] font-semibold uppercase">Total Dokumen</span>
+                      <p className="text-lg font-bold text-white">{healthData.documents?.total || 0}</p>
+                      <span className="text-[10px] text-emerald-400">{healthData.documents?.ready || 0} Ready / {healthData.documents?.failed || 0} Gagal</span>
+                    </div>
+                    <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-3 space-y-1">
+                      <span className="text-[10px] text-[var(--c-muted)] font-semibold uppercase">Vector Chunks</span>
+                      <p className="text-lg font-bold text-sky-400">{healthData.chunks?.total_chunks || 0}</p>
+                      <span className="text-[10px] text-[var(--c-muted)]">Rata-rata {healthData.chunks?.avg_chunks_per_doc} per doc</span>
+                    </div>
+                    <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-3 space-y-1">
+                      <span className="text-[10px] text-[var(--c-muted)] font-semibold uppercase">Structured Entities</span>
+                      <p className="text-lg font-bold text-purple-400">{healthData.entities?.total_entities || 0}</p>
+                      <span className="text-[10px] text-[var(--c-muted)]">Index produk & topik</span>
+                    </div>
+                    <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] p-3 space-y-1">
+                      <span className="text-[10px] text-[var(--c-muted)] font-semibold uppercase">Semantic Cache Hits</span>
+                      <p className="text-lg font-bold text-emerald-400">{healthData.semantic_cache?.total_cache_hits || 0}</p>
+                      <span className="text-[10px] text-[var(--c-muted)]">{healthData.semantic_cache?.total_cached_queries || 0} query (TTL 365h)</span>
+                    </div>
+                  </div>
+
+                  {/* 1-Click Automated Maintenance Actions */}
+                  {isAdmin && (
+                    <div className="rounded-xl border border-sky-500/30 bg-sky-950/20 p-4 space-y-3">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        <ActivityIcon size={13} />
+                        Aksi Pemeliharaan & 1-Click Re-index
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                        <button
+                          type="button"
+                          disabled={reindexingEmbeddings}
+                          onClick={handleReindexEmbeddings}
+                          className="flex flex-col items-start gap-1 rounded-xl border border-sky-500/40 bg-sky-500/10 p-3 text-left transition-all hover:bg-sky-500/20 disabled:opacity-50"
+                        >
+                          <div className="flex items-center gap-1.5 font-bold text-sky-300">
+                            {reindexingEmbeddings ? <Loader2Icon size={13} className="animate-spin" /> : <RefreshCwIcon size={13} />}
+                            <span>1-Click Re-index Embeddings</span>
+                          </div>
+                          <span className="text-[10px] text-[var(--c-muted)] leading-tight">
+                            Regenerasi vector embedding semua dokumen ke model terbaru.
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={reindexingEntities}
+                          onClick={handleReindexEntities}
+                          className="flex flex-col items-start gap-1 rounded-xl border border-purple-500/40 bg-purple-500/10 p-3 text-left transition-all hover:bg-purple-500/20 disabled:opacity-50"
+                        >
+                          <div className="flex items-center gap-1.5 font-bold text-purple-300">
+                            {reindexingEntities ? <Loader2Icon size={13} className="animate-spin" /> : <LayersIcon size={13} />}
+                            <span>Rebuild Entity Index</span>
+                          </div>
+                          <span className="text-[10px] text-[var(--c-muted)] leading-tight">
+                            Bangun ulang mapping entitas produk dan topik terstruktur.
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={flushingCache}
+                          onClick={handleFlushCache}
+                          className="flex flex-col items-start gap-1 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-left transition-all hover:bg-amber-500/20 disabled:opacity-50"
+                        >
+                          <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                            {flushingCache ? <Loader2Icon size={13} className="animate-spin" /> : <ZapIcon size={13} />}
+                            <span>Flush Semantic Cache</span>
+                          </div>
+                          <span className="text-[10px] text-[var(--c-muted)] leading-tight">
+                            Bersihkan cache query instan untuk memaksa refresh jawaban.
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+
+            <div className="flex items-center justify-end border-t border-[var(--c-border)] pt-3">
+              <button
+                type="button"
+                onClick={() => setIsHealthModalOpen(false)}
                 className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-white hover:bg-sky-400"
               >
                 Tutup

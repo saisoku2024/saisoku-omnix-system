@@ -272,6 +272,46 @@ def get_knowledge_monitoring_summary(days: int = Query(7, ge=1, le=90)):
     return KnowledgeQueryLogService.summary(days=days)
 
 
+@router.get("/maintenance/health")
+def get_knowledge_health_diagnostics():
+    """
+    Mengembalikan diagnosa status kesehatan Knowledge Base, Model AI, Embeddings,
+    Chunks, Entities, dan Semantic Cache.
+    """
+    from app.services.knowledge_maintenance_service import KnowledgeMaintenanceService
+    return KnowledgeMaintenanceService.get_health_status()
+
+
+@router.post("/maintenance/reindex-embeddings")
+def trigger_reindex_embeddings(limit: int = Query(50, ge=1, le=200)):
+    """
+    1-Click Automated Re-index: Menjalankan re-embedding seluruh dokumen 'ready',
+    memperbarui vector pgvector, me-rebuild entity index, dan me-reset cache.
+    """
+    from app.services.knowledge_maintenance_service import KnowledgeMaintenanceService
+    result = KnowledgeMaintenanceService.reindex_all_embeddings(limit=limit)
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Gagal melakukan re-index embeddings."))
+    return result
+
+
+@router.post("/maintenance/reindex-entities")
+def trigger_reindex_entities(limit: int = Query(200, ge=1, le=500)):
+    """
+    1-Click Automated Entity Indexing: Membangun ulang index entitas/topik terstruktur.
+    """
+    return KnowledgeService.reindex_entities(limit=limit, dry_run=False)
+
+
+@router.post("/maintenance/clear-cache")
+def trigger_clear_cache():
+    """
+    1-Click Flush Semantic Cache: Membersihkan seluruh semantic query cache.
+    """
+    from app.services.knowledge_cache_service import KnowledgeCacheService
+    return KnowledgeCacheService.clear_cache()
+
+
 @router.delete("/documents/{document_id}")
 def delete_knowledge_document(document_id: str):
     return KnowledgeService.delete_document(document_id)
@@ -280,4 +320,5 @@ def delete_knowledge_document(document_id: str):
 @router.post("/clear-all")
 def clear_all_knowledge_documents():
     return KnowledgeService.clear_all_documents()
+
 
