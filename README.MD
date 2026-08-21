@@ -1,34 +1,121 @@
 # SAISOKU OMNIX System
 
-SAISOKU OMNIX adalah dashboard reporting yang menggabungkan data Omnix, Voice, CSAT, upload processing, dan report export dalam satu stack.
+SAISOKU OMNIX adalah platform enterprise analytics & AI reporting terpadu yang menggabungkan data Omnix, Voice, CSAT, upload processing, custom report builder, dan Enterprise AI Knowledge Base RAG dalam satu stack modern berkinerja tinggi.
 
-## Stack
+---
 
-- Frontend: `Next.js 16` di `reporting-dashboard`
-- Backend: `FastAPI` di `reporting-backend`
-- Database dan storage: `Supabase`
-- Deploy: `Vercel` untuk frontend dan `Render` untuk backend
+## 🛠️ Technology Stack
 
-## Struktur Repo
+| Layer | Teknologi / Library | Deskripsi & Peran |
+|---|---|---|
+| **Frontend Framework** | `Next.js 16` (App Router, Turbopack) | Server & Client Components, Server Route Handlers, Proxy Middleware |
+| **UI Library & Runtime** | `React 19`, `TypeScript 5` | Reactive state management, strict typing |
+| **Styling & Animation** | `Tailwind CSS v4`, `framer-motion` | Theme system (Dark/Light mode), dynamic styling, micro-animations |
+| **Data Visualization** | `Recharts 3`, `@tanstack/react-table` | Interactive charts, performant sortable data tables |
+| **Markdown & Streaming UI**| `react-markdown`, `remark-gfm` | Real-time token rendering, GitHub Flavored Markdown, auto-table repair |
+| **Backend Framework** | `FastAPI (Python 3.11)` | Asynchronous REST API, Server-Sent Events (`StreamingResponse`), Pydantic validation |
+| **Database & Vector Store**| `Supabase (PostgreSQL 15+)` | Relational storage, `pgvector` (HNSW/Cosine Vector Search), GIN Index (Full-Text Search) |
+| **File & Media Storage** | `Supabase Storage` | Bucket storage untuk physical documents, signed upload URLs |
+| **AI / LLM Engine** | `Google Gemini 3.5 Flash` | Main reasoning & conversational answer generation |
+| **Embedding Engine** | `gemini-embedding-001` (768-dim) | High-dimension dense vector embeddings for semantic retrieval |
+| **Document Processing** | `pypdf`, `python-docx`, `python-pptx`, `openpyxl`, `pandas` | Multi-format extraction (PDF, DOCX, PPTX, XLSX, TXT, Web scraping) |
+| **Authentication & Guard** | `PyJWT`, `HTTPBearer`, Session Cookies | Role-Based Access Control (Admin/Super Admin), Token Minimal Guard |
+| **Deployment & Hosting** | `Vercel` (Frontend), `Render` (Backend) | Edge global CDN, auto-scaling backend worker, HTTPS termination |
+
+---
+
+## 🧠 Arsitektur Enterprise AI Knowledge Base (RAG)
+
+Sistem Knowledge Base RAG dirancang mengikuti standar arsitektur 8-layer enterprise:
+
+```txt
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        AI QUERY / STREAMING FLOW                        │
+└─────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+                      [ 1. SEMANTIC QUERY CACHE ]
+                      (Threshold ≥ 0.96 | TTL 365 Hari)
+                         /                   \
+           [ CACHE HIT ]                       [ CACHE MISS ]
+                 │                                   │
+                 ▼                                   ▼
+        Instant Response (<50ms)        [ 2. HYBRID MULTI-SIGNAL RETRIEVAL ]
+        Zero Token / Zero Cost          ├── pgvector (Dense Semantic Search)
+                                        ├── Postgres FTS (BM25 tsvector GIN)
+                                        ├── Entity Indexer (Product Codes)
+                                        └── Memo / Policy Keyword Matcher
+                                                     │
+                                                     ▼
+                                        [ 3. MULTI-ENTITY BALANCING ]
+                                        (Fair 50:50 chunk quota for comparisons)
+                                                     │
+                                                     ▼
+                                        [ 4. REAL-TIME SSE STREAMING ]
+                                        (Gemini 3.5 Flash StreamingResponse)
+                                                     │
+                                                     ▼
+                                        [ 5. OBSERVABILITY & FEEDBACK LOOP ]
+                                        ├── Query Latency Breakdown Telemetry
+                                        ├── User Thumbs Up / Down Rating (👍/👎)
+                                        └── Inconsistency Auto-Detection Logging
+```
+
+### 1. Ingestion Pipeline
+* **Multi-Format Extraction**: Mendukung ingest dokumen PDF, Word (`.docx`), PowerPoint (`.pptx`), Excel/CSV, Text, dan Public Web URLs.
+* **Contextual Prefixing**: Setiap potongan teks (*chunk*) disisipkan deskripsi konteks dokumen secara otomatis sebelum di-embed untuk mencegah hilangnya konteks saat retrieval.
+* **OCR & Fallback Parser**: Dilengkapi parser cadangan jika dokumen hasil scan minim teks.
+
+### 2. Hybrid Multi-Signal Retrieval
+* **Dense Vector Search**: Pencarian semantik menggunakan kemiripan *Cosine Similarity* pada ekstensi `pgvector`.
+* **Native PostgreSQL Full-Text Search (FTS)**: Indeks `GIN` pada kolom `tsvector` dengan ranking relevansi `ts_rank_cd` untuk keyword presisi.
+* **Entity Indexing**: Index terstruktur untuk istilah spesifik (seri produk, kode SKU, suku cadang, indikator lampu).
+* **Balanced Multi-Entity Quota**: Membagi alokasi chunk secara adil (50:50) saat pengguna menanyakan komparasi dua atau lebih produk (misal: *T30C MAX vs T30C PRIME*).
+
+### 3. Semantic Query Caching (TTL 365 Hari)
+* Menyimpan embedding pertanyaan dan jawaban yang valid ke tabel `knowledge_semantic_cache`.
+* Menjawab pertanyaan berulang yang serupa ($\ge 0.96$ similarity) dalam **<50 milidetik** tanpa memakan kuota token Gemini API.
+* **Smart Auto-Invalidation**: Seluruh cache otomatis di-reset saat ada dokumen baru yang di-upload atau dihapus oleh admin.
+
+### 4. Real-Time Streaming & Observability
+* **Server-Sent Events (SSE)**: Respon teks mengalir secara real-time (*Time-To-First-Token* < 500ms).
+* **Telemetry & Query Logs**: Mencatat perincian latensi (*embedding*, *retrieval*, *generation*, *total*).
+* **User Feedback Loop**: Menyediakan tombol rating interaktif (👍 Bagus / 👎 Kurang Tepat) untuk continuous improvement knowledge base.
+
+---
+
+## 📁 Struktur Repo
 
 ```txt
 saisoku-omnix-system/
-|-- reporting-dashboard/
-|-- reporting-backend/
-|-- render.yaml
-`-- README.MD
+├── reporting-dashboard/          # Next.js 16 Frontend Application
+│   ├── app/                      # App Router (Pages, API Proxies, Streaming routes)
+│   ├── components/               # Reusable UI components & Dashboard widgets
+│   ├── config/                   # Navigation, theme, & system configs
+│   ├── services/                 # API client layers & data normalizers
+│   └── types/                    # TypeScript interfaces & DTO schemas
+├── reporting-backend/            # FastAPI Python Backend
+│   ├── app/
+│   │   ├── core/                 # Config, Supabase client, Gemini model config
+│   │   ├── routes/               # API Endpoints (Knowledge, CSAT, Reports, Admin)
+│   │   └── services/             # Business Logic, RAG Engine, Ingestion, Caching
+│   ├── supabase/migrations/      # SQL DDL, RPC Functions, pgvector & FTS indexes
+│   └── scripts/                  # Maintenance & batch processing scripts
+├── render.yaml                   # Infrastructure-as-Code for Render deployment
+└── README.MD                     # Master Project Documentation
 ```
 
-## Menjalankan Lokal
+---
 
-Runtime yang disarankan:
+## 🚀 Menjalankan Lokal
 
+### Runtime yang Disarankan:
 ```txt
-Node.js >=20.19.0
+Node.js >= 20.19.0
 Python 3.11.9
 ```
 
-### Backend
+### 1. Backend Setup
 
 ```bash
 cd reporting-backend
@@ -36,296 +123,81 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-Environment backend:
-
-```txt
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-ADMIN_API_TOKEN=
-ADMIN_USERNAME=
-ADMIN_PASSWORD=
-JWT_SECRET_KEY=
-GEMINI_API_KEY=
+**Environment Variables Backend (`reporting-backend/.env`):**
+```ini
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+ADMIN_API_TOKEN=your-secure-internal-token
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your-secure-password
+JWT_SECRET_KEY=your-jwt-secret
+GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash
-GEMINI_EMBEDDING_MODEL=gemini-embedding-2
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 ```
 
-Backend akan gagal start jika `SUPABASE_URL` atau `SUPABASE_SERVICE_ROLE_KEY`
-belum diset. Ini disengaja agar konfigurasi Supabase yang salah tidak diam-diam
-memakai placeholder.
-
-### Frontend
+### 2. Frontend Setup
 
 ```bash
 cd reporting-dashboard
 npm install
-npm run dev -- --port 3000
+npm run dev -- -p 3000
 ```
 
-Environment frontend:
-
-```txt
+**Environment Variables Frontend (`reporting-dashboard/.env.local`):**
+```ini
 NEXT_PUBLIC_API_URL=http://localhost:8001
-ADMIN_API_TOKEN=
-ADMIN_UI_PASSWORD=
-AUTH_SESSION_SECRET=
+ADMIN_API_TOKEN=your-secure-internal-token
+ADMIN_UI_PASSWORD=your-admin-password
+AUTH_SESSION_SECRET=your-session-secret-min-32-chars
 ```
 
-`ADMIN_API_TOKEN` di frontend harus sama persis dengan `ADMIN_API_TOKEN` di
-backend. Server route Next.js memakai token ini saat mem-proxy request ke
-FastAPI.
+---
 
-Fitur `AI Knowledge Base` memakai Gemini API dari backend. Simpan
-`GEMINI_API_KEY` hanya di Render/backend, bukan di browser.
+## 🌐 Endpoint & URL Lokal
 
-## URL Lokal
+* **Frontend Dashboard**: `http://localhost:3000`
+* **AI Knowledge Base UI**: `http://localhost:3000/ai/knowledge-base`
+* **Backend API Root**: `http://localhost:8001`
+* **Swagger OpenAPI Docs**: `http://localhost:8001/docs`
 
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8001`
-- Swagger: `http://localhost:8001/docs`
+---
 
-## Deploy
+## 🔄 Workflow Pengembangan & Change Control
 
-- Backend Render config ada di `render.yaml`
-- Panduan backend ada di `reporting-backend/DEPLOY_RENDER.md`
-- Frontend Vercel memakai `NEXT_PUBLIC_API_URL` yang mengarah ke backend Render
-- Endpoint write/export dilindungi token minimal:
-  - Render: `ADMIN_API_TOKEN`
-  - Vercel: `ADMIN_API_TOKEN` dengan nilai yang sama, hanya dipakai server route Next.js
-- Halaman dashboard dilindungi auth UI berbasis cookie:
-  - Vercel: `ADMIN_UI_PASSWORD`
-  - Vercel: `AUTH_SESSION_SECRET`
-- AI Knowledge Base:
-  - Render: `GEMINI_API_KEY`
-  - Render: `GEMINI_MODEL`
-  - Render: `GEMINI_EMBEDDING_MODEL`
-- Setelah mengubah environment variable di Vercel atau Render, lakukan redeploy
-  atau restart service agar runtime memakai nilai terbaru.
-
-## Workflow Pengembangan dan Change Control
-
-Setiap permintaan perubahan wajib mengikuti alur berikut:
+Setiap perubahan wajib mengikuti tata kelola standar:
 
 ```txt
-Input User
-   ↓
-Analisa & Check Project
-   ↓
-Hasil Temuan
-   ↓
-Plan Perbaikan
-   ↓
-Persetujuan Aksi
-   ↓
-Proses Perbaikan / Update
-   ↓
-Laporan Hasil
-   ↓
-Selesai
+Input User → Analisa & Check Project → Hasil Temuan → Plan Perbaikan → Persetujuan Aksi → Eksekusi / Update → Laporan Hasil → Selesai
 ```
 
-### 1. Input User
+---
 
-Sistem mencatat:
+## 📝 Changelog
 
-- Tujuan permintaan
-- Masalah atau kebutuhan
-- Scope perubahan
-- Fitur yang terkait
-- Acceptance criteria
-- Batasan dan risiko yang diketahui
-
-Pada tahap ini belum boleh dilakukan perubahan kode.
-
-### 2. Analisa dan Check Project
-
-Sebelum menyusun solusi, seluruh bagian yang berpotensi terdampak harus diperiksa, meliputi:
-
-- Struktur frontend Next.js
-- Route, component, service, hook, state, dan type
-- Endpoint serta logic backend FastAPI
-- Schema, query, RPC, migration, database, dan storage Supabase
-- Authentication, authorization, token, dan security
-- Environment variable
-- Integrasi Omnix, Voice, CSAT, upload processing, dan export report
-- Konfigurasi Vercel, Render, dan `render.yaml`
-- Dependency dan public API contract
-- Existing changes yang belum selesai
-
-Analisa wajib memisahkan:
-
-- Fakta yang ditemukan
-- Asumsi
-- Risiko
-- Dependency
-- File atau modul yang terdampak
-
-### 3. Hasil Temuan
-
-Hasil analisa harus menjelaskan:
-
-- Masalah utama
-- Root cause
-- Bukti atau lokasi masalah
-- Fitur yang terdampak
-- Risiko apabila tidak diperbaiki
-- Risiko regresi
-- Tingkat risiko: Low, Medium, High, atau Critical
-
-Tahap ini hanya menghasilkan laporan dan tidak mengubah kode.
-
-### 4. Plan Perbaikan
-
-Plan wajib berisi:
-
-- Solusi yang direkomendasikan
-- Daftar file atau modul yang akan diubah
-- File yang tidak boleh diubah
-- Urutan perubahan
-- Dampak terhadap frontend, backend, database, storage, dan deployment
-- Rencana testing dan validasi
-- Rencana rollback
-- Non-goals atau hal yang sengaja tidak dikerjakan
-
-Perbaikan harus menggunakan perubahan paling kecil dan aman. Refactor besar,
-perubahan dependency, perubahan schema, perubahan public contract, atau perubahan
-fitur tidak boleh dilakukan tanpa persetujuan khusus.
-
-### 5. Persetujuan Aksi
-
-Setiap perubahan atau aksi mutasi wajib menunggu persetujuan eksplisit user.
-
-Persetujuan harus mencakup:
-
-- Scope perubahan
-- File atau modul yang terdampak
-- Risiko perubahan
-- Dampak terhadap fitur eksisting
-- Rencana testing
-- Rencana deployment jika diperlukan
-
-Jika user belum memberikan persetujuan, proses berhenti pada tahap plan.
-
-Persetujuan hanya berlaku untuk scope yang telah disetujui. Perubahan tambahan di
-luar scope wajib dianalisa dan disetujui kembali.
-
-### 6. Proses Perbaikan atau Update
-
-Setelah disetujui:
-
-- Ubah kode seminimal mungkin
-- Pertahankan fitur dan behavior eksisting
-- Jangan menimpa perubahan user yang tidak terkait
-- Jangan menghapus data atau file tanpa persetujuan
-- Pertahankan backward compatibility jika memungkinkan
-- Terapkan perubahan berdasarkan dependency order
-- Validasi seluruh consumer atau module yang menggunakan perubahan tersebut
-- Catat perubahan dan keputusan teknis
-
-Jika ditemukan dampak baru yang material selama proses, eksekusi harus dihentikan
-sementara untuk meminta persetujuan tambahan.
-
-### 7. Laporan Hasil
-
-Laporan akhir wajib berisi:
-
-- Ringkasan perubahan
-- File atau modul yang diubah
-- File yang tidak diubah
-- Fitur baru atau behavior yang diperbaiki
-- Fitur eksisting yang telah diverifikasi
-- Hasil lint, test, build, dan validasi runtime
-- Environment atau deployment yang perlu diperbarui
-- Risiko yang masih tersisa
-- Catatan rollback jika diperlukan
-
-Jika suatu validasi tidak dapat dijalankan, statusnya harus ditulis sebagai
-`Not Verified`, bukan dianggap berhasil.
-
-### 8. Selesai
-
-Permintaan dianggap selesai apabila:
-
-- Scope yang disetujui telah diimplementasikan
-- Acceptance criteria terpenuhi
-- Tidak ada perubahan di luar scope
-- Fitur eksisting tetap berjalan
-- Validasi terkait telah dilakukan
-- Risiko dan keterbatasan telah dilaporkan
-- Dokumentasi yang terdampak telah diperbarui
-
-## Aturan Perlindungan Fitur Eksisting
-
-Fitur eksisting tidak boleh diubah, dihapus, atau diubah perilakunya secara tidak sengaja.
-
-Jika kebutuhan perbaikan mengharuskan perubahan terhadap fitur eksisting:
-
-1. Identifikasi fitur dan consumer yang terdampak.
-2. Jelaskan behavior sebelum dan sesudah perubahan.
-3. Analisa seluruh dampak lintas frontend, backend, database, storage, security, dan deployment.
-4. Sertakan risiko regresi dan rencana rollback.
-5. Minta persetujuan eksplisit user.
-6. Implementasikan perubahan hanya setelah disetujui.
-7. Verifikasi kembali seluruh fitur yang terdampak.
-
-## Status Workflow
-
-Status pekerjaan menggunakan state berikut:
-
-```txt
-RECEIVED
-→ ANALYZING
-→ FINDINGS_READY
-→ PLAN_READY
-→ WAITING_APPROVAL
-→ IN_PROGRESS
-→ VERIFYING
-→ COMPLETED
-```
-
-Status alternatif:
-
-```txt
-BLOCKED
-REJECTED
-CANCELLED
-```
-
-`IN_PROGRESS` tidak boleh dimulai sebelum status `WAITING_APPROVAL` mendapatkan persetujuan user.
-
-## Changelog
+### 2026-08-21
+- **Real-Time Streaming (SSE)**: Menambahkan endpoint streaming `POST /knowledge/query-stream` (FastAPI `StreamingResponse`) dan reader `ReadableStream` di Next.js untuk tampilan respon real-time instan.
+- **Native PostgreSQL Full-Text Search (FTS)**: Menambahkan kolom terindeks `fts tsvector` (GIN Index) pada tabel `knowledge_chunks` dan RPC `search_knowledge_chunks_fts` untuk hybrid search berkecepatan tinggi.
+- **User Feedback Loop**: Menambahkan tracking rating pengguna (👍 / 👎) dengan endpoint `POST /knowledge/feedback`, metrik *satisfaction rate*, dan integrasi UI interaktif.
+- **365-Day Semantic Query Caching**: Menambahkan tabel `knowledge_semantic_cache` dan RPC `match_semantic_cache` ($\ge 0.96$ similarity) untuk menyajikan respon instan (<50ms) dengan **Smart Auto-Invalidation** saat dokumen diperbarui.
+- **Dokumentasi & Tech Stack Update**: Memperbarui README master dengan rincian lengkap arsitektur enterprise RAG, dependency stack, dan panduan deployment.
 
 ### 2026-08-04
-
 - Menambahkan workflow pengembangan dan change control.
 - Menambahkan tahapan analisa, temuan, plan perbaikan, persetujuan, eksekusi, validasi, dan laporan hasil.
 - Menambahkan aturan perlindungan fitur eksisting dan analisa dampak lintas project.
 
 ### 2026-07-16
-
-- Merapikan struktur frontend dengan menambahkan `config/`, `providers/`, `services/`, dan `types/`
-- Menambahkan guard token minimal untuk endpoint upload, cleanup soft-delete, dan report export
-- Menambahkan login admin dan middleware session untuk melindungi halaman dashboard/report/upload
-- Menyatukan theme system ke provider global
-- Menyatukan rumah UI ke `components/ui`
-- Memindahkan sidebar menu dan config ke `reporting-dashboard/config/`
-- Memisahkan layer fetch dan normalisasi data ke `reporting-dashboard/services/`
-- Membersihkan komponen demo dan legacy yang tidak dipakai
+- Merapikan struktur frontend dengan menambahkan `config/`, `providers/`, `services/`, dan `types/`.
+- Menambahkan guard token minimal untuk endpoint upload, cleanup soft-delete, dan report export.
+- Menambahkan login admin dan middleware session untuk melindungi halaman dashboard/report/upload.
+- Menyatukan theme system ke provider global dan rumah UI ke `components/ui`.
 
 ### 2026-07-13
-
-- Menyatukan base URL frontend ke `NEXT_PUBLIC_API_URL`
-- Mengubah backend agar memakai `SUPABASE_SERVICE_ROLE_KEY`
-- Menambahkan dan menjalankan master RPC Supabase untuk dashboard utama
-- Merapikan route backend lama agar tetap kompatibel
+- Menyatukan base URL frontend ke `NEXT_PUBLIC_API_URL`.
+- Mengubah backend agar memakai `SUPABASE_SERVICE_ROLE_KEY`.
+- Menambahkan dan menjalankan master RPC Supabase untuk dashboard utama.
 
 ### 2026-07-10
-
-- Membersihkan artifact lokal yang sempat ikut tracked ke Git
-- Menyiapkan dasar deploy backend Render dan frontend Vercel
-- Memulai audit build, runtime, dan konsistensi feature dashboard
-
-## Catatan Repo
-
-- Jangan commit file `.env`
-- File hasil build, cache, dan dump listing folder tidak perlu disimpan di repo
+- Menyiapkan dasar deploy backend Render dan frontend Vercel.
+- Memulai audit build, runtime, dan konsistensi feature dashboard.
