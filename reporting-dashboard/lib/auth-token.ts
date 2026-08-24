@@ -32,7 +32,7 @@ export function isAdminSession(session: SessionPayload | null | undefined) {
 export function isManagerOrAdminSession(session: SessionPayload | null | undefined) {
   if (!session) return false
   const role = session.role || session.sub
-  return role === "admin" || role === "super_admin" || role === "manager"
+  return role === "admin" || role === "super_admin" || role === "manager" || role === "spv"
 }
 
 function encodeBase64Url(value: string | Uint8Array) {

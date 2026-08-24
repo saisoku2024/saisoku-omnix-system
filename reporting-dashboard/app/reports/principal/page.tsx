@@ -188,7 +188,7 @@ export default function PrincipalReportPage() {
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [sessionRole, setSessionRole] = useState<string | null>(null)
-  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin" || sessionRole === "manager"
+  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin" || sessionRole === "manager" || sessionRole === "spv"
 
   useEffect(() => {
     let active = true

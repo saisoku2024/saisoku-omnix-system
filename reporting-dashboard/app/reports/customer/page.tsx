@@ -78,7 +78,7 @@ function CustomerReportContent() {
   const [form, setForm] = useState(getDefaultForm)
   const [previewData, setPreviewData] = useState<PreviewRow[]>([])
   const [sessionRole, setSessionRole] = useState<string | null>(null)
-  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin" || sessionRole === "manager"
+  const isAdmin = sessionRole === "admin" || sessionRole === "super_admin" || sessionRole === "manager" || sessionRole === "spv"
 
   useEffect(() => {
     let active = true
