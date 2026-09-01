@@ -111,7 +111,12 @@ def parse_omnix_rows(df, upload_id):
             # Automatic Subject Standardization Result
             "subject_normalized": subject_info["subject_normalized"],
 
-            "agent_name": safe_str(row.get("agent_name") or row.get("agent")),
+            "agent_name": safe_str(
+                row.get("agent_name")
+                or row.get("agent")
+                or row.get("created_by_name")
+                or row.get("created_by")
+            ),
             "ticket_status_name": safe_str(row.get("status") or row.get("ticket_status_name")),
             "is_escalated": safe_str(row.get("is_escalated") or row.get("escalation_status")),
 

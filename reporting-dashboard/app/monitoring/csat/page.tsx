@@ -303,7 +303,21 @@ export default function CSATPage() {
             <CardHeader title="Highest Rated Agents" />
             <div style={{ padding: "4px 18px 14px" }}>
               {loading ? [1,2,3,4,5].map(i => <AgentRowSkeleton key={i} />) : (topAgentAvg?.length > 0) ? (
-                topAgentAvg.slice(0,5).map((a, i) => <AgentRow key={i} rank={i+1} name={a.agent} value={a.avg_csat} suffix=" ⭐" valueColor="#f59e0b" isLast={i===topAgentAvg.slice(0,5).length - 1} />)
+                topAgentAvg.slice(0,5).map((a, i) => {
+                  const rawVal = a.avg_csat ?? (a as { avg?: number | string }).avg
+                  const displayVal = typeof rawVal === "number" ? rawVal.toFixed(2) : rawVal
+                  return (
+                    <AgentRow
+                      key={i}
+                      rank={i+1}
+                      name={a.agent}
+                      value={displayVal}
+                      suffix=" ⭐"
+                      valueColor="#f59e0b"
+                      isLast={i === topAgentAvg.slice(0,5).length - 1}
+                    />
+                  )
+                })
               ) : <EmptyState message="No agent ratings" />}
             </div>
           </Card>
