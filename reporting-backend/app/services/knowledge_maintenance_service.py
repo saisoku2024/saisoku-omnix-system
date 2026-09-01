@@ -39,7 +39,7 @@ class KnowledgeMaintenanceService:
             # 2. Chunks analysis
             chunks_res = (
                 supabase.table("knowledge_chunks")
-                .select("id, document_id, chunk_index, token_estimate, context_prefix")
+                .select("id, document_id, chunk_index, token_estimate")
                 .limit(2000)
                 .execute()
             )
