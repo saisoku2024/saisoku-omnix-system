@@ -165,3 +165,74 @@ def test_principal_export_keeps_full_template_columns_even_when_missing():
     assert list(exported.columns) == FINAL_EXPORT_COLUMNS
     assert "Customer Name" in exported.columns
     assert "CSAT Score" in exported.columns
+
+
+def test_validate_date_raises_http_exception():
+    import pytest
+    from fastapi import HTTPException
+    from app.routes.principal import _validate_date
+
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_date("invalid-date-format", "start_date")
+    assert exc_info.value.status_code == 400
+    assert "start_date" in exc_info.value.detail
+
+    with pytest.raises(HTTPException) as exc_info2:
+        _validate_date("", "end_date")
+    assert exc_info2.value.status_code == 400
+
+
+def test_get_principal_report_paginates_beyond_1000_rows(monkeypatch):
+    total_fake = 1500
+    all_fake_rows = [
+        {"ticket_id": f"T-{i}", "interaction_at": "2026-08-01T00:00:00+00:00", "deleted_at": None}
+        for i in range(total_fake)
+    ]
+
+    class FakePaginatedQuery:
+        def __init__(self, rows):
+            self._rows = rows
+            self._slice = rows
+            self.ranges = []
+
+        def select(self, *_args, **_kwargs):
+            return self
+
+        def gte(self, *_args, **_kwargs):
+            return self
+
+        def lt(self, *_args, **_kwargs):
+            return self
+
+        def is_(self, *_args, **_kwargs):
+            return self
+
+        def order(self, *_args, **_kwargs):
+            return self
+
+        def range(self, start, end):
+            self.ranges.append((start, end))
+            self._slice = self._rows[start : end + 1]
+            return self
+
+        def execute(self):
+            class Result:
+                data = self._slice
+
+            return Result()
+
+    paginated_query = FakePaginatedQuery(all_fake_rows)
+
+    class FakeSupabase:
+        def table(self, name):
+            assert name == "omnix_cases"
+            return paginated_query
+
+    monkeypatch.setattr("app.services.principal_service.supabase", FakeSupabase())
+
+    rows = get_principal_report("2026-08-01", "2026-08-04")
+    assert len(rows) == 1500
+    assert len(paginated_query.ranges) == 2
+    assert paginated_query.ranges[0] == (0, 999)
+    assert paginated_query.ranges[1] == (1000, 1999)
+

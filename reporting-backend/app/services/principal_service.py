@@ -6,22 +6,45 @@ def _is_active_case(row):
     return deleted_at is None or deleted_at == "" or str(deleted_at).lower() == "null"
 
 
-def _principal_case_query(start_date, end_date):
-    return (
+BATCH_SIZE = 1000
+MAX_ROWS = 500000
+
+
+def _principal_case_query(start_date, end_date, offset=0, limit=BATCH_SIZE):
+    query = (
         supabase.table("omnix_cases")
         .select("*")
         .gte("interaction_at", start_date)
         .lt("interaction_at", end_date)
         .is_("deleted_at", "null")
     )
+    if hasattr(query, "order"):
+        query = query.order("interaction_at")
+    if hasattr(query, "range"):
+        query = query.range(offset, offset + limit - 1)
+    return query
 
 
 def _fallback_principal_rows(start_date, end_date):
-    try:
-        rows = _principal_case_query(start_date, end_date).execute()
-        return [row for row in (rows.data or []) if _is_active_case(row)]
-    except Exception:
-        return []
+    rows = []
+    offset = 0
+
+    while True:
+        try:
+            query = _principal_case_query(start_date, end_date, offset=offset, limit=BATCH_SIZE)
+            res = query.execute()
+            data = res.data or []
+            active_chunk = [row for row in data if _is_active_case(row)]
+            rows.extend(active_chunk)
+
+            if len(data) < BATCH_SIZE or offset >= MAX_ROWS or not hasattr(query, "range"):
+                break
+
+            offset += BATCH_SIZE
+        except Exception:
+            break
+
+    return rows
 
 
 def _compute_principal_summary_from_rows(rows):

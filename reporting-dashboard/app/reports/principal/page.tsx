@@ -188,17 +188,22 @@ export default function PrincipalReportPage() {
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [sessionRole, setSessionRole] = useState<string | null>(null)
+  const [loadingSession, setLoadingSession] = useState(true)
   const isAdmin = sessionRole === "admin" || sessionRole === "super_admin" || sessionRole === "manager" || sessionRole === "spv"
 
   useEffect(() => {
     let active = true
     fetch("/api/auth/session", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data: { role?: "admin" | "guest" }) => {
-        if (active) setSessionRole(data.role ?? null)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active) return
+        setSessionRole(data?.role ?? null)
+        setLoadingSession(false)
       })
       .catch(() => {
-        if (active) setSessionRole(null)
+        if (!active) return
+        setSessionRole(null)
+        setLoadingSession(false)
       })
     return () => {
       active = false
@@ -208,6 +213,11 @@ export default function PrincipalReportPage() {
   const principalApi = "/api/backend/principal-report"
 
   const validateDates = () => {
+    if (!startDate || !endDate) {
+      setError("Start date dan End date wajib diisi")
+      return false
+    }
+
     if (startDate > endDate) {
       setError("Start date tidak boleh lebih besar dari end date")
       return false
@@ -228,7 +238,8 @@ export default function PrincipalReportPage() {
       )
 
       if (!res.ok) {
-        throw new Error(`Server error ${res.status}`)
+        const errJson = await res.json().catch(() => null)
+        throw new Error(errJson?.detail || `Server error ${res.status}`)
       }
 
       const json = await res.json()
@@ -247,7 +258,7 @@ export default function PrincipalReportPage() {
 
   const exportExcel = async () => {
     if (!isAdmin) {
-      setError("Aksi ekspor khusus untuk role Admin (Mode Guest: Read-Only).")
+      setError("Aksi ekspor khusus untuk role Admin/Manager (Mode Guest: Read-Only).")
       return
     }
 
@@ -262,7 +273,8 @@ export default function PrincipalReportPage() {
       )
 
       if (!res.ok) {
-        throw new Error(`Server error ${res.status}`)
+        const errJson = await res.json().catch(() => null)
+        throw new Error(errJson?.detail || `Server error ${res.status}`)
       }
 
       const blob = await res.blob()
@@ -333,10 +345,23 @@ export default function PrincipalReportPage() {
                 <button
                   className="pr-btn-secondary"
                   onClick={exportExcel}
-                  disabled={exporting || loading || !isAdmin}
-                  title={!isAdmin ? "Aksi ekspor khusus untuk role Admin" : undefined}
+                  disabled={exporting || loading || loadingSession || !isAdmin}
+                  title={
+                    loadingSession
+                      ? "Memeriksa hak akses..."
+                      : !isAdmin
+                      ? "Aksi ekspor khusus untuk role Admin/Manager"
+                      : undefined
+                  }
                 >
-                  <IconDownload /> {!isAdmin ? "Mode Guest (Read-Only)" : exporting ? "Preparing..." : "Export"}
+                  <IconDownload />{" "}
+                  {loadingSession
+                    ? "Loading..."
+                    : !isAdmin
+                    ? "Mode Guest (Read-Only)"
+                    : exporting
+                    ? "Preparing..."
+                    : "Export"}
                 </button>
                 <button
                   className="pr-btn-primary"
@@ -354,7 +379,9 @@ export default function PrincipalReportPage() {
             {error && <div className="pr-error">Warning: {error}</div>}
 
             <hr className="pr-divider" />
-            <p className="pr-kpi-label">Ringkasan Metrik</p>
+            <p className="pr-kpi-label">
+              Ringkasan Metrik {!generated && !loading ? "(Klik Generate untuk menampilkan)" : ""}
+            </p>
 
             <div className="pr-kpi-grid">
               {KPI_CONFIG.map((cfg) => {

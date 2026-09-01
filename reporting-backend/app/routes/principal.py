@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from app.core.security import require_admin_token
 from app.services.principal_service import get_principal_report, get_principal_summary
