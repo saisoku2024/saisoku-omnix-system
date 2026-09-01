@@ -10,14 +10,14 @@ export const dynamic = "force-dynamic"
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getCurrentSession()
   if (!session) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
   }
 
-  const { id } = params
+  const { id } = await params
   if (!id) {
     return NextResponse.json({ detail: "Missing golden QA ID" }, { status: 400 })
   }
