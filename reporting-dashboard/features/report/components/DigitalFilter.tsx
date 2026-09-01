@@ -33,17 +33,46 @@ const selectClassName =
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
-const YEARS = [2024, 2025, 2026];
 
 export default function DigitalFilter({
   form,
   setForm,
   options,
 }: Props) {
+  const now = new Date();
+  const currentMonth = MONTHS[now.getMonth()] || "Sep";
+  const currentQuarter = `Q${Math.floor(now.getMonth() / 3) + 1}`;
+  const currentYear = now.getFullYear();
+  const YEARS = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+
+  const getInitialFromForm = () => {
+    if (form.start_date) {
+      const parts = form.start_date.split("-");
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(y) && !isNaN(m) && m >= 1 && m <= 12) {
+          return {
+            month: MONTHS[m - 1],
+            quarter: `Q${Math.ceil(m / 3)}`,
+            year: y,
+          };
+        }
+      }
+    }
+    return {
+      month: currentMonth,
+      quarter: currentQuarter,
+      year: currentYear,
+    };
+  };
+
+  const initialPreset = getInitialFromForm();
+
   const [granularity, setGranularity] = useState<"monthly" | "quarterly" | "yearly" | "custom">("monthly");
-  const [selectedMonth, setSelectedMonth] = useState("Jul");
-  const [selectedQuarter, setSelectedQuarter] = useState("Q3");
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const [selectedMonth, setSelectedMonth] = useState(initialPreset.month);
+  const [selectedQuarter, setSelectedQuarter] = useState(initialPreset.quarter);
+  const [selectedYear, setSelectedYear] = useState(initialPreset.year);
 
   const applyPreset = (gran: "monthly" | "quarterly" | "yearly" | "custom", month: string, q: string, y: number) => {
     setGranularity(gran);
@@ -57,7 +86,7 @@ export default function DigitalFilter({
         Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
         Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12
       };
-      const m = monthMap[month] || 7;
+      const m = monthMap[month] || (new Date().getMonth() + 1);
       const lastDay = new Date(y, m, 0).getDate();
       start = `${y}-${String(m).padStart(2, "0")}-01`;
       end = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;

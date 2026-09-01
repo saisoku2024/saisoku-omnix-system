@@ -420,11 +420,14 @@ function CandidateTable({
 export default function DataCleanupPage() {
   const defaults = useMemo(() => getDefaultDateRange(), [])
   const [dateFrom, setDateFrom] = useState(defaults.dateFrom)
-  const [dateTo, setDateTo] = useState(defaults.dateTo)
+  const now = new Date()
+  const currentMonthStr = MONTH_OPTIONS[now.getMonth()] || "Sep"
+  const currentQuarterStr = `Q${Math.floor(now.getMonth() / 3) + 1}`
+  const currentYearNum = now.getFullYear()
 
   const [filterMode, setFilterMode] = useState<string>("Monthly")
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("Jul")
-  const [selectedYear, setSelectedYear] = useState<number>(2026)
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonthStr)
+  const [selectedYear, setSelectedYear] = useState<number>(currentYearNum)
 
   const [rules, setRules] = useState<CleanupRule[]>(["abandon_match", "test_omnix", "internal_email"])
   const [preview, setPreview] = useState<CleanupPreviewResponse | null>(null)
@@ -455,9 +458,9 @@ export default function DataCleanupPage() {
     setFilterMode(newMode)
     let newPeriod = selectedPeriod
     if (newMode === "Monthly" && !MONTH_OPTIONS.includes(newPeriod)) {
-      newPeriod = "Jul"
+      newPeriod = currentMonthStr
     } else if (newMode === "Quarterly" && !QUARTER_OPTIONS.includes(newPeriod)) {
-      newPeriod = "Q3"
+      newPeriod = currentQuarterStr
     }
     setSelectedPeriod(newPeriod)
 
@@ -494,9 +497,9 @@ export default function DataCleanupPage() {
 
   const resetFilters = () => {
     setFilterMode("Monthly")
-    setSelectedPeriod("Jul")
-    setSelectedYear(2026)
-    const range = computeDateRange("Monthly", "Jul", 2026)
+    setSelectedPeriod(currentMonthStr)
+    setSelectedYear(currentYearNum)
+    const range = computeDateRange("Monthly", currentMonthStr, currentYearNum)
     if (range) {
       setDateFrom(range.dateFrom)
       setDateTo(range.dateTo)
