@@ -236,3 +236,39 @@ def test_get_principal_report_paginates_beyond_1000_rows(monkeypatch):
     assert paginated_query.ranges[0] == (0, 999)
     assert paginated_query.ranges[1] == (1000, 1999)
 
+
+def test_principal_category_conversion_mapping():
+    from app.services.principal_mapper import enrich_principal_row, map_principal_dimensions
+
+    # 1. Exact match from business dictionary
+    group, category = map_principal_dimensions("Informasi", "Ecovacs - Care", "Seputar Layanan")
+    assert group == "Aftersale-Service inquiry"
+    assert category == "Service Inquiry"
+
+    group, category = map_principal_dimensions("Panduan", "Yoniev - Kendala Teknis", "Kendala Spare Part")
+    assert group == "Failure"
+    assert category == "Spare Part Issue"
+
+    group, category = map_principal_dimensions("Panduan", "Yoniev - Panduan Penggunaan", "Panduan Penggunaan Awal")
+    assert group == "How to use"
+    assert category == "New machines"
+
+    # 2. In-memory row enrichment without altering raw row
+    raw_row = {
+        "ticket_id": "103833",
+        "customer_name": "'+62811986168'",
+        "main_category": "Informasi",
+        "subcategory": "Ecovacs - Care",
+        "detail_subcategory": "Seputar Layanan",
+        "principal_group": None,
+        "principal_category": None,
+    }
+    enriched = enrich_principal_row(raw_row)
+
+    assert enriched["ticket_id"] == "103833"
+    assert enriched["principal_group"] == "Aftersale-Service inquiry"
+    assert enriched["principal_category"] == "Service Inquiry"
+    # Ensure original dict is not mutated
+    assert raw_row["principal_group"] is None
+
+

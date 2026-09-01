@@ -1,4 +1,5 @@
 from app.core.supabase import supabase
+from app.services.principal_mapper import enrich_principal_row
 
 
 def _is_active_case(row):
@@ -65,22 +66,27 @@ def _compute_principal_summary_from_rows(rows):
 
 
 def get_principal_report(start_date, end_date):
-    """Use the same active ticket universe as the summary endpoint.
+    """Fetch principal report with conversion to Principal Group & Principal Category.
 
-    The export endpoint was still preferring the legacy RPC result, which can
-    drift away from the dashboard and summary counts because it computes a
-    different row set for the same date window.
+    Prefers the dedicated `get_principal_report` RPC which contains the standard
+    conversion logic. Falls back to canonical `omnix_cases` rows with in-memory
+    category enrichment so raw database rows are never modified.
     """
-    return _fallback_principal_rows(start_date, end_date)
+    try:
+        res = supabase.rpc(
+            "get_principal_report",
+            {"p_start_date": start_date, "p_end_date": end_date}
+        ).execute()
+        if res.data is not None and len(res.data) > 0:
+            return [enrich_principal_row(row) for row in res.data]
+    except Exception:
+        pass
+
+    rows = _fallback_principal_rows(start_date, end_date)
+    return [enrich_principal_row(row) for row in rows]
 
 
 def get_principal_summary(start_date, end_date):
-    """Use the same canonical active ticket universe as the dashboard.
-
-    The dashboard summary is built from active `omnix_cases` rows in the date
-    window, excluding soft-deleted records. Using a separate RPC here causes the
-    principal report to drift from the dashboard because each source computes a
-    different ticket universe.
-    """
-    rows = _fallback_principal_rows(start_date, end_date)
+    """Use the same active ticket universe as the principal report."""
+    rows = get_principal_report(start_date, end_date)
     return _compute_principal_summary_from_rows(rows)
