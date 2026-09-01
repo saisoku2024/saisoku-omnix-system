@@ -240,18 +240,21 @@ def test_get_principal_report_paginates_beyond_1000_rows(monkeypatch):
 def test_principal_category_conversion_mapping():
     from app.services.principal_mapper import enrich_principal_row, map_principal_dimensions
 
-    # 1. Exact match from business dictionary
-    group, category = map_principal_dimensions("Informasi", "Ecovacs - Care", "Seputar Layanan")
+    # 1. Exact match from business dictionary (synchronized with Supabase principal_mapping table)
+    group, category, inc = map_principal_dimensions("Informasi", "Ecovacs - Care", "Seputar Layanan")
     assert group == "Aftersale-Service inquiry"
     assert category == "Service Inquiry"
+    assert inc is True
 
-    group, category = map_principal_dimensions("Panduan", "Yoniev - Kendala Teknis", "Kendala Spare Part")
+    group, category, inc = map_principal_dimensions("Panduan", "Yoniev - Kendala Teknis", "Kendala Spare Part")
     assert group == "Failure"
     assert category == "Spare Part Issue"
+    assert inc is True
 
-    group, category = map_principal_dimensions("Panduan", "Yoniev - Panduan Penggunaan", "Panduan Penggunaan Awal")
+    group, category, inc = map_principal_dimensions("Panduan", "Yoniev - Panduan Penggunaan", "Panduan Penggunaan Awal")
     assert group == "How to use"
     assert category == "New machines"
+    assert inc is True
 
     # 2. In-memory row enrichment without altering raw row
     raw_row = {
