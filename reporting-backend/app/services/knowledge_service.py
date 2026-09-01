@@ -1013,6 +1013,23 @@ class KnowledgeService:
             logger.warning(f"Failed to generate query embedding: {embed_exc}")
 
         if embedding and any(v != 0.0 for v in embedding):
+            # 1A. Check Human-Verified Golden Answer Layer (Score 8-10 ⭐, Similarity ≥ 0.88)
+            from app.services.knowledge_golden_service import KnowledgeGoldenService
+            golden = KnowledgeGoldenService.get_golden_answer(embedding, similarity_threshold=0.88)
+            if golden:
+                t_total_ms = int((time.perf_counter() - t_start) * 1000)
+                return {
+                    "query_id": golden.get("golden_id"),
+                    "answer": golden["answer"],
+                    "sources": golden.get("sources", []),
+                    "is_golden": True,
+                    "golden_score": golden.get("rating_score", 10),
+                    "verified_by": golden.get("verified_by", "Supervisor"),
+                    "cached": True,
+                    "latency_ms": t_total_ms,
+                }
+
+            # 1B. Check Semantic Query Cache (TTL 365 Days, Similarity ≥ 0.96)
             cached = KnowledgeCacheService.get_cached_query(embedding, similarity_threshold=0.96)
             if cached:
                 t_total_ms = int((time.perf_counter() - t_start) * 1000)
@@ -1139,6 +1156,23 @@ class KnowledgeService:
             logger.warning(f"Failed to generate query embedding: {embed_exc}")
 
         if embedding and any(v != 0.0 for v in embedding):
+            # 1A. Check Human-Verified Golden Answer Layer (Score 8-10 ⭐, Similarity ≥ 0.88)
+            from app.services.knowledge_golden_service import KnowledgeGoldenService
+            golden = KnowledgeGoldenService.get_golden_answer(embedding, similarity_threshold=0.88)
+            if golden:
+                golden_sources = golden.get("sources", [])
+                yield f"data: {json.dumps({'type': 'sources', 'sources': golden_sources, 'cached': True, 'is_golden': True, 'golden_score': golden.get('rating_score', 10), 'verified_by': golden.get('verified_by', 'Supervisor')})}\n\n"
+
+                golden_answer = golden.get("answer", "")
+                words = golden_answer.split(" ")
+                for i in range(0, len(words), 8):
+                    chunk_str = " ".join(words[i:i + 8]) + " "
+                    yield f"data: {json.dumps({'type': 'chunk', 'text': chunk_str})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'done', 'query_id': golden.get('golden_id'), 'sources': golden_sources, 'cached': True, 'is_golden': True, 'golden_score': golden.get('rating_score', 10), 'verified_by': golden.get('verified_by', 'Supervisor')})}\n\n"
+                return
+
+            # 1B. Check Semantic Query Cache (TTL 365 Days, Similarity ≥ 0.96)
             cached = KnowledgeCacheService.get_cached_query(embedding, similarity_threshold=0.96)
             if cached:
                 cached_sources = cached.get("sources", [])

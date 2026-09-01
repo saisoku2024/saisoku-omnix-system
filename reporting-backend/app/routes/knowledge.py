@@ -27,6 +27,16 @@ class KnowledgeFeedbackRequest(BaseModel):
     comment: Optional[str] = Field(default=None, max_length=1000)
 
 
+class KnowledgeRateRequest(BaseModel):
+    question: str = Field(..., min_length=3, max_length=2000)
+    answer: str = Field(..., min_length=5)
+    rating_score: int = Field(..., ge=1, le=10, description="Rating score 1 to 10")
+    comment: Optional[str] = Field(default=None, max_length=1000)
+    sources: Optional[List[dict]] = None
+    query_id: Optional[str] = None
+    verified_by: Optional[str] = "agent"
+
+
 class KnowledgeTextRequest(BaseModel):
     title: str = Field(..., min_length=3, max_length=180)
     text: str = Field(..., min_length=20, max_length=50000)
@@ -239,6 +249,49 @@ def submit_knowledge_feedback(payload: KnowledgeFeedbackRequest):
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("detail", "Gagal menyimpan feedback."))
     return result
+
+
+@router.post("/rate")
+def rate_and_promote_knowledge_answer(payload: KnowledgeRateRequest):
+    """
+    Memberikan nilai skor 1 - 10 pada jawaban AI.
+    Jika skor >= 8, jawaban otomatis dipromosikan menjadi Jawaban Emas (Golden Answer)
+    yang disimpan di curated cache untuk disajikan instan pada pertanyaan serupa berikutnya.
+    """
+    from app.services.knowledge_golden_service import KnowledgeGoldenService
+    result = KnowledgeGoldenService.promote_golden_answer(
+        question=payload.question,
+        answer=payload.answer,
+        rating_score=payload.rating_score,
+        verified_by=payload.verified_by or "agent",
+        sources=payload.sources,
+        comment=payload.comment,
+    )
+    return result
+
+
+@router.get("/golden-qa")
+def list_golden_qa_answers(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """
+    Menampilkan daftar seluruh Jawaban Emas (Golden Verified Answers) yang telah dikurasi.
+    """
+    from app.services.knowledge_golden_service import KnowledgeGoldenService
+    return KnowledgeGoldenService.list_golden_answers(limit=limit, offset=offset)
+
+
+@router.delete("/golden-qa/{golden_id}")
+def delete_golden_qa_answer(golden_id: str):
+    """
+    Menghapus Jawaban Emas dari kurasi (khusus Admin).
+    """
+    from app.services.knowledge_golden_service import KnowledgeGoldenService
+    success = KnowledgeGoldenService.delete_golden_answer(golden_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Gagal menghapus Jawaban Emas.")
+    return {"deleted": True, "id": golden_id}
 
 
 @router.get("/backup/export")

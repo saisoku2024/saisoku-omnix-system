@@ -65,11 +65,26 @@ interface KnowledgeSource {
   similarity: number
 }
 
+interface KnowledgeGoldenQA {
+  id: string
+  question: string
+  golden_answer: string
+  rating_score: number
+  verified_by: string
+  comment?: string
+  usage_count: number
+  created_at: string
+}
+
 interface KnowledgeAnswer {
   query_id?: string
   answer: string
   sources: KnowledgeSource[]
   feedback?: { score: number; comment?: string }
+  rating_score?: number
+  is_golden?: boolean
+  golden_score?: number
+  verified_by?: string
   cached?: boolean
 }
 
@@ -78,6 +93,8 @@ const INCONSISTENCY_API = "/api/backend/knowledge/inconsistencies"
 const QUERY_API = "/api/backend/knowledge/query"
 const QUERY_STREAM_API = "/api/backend/knowledge/query-stream"
 const FEEDBACK_API = "/api/backend/knowledge/feedback"
+const RATE_API = "/api/backend/knowledge/rate"
+const GOLDEN_QA_API = "/api/backend/knowledge/golden-qa"
 const BACKUP_EXPORT_API = "/api/backend/knowledge/backup/export"
 const BACKUP_RESTORE_API = "/api/backend/knowledge/backup/restore"
 
@@ -139,7 +156,9 @@ function formatMarkdownAnswer(raw: string): string {
 export default function RAGQueryPage() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
   const [inconsistencies, setInconsistencies] = useState<KnowledgeInconsistency[]>([])
+  const [goldenQAs, setGoldenQAs] = useState<KnowledgeGoldenQA[]>([])
   const [loadingDocuments, setLoadingDocuments] = useState(true)
+  const [loadingGolden, setLoadingGolden] = useState(false)
   const [sessionRole, setSessionRole] = useState<SessionRole>(null)
   const [loadingSession, setLoadingSession] = useState(true)
 
@@ -150,6 +169,9 @@ export default function RAGQueryPage() {
   const [copiedAnswer, setCopiedAnswer] = useState(false)
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null)
+  const [selectedRating, setSelectedRating] = useState<number | null>(null)
+  const [ratingComment, setRatingComment] = useState("")
+  const [isPromotedToast, setIsPromotedToast] = useState<string | null>(null)
 
   const [error, setError] = useState<string | null>(null)
   const [queryError, setQueryError] = useState<string | null>(null)
@@ -172,6 +194,21 @@ export default function RAGQueryPage() {
       setError(err instanceof Error ? err.message : "Gagal memuat dokumen")
     } finally {
       setLoadingDocuments(false)
+    }
+  }
+
+  const fetchGoldenQAs = async () => {
+    try {
+      setLoadingGolden(true)
+      const res = await fetch(`${GOLDEN_QA_API}?limit=20`)
+      const data = await res.json()
+      if (res.ok && data.golden_answers) {
+        setGoldenQAs(data.golden_answers)
+      }
+    } catch (err) {
+      console.debug("Failed to fetch golden answers:", err)
+    } finally {
+      setLoadingGolden(false)
     }
   }
 
@@ -213,6 +250,16 @@ export default function RAGQueryPage() {
       .then((data) => {
         if (!active || !data) return
         setInconsistencies(data.inconsistencies || [])
+      })
+      .catch(() => {
+        // Ignore
+      })
+
+    fetch(`${GOLDEN_QA_API}?limit=20`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return
+        setGoldenQAs(data.golden_answers || [])
       })
       .catch(() => {
         // Ignore
@@ -285,6 +332,10 @@ export default function RAGQueryPage() {
       let receivedQueryId: string | undefined
       let isCachedResult = false
 
+      let isGoldenResult = false
+      let goldenScoreVal: number | undefined
+      let verifiedByVal: string | undefined
+
       while (!doneReading) {
         const { value, done } = await reader.read()
         doneReading = done
@@ -304,11 +355,17 @@ export default function RAGQueryPage() {
               if (event.type === "sources") {
                 finalSources = event.sources || []
                 if (event.cached !== undefined) isCachedResult = Boolean(event.cached)
+                if (event.is_golden !== undefined) isGoldenResult = Boolean(event.is_golden)
+                if (event.golden_score !== undefined) goldenScoreVal = event.golden_score
+                if (event.verified_by !== undefined) verifiedByVal = event.verified_by
                 setQueryAnswer((prev) => ({
                   answer: prev?.answer || "",
                   sources: finalSources,
                   query_id: prev?.query_id,
                   cached: isCachedResult,
+                  is_golden: isGoldenResult,
+                  golden_score: goldenScoreVal,
+                  verified_by: verifiedByVal,
                 }))
               } else if (event.type === "chunk") {
                 accumulatedText += event.text || ""
@@ -317,10 +374,16 @@ export default function RAGQueryPage() {
                   sources: prev?.sources || finalSources,
                   query_id: prev?.query_id,
                   cached: isCachedResult,
+                  is_golden: isGoldenResult,
+                  golden_score: goldenScoreVal,
+                  verified_by: verifiedByVal,
                 }))
               } else if (event.type === "done") {
                 receivedQueryId = event.query_id
                 if (event.cached !== undefined) isCachedResult = Boolean(event.cached)
+                if (event.is_golden !== undefined) isGoldenResult = Boolean(event.is_golden)
+                if (event.golden_score !== undefined) goldenScoreVal = event.golden_score
+                if (event.verified_by !== undefined) verifiedByVal = event.verified_by
                 if (event.sources && event.sources.length > 0) {
                   finalSources = event.sources
                 }
@@ -329,6 +392,9 @@ export default function RAGQueryPage() {
                   sources: finalSources,
                   query_id: receivedQueryId || prev?.query_id,
                   cached: isCachedResult,
+                  is_golden: isGoldenResult,
+                  golden_score: goldenScoreVal,
+                  verified_by: verifiedByVal,
                 }))
               } else if (event.type === "error") {
                 throw new Error(event.detail || "Terjadi kendala saat streaming jawaban.")
@@ -345,6 +411,9 @@ export default function RAGQueryPage() {
         sources: finalSources,
         query_id: receivedQueryId,
         cached: isCachedResult,
+        is_golden: isGoldenResult,
+        golden_score: goldenScoreVal,
+        verified_by: verifiedByVal,
       }
       setQueryAnswer(completedAnswer)
       setQueryHistory((prev) => [
@@ -360,6 +429,60 @@ export default function RAGQueryPage() {
       setQueryError(err instanceof Error ? err.message : "Gagal bertanya ke RAG AI")
     } finally {
       setQuerying(false)
+    }
+  }
+
+  const handleRateAnswer = async (score: number) => {
+    if (!queryAnswer || submittingFeedback) return
+    try {
+      setSubmittingFeedback(true)
+      setSelectedRating(score)
+      setFeedbackSuccess(null)
+      setIsPromotedToast(null)
+
+      const res = await fetch(RATE_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: question.trim(),
+          answer: queryAnswer.answer,
+          rating_score: score,
+          sources: queryAnswer.sources,
+          query_id: queryAnswer.query_id,
+          comment: ratingComment.trim() || undefined,
+          verified_by: isAdmin ? "Admin / Supervisor" : "Customer Support Agent",
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(readError(data, "Gagal memberikan rating"))
+
+      setQueryAnswer((prev) => (prev ? { ...prev, rating_score: score } : null))
+      if (score >= 8) {
+        setIsPromotedToast(
+          `✨ Jawaban dipromosikan ke Golden Verified Cache (Skor ${score}/10)! Pertanyaan serupa berikutnya akan dijawab instan (<50ms).`
+        )
+        fetchGoldenQAs()
+      } else {
+        setFeedbackSuccess(`Skor ${score}/10 berhasil dicatat. Terima kasih atas evaluasinya!`)
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan rating jawaban")
+    } finally {
+      setSubmittingFeedback(false)
+    }
+  }
+
+  const handleDeleteGoldenQA = async (id: string) => {
+    try {
+      const res = await fetch(`${GOLDEN_QA_API}/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(readError(data, "Gagal menghapus Jawaban Emas"))
+      }
+      setSuccess("Jawaban Emas berhasil dihapus dari kurasi.")
+      fetchGoldenQAs()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus Jawaban Emas")
     }
   }
 
@@ -724,6 +847,26 @@ export default function RAGQueryPage() {
             {/* Answer Display */}
             {queryAnswer && (
               <section ref={answerRef} className="rounded-2xl border border-sky-500/30 bg-gradient-to-b from-sky-950/20 via-(--c-surface) to-(--c-surface) p-5 sm:p-6 shadow-md space-y-5">
+                {/* Golden Badge Banner if verified answer */}
+                {queryAnswer.is_golden && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 p-3 text-xs text-amber-200 shadow-md">
+                    <div className="flex items-center gap-2">
+                      <SparklesIcon size={16} className="text-amber-400 animate-pulse shrink-0" />
+                      <div>
+                        <p className="font-bold text-amber-300">
+                          ✨ Jawaban Emas Terverifikasi (Skor: {queryAnswer.golden_score ?? 10}/10 ⭐)
+                        </p>
+                        <p className="text-[11px] text-amber-400/80">
+                          Tervalidasi oleh <span className="font-semibold">{queryAnswer.verified_by || "Tim CS"}</span> · Disajikan instan via Curated Golden Store (&lt;50ms)
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2.5 py-0.5 font-mono text-[10px] font-bold text-amber-300">
+                      ⚡ FAST-PATH INSTANT
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between border-b border-(--c-border) pb-4">
                   <div className="flex items-center gap-2.5">
                     <span className="flex size-8 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400">
@@ -732,14 +875,20 @@ export default function RAGQueryPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-white">Jawaban AI RAG Engine</h3>
-                        {queryAnswer.cached && (
+                        {queryAnswer.is_golden ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-300">
+                            <SparklesIcon size={10} /> Golden Verified
+                          </span>
+                        ) : queryAnswer.cached ? (
                           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400">
                             <ZapIcon size={10} /> Cache Instan (&lt;50ms)
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <p className="text-[11px] text-(--c-muted)">
-                        {queryAnswer.cached
+                        {queryAnswer.is_golden
+                          ? "Jawaban tervalidasi manusia dari basis Golden Knowledge"
+                          : queryAnswer.cached
                           ? "Disajikan instan dari Semantic Cache 365-Hari"
                           : `Berdasarkan ${queryAnswer.sources.length} sumber referensi dokumen`}
                       </p>
@@ -790,47 +939,68 @@ export default function RAGQueryPage() {
                   </div>
                 )}
 
-                {/* User Feedback Loop */}
-                {queryAnswer.query_id && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-(--c-border) pt-3">
+                {/* Interactive Score Card (Skala 1-10 ⭐) & Golden Cache Promotion */}
+                <div className="space-y-3 rounded-xl border border-(--c-border) bg-(--c-overlay) p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-(--c-muted)">Apakah jawaban ini membantu?</span>
-                      <button
-                        type="button"
-                        disabled={submittingFeedback || queryAnswer.feedback?.score === 1}
-                        onClick={() => handleFeedback(1)}
-                        title="Jawaban Membantu (Thumbs Up)"
-                        className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all ${
-                          queryAnswer.feedback?.score === 1
-                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
-                            : "border-(--c-border) bg-(--c-overlay) text-(--c-muted) hover:border-emerald-500/40 hover:text-emerald-400"
-                        } disabled:opacity-50`}
-                      >
-                        <ThumbsUpIcon size={12} />
-                        <span>Bagus</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={submittingFeedback || queryAnswer.feedback?.score === -1}
-                        onClick={() => handleFeedback(-1)}
-                        title="Jawaban Kurang Tepat (Thumbs Down)"
-                        className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all ${
-                          queryAnswer.feedback?.score === -1
-                            ? "border-red-500/50 bg-red-500/15 text-red-300"
-                            : "border-(--c-border) bg-(--c-overlay) text-(--c-muted) hover:border-red-500/40 hover:text-red-400"
-                        } disabled:opacity-50`}
-                      >
-                        <ThumbsDownIcon size={12} />
-                        <span>Kurang Tepat</span>
-                      </button>
-                      {feedbackSuccess && (
-                        <span className="text-[11px] font-medium text-emerald-400">
-                          {feedbackSuccess}
-                        </span>
-                      )}
+                      <div className="flex size-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
+                        <SparklesIcon size={13} />
+                      </div>
+                      <span className="text-xs font-bold text-(--c-text)">
+                        Score Card Kualitas Jawaban (Skala 1 - 10):
+                      </span>
                     </div>
+                    <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                      ⚡ Skor 8 - 10 otomatis tersimpan ke Golden Cache
+                    </span>
                   </div>
-                )}
+
+                  <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => {
+                      const isCurrentSelected = (queryAnswer.rating_score ?? selectedRating) === score
+                      const isGoldenZone = score >= 8
+                      const isMidZone = score >= 5 && score <= 7
+
+                      return (
+                        <button
+                          key={score}
+                          type="button"
+                          disabled={submittingFeedback}
+                          onClick={() => handleRateAnswer(score)}
+                          className={`flex flex-col items-center justify-center rounded-xl py-2 px-1 transition-all ${
+                            isCurrentSelected
+                              ? isGoldenZone
+                                ? "border-2 border-amber-400 bg-amber-500/30 text-amber-200 font-extrabold shadow-md shadow-amber-500/20 scale-105"
+                                : isMidZone
+                                ? "border-2 border-yellow-400 bg-yellow-500/30 text-yellow-200 font-extrabold scale-105"
+                                : "border-2 border-red-400 bg-red-500/30 text-red-200 font-extrabold scale-105"
+                              : isGoldenZone
+                              ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:border-amber-400 hover:bg-amber-500/20 hover:text-amber-200"
+                              : isMidZone
+                              ? "border border-(--c-border) bg-(--c-surface) text-(--c-text)/80 hover:border-yellow-400/50 hover:bg-yellow-500/10"
+                              : "border border-(--c-border) bg-(--c-surface) text-(--c-muted) hover:border-red-400/50 hover:bg-red-500/10"
+                          } disabled:opacity-50`}
+                        >
+                          <span className="text-xs font-bold">{score}</span>
+                          <span className="text-[10px] opacity-80">{isGoldenZone ? "⭐" : score <= 4 ? "👎" : "👌"}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {isPromotedToast && (
+                    <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/15 p-2.5 text-xs text-amber-200">
+                      <SparklesIcon size={14} className="text-amber-400 shrink-0" />
+                      <span>{isPromotedToast}</span>
+                    </div>
+                  )}
+
+                  {feedbackSuccess && !isPromotedToast && (
+                    <div className="text-[11px] font-medium text-emerald-400">
+                      {feedbackSuccess}
+                    </div>
+                  )}
+                </div>
               </section>
             )}
 
@@ -860,7 +1030,73 @@ export default function RAGQueryPage() {
           {/* ── RIGHT PANEL: KNOWLEDGE BASE STATUS & MANAGEMENT SHORTCUT ── */}
           <div className="space-y-5">
 
+            {/* Verified Golden Q&A Card */}
+            <section className="rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 via-(--c-surface) to-(--c-surface) p-5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-(--c-border) pb-3">
+                <div className="flex items-center gap-2">
+                  <SparklesIcon size={14} className="text-amber-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                    Jawaban Emas ({goldenQAs.length})
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  ⚡ Fast-Path &lt;50ms
+                </span>
+              </div>
 
+              {loadingGolden ? (
+                <div className="space-y-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-12 animate-pulse rounded-xl bg-(--c-overlay)" />
+                  ))}
+                </div>
+              ) : goldenQAs.length === 0 ? (
+                <div className="text-center py-4 space-y-1">
+                  <p className="text-xs font-medium text-(--c-muted)">Belum ada Jawaban Emas.</p>
+                  <p className="text-[10px] text-(--c-muted)/70">Beri nilai 8 - 10 pada jawaban AI untuk mempromosikannya ke Golden Cache!</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                  {goldenQAs.map((g) => (
+                    <div
+                      key={g.id}
+                      onClick={() => {
+                        setQuestion(g.question)
+                        handleQuery(undefined, g.question)
+                      }}
+                      className="group cursor-pointer rounded-xl border border-(--c-border) bg-(--c-overlay) p-2.5 transition-all hover:border-amber-400/50 hover:bg-amber-500/5"
+                    >
+                      <div className="flex items-center justify-between gap-1.5 mb-1">
+                        <span className="inline-flex items-center gap-0.5 rounded-md border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-amber-300">
+                          ⭐ {g.rating_score}/10
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] font-mono text-(--c-muted)">
+                            {g.usage_count || 1}x dipakai
+                          </span>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteGoldenQA(g.id)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 p-0.5"
+                              title="Hapus Jawaban Emas ini"
+                            >
+                              <Trash2Icon size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="line-clamp-2 text-xs font-semibold text-(--c-text) group-hover:text-amber-200">
+                        {g.question}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
             {/* Active Knowledge Documents Summary */}
             <section className="rounded-2xl border border-(--c-border) bg-(--c-surface) p-5 shadow-sm space-y-3">
