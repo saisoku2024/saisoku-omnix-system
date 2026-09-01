@@ -59,22 +59,12 @@ def get_principal_report(start_date, end_date):
 
 
 def get_principal_summary(start_date, end_date):
-    try:
-        result = supabase.rpc(
-            "get_principal_summary",
-            {
-                "p_start_date": start_date,
-                "p_end_date": end_date
-            }
-        ).execute()
+    """Use the same canonical active ticket universe as the dashboard.
 
-        if result and result.data and len(result.data) > 0:
-            row = dict(result.data[0])
-            if "csat_response" in row or "total_ticket" in row:
-                return row
-    except Exception:
-        pass
-
+    The dashboard summary is built from active `omnix_cases` rows in the date
+    window, excluding soft-deleted records. Using a separate RPC here causes the
+    principal report to drift from the dashboard because each source computes a
+    different ticket universe.
+    """
     rows = _fallback_principal_rows(start_date, end_date)
-    summary = _compute_principal_summary_from_rows(rows)
-    return summary
+    return _compute_principal_summary_from_rows(rows)
