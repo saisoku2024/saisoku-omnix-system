@@ -236,6 +236,8 @@ function isValidWebUrl(urlStr: string): { valid: boolean; error?: string } {
   }
 }
 
+type SortOption = "created_desc" | "created_asc" | "title_asc" | "title_desc" | "chunks_desc" | "chunks_asc"
+
 export default function KnowledgeBaseDashboardPage() {
   const [sessionRole, setSessionRole] = useState<SessionRole>(null)
   const [loadingSession, setLoadingSession] = useState(true)
@@ -245,7 +247,7 @@ export default function KnowledgeBaseDashboardPage() {
   // Search, Filter, Sort, Pagination
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<"created_desc" | "created_asc" | "title_asc" | "title_desc" | "chunks_desc" | "chunks_asc">("created_desc")
+  const [sortBy, setSortBy] = useState<SortOption>("created_desc")
   const [pageSize, setPageSize] = useState<number>(10)
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -338,10 +340,15 @@ export default function KnowledgeBaseDashboardPage() {
     return filteredAndSortedDocuments.slice(start, start + pageSize)
   }, [filteredAndSortedDocuments, currentPage, pageSize])
 
-  // Reset pagination on filter/sort/pageSize change
-  useEffect(() => {
+  // Reset pagination on filter/sort/pageSize change without cascading effect
+  const [prevFilterKey, setPrevFilterKey] = useState<string | null>(null)
+  const currentFilterKey = `${searchQuery}|${selectedCategory}|${sortBy}|${pageSize}`
+  if (prevFilterKey === null) {
+    setPrevFilterKey(currentFilterKey)
+  } else if (prevFilterKey !== currentFilterKey) {
+    setPrevFilterKey(currentFilterKey)
     setCurrentPage(1)
-  }, [searchQuery, selectedCategory, sortBy, pageSize])
+  }
 
   const loadDocuments = async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoadingDocuments(true)
@@ -762,7 +769,7 @@ export default function KnowledgeBaseDashboardPage() {
               </div>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
                 className="h-10 rounded-xl border border-[var(--c-border)] bg-[var(--c-overlay)] px-3 text-xs font-semibold text-[var(--c-text)] outline-none transition-all focus:border-sky-500"
               >
                 <option value="created_desc">🕒 Terbaru (Default)</option>

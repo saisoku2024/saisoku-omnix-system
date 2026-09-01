@@ -1,4 +1,3 @@
-/* eslint-disable */
 /**
  * Auto-generated TypeScript DTO definitions from FastAPI OpenAPI Schema.
  * Do not edit directly.

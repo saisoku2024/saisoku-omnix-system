@@ -161,27 +161,9 @@ export default function RAGQueryPage() {
   const answerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  const fetchSession = async () => {
+  const fetchDocuments = async (showLoading = false) => {
     try {
-      setLoadingSession(true)
-      const res = await fetch("/api/auth/session")
-      if (res.ok) {
-        const data = await res.json()
-        const role = data?.user?.role as SessionRole
-        setSessionRole(role || "guest")
-      } else {
-        setSessionRole("guest")
-      }
-    } catch {
-      setSessionRole("guest")
-    } finally {
-      setLoadingSession(false)
-    }
-  }
-
-  const fetchDocuments = async () => {
-    try {
-      setLoadingDocuments(true)
+      if (showLoading) setLoadingDocuments(true)
       const res = await fetch(`${DOCUMENT_API}?limit=50`)
       const data = await res.json()
       if (!res.ok) throw new Error(readError(data, "Gagal mengambil dokumen"))
@@ -193,21 +175,52 @@ export default function RAGQueryPage() {
     }
   }
 
-  const fetchInconsistencies = async () => {
-    try {
-      const res = await fetch(`${INCONSISTENCY_API}?limit=10`)
-      const data = await res.json()
-      if (!res.ok) return
-      setInconsistencies(data.inconsistencies || [])
-    } catch {
-      // Ignore
-    }
-  }
-
   useEffect(() => {
-    fetchSession()
-    fetchDocuments()
-    fetchInconsistencies()
+    let active = true
+
+    fetch("/api/auth/session")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active) return
+        setSessionRole((data?.user?.role as SessionRole) || "guest")
+        setLoadingSession(false)
+      })
+      .catch(() => {
+        if (!active) return
+        setSessionRole("guest")
+        setLoadingSession(false)
+      })
+
+    fetch(`${DOCUMENT_API}?limit=50`)
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok) throw new Error(readError(data, "Gagal mengambil dokumen"))
+        return data
+      })
+      .then((data) => {
+        if (!active) return
+        setDocuments(data.documents || [])
+        setLoadingDocuments(false)
+      })
+      .catch((err: unknown) => {
+        if (!active) return
+        setError(err instanceof Error ? err.message : "Gagal memuat dokumen")
+        setLoadingDocuments(false)
+      })
+
+    fetch(`${INCONSISTENCY_API}?limit=10`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active || !data) return
+        setInconsistencies(data.inconsistencies || [])
+      })
+      .catch(() => {
+        // Ignore
+      })
+
+    return () => {
+      active = false
+    }
   }, [])
 
   // Auto-dismiss success banner setelah 4 detik
