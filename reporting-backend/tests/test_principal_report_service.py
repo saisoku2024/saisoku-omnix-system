@@ -1,4 +1,4 @@
-from app.services.principal_service import get_principal_summary
+from app.services.principal_service import get_principal_report, get_principal_summary
 
 
 class FakeQuery:
@@ -53,6 +53,31 @@ def test_get_principal_summary_counts_csat_responses(monkeypatch):
     assert result["total_ticket"] == 3
     assert result["csat_response"] == 2
     assert result["response_rate"] == 66.67
+
+
+def test_get_principal_report_uses_active_ticket_rows(monkeypatch):
+    fake_rows = [
+        {"ticket_id": "T-1", "interaction_at": "2026-08-01T00:00:00+00:00", "deleted_at": None},
+        {"ticket_id": "T-2", "interaction_at": "2026-08-02T00:00:00+00:00", "deleted_at": "2026-08-03T00:00:00+00:00"},
+        {"ticket_id": "T-3", "interaction_at": "2026-08-03T00:00:00+00:00", "deleted_at": None},
+    ]
+
+    fake_query = FakeQuery(fake_rows)
+
+    class FakeSupabase:
+        def rpc(self, *_args, **_kwargs):
+            raise AssertionError("Export path must use the canonical active rows instead of the stale RPC")
+
+        def table(self, name):
+            assert name == "omnix_cases"
+            return fake_query
+
+    monkeypatch.setattr("app.services.principal_service.supabase", FakeSupabase())
+
+    rows = get_principal_report("2026-08-01", "2026-08-04")
+
+    assert len(rows) == 2
+    assert [r["ticket_id"] for r in rows] == ["T-1", "T-3"]
 
 
 def test_get_principal_summary_ignores_deleted_rows(monkeypatch):

@@ -42,19 +42,12 @@ def _compute_principal_summary_from_rows(rows):
 
 
 def get_principal_report(start_date, end_date):
-    try:
-        result = supabase.rpc(
-            "get_principal_report",
-            {
-                "p_start_date": start_date,
-                "p_end_date": end_date
-            }
-        ).execute()
-        if result and result.data:
-            return result.data
-    except Exception:
-        pass
+    """Use the same active ticket universe as the summary endpoint.
 
+    The export endpoint was still preferring the legacy RPC result, which can
+    drift away from the dashboard and summary counts because it computes a
+    different row set for the same date window.
+    """
     return _fallback_principal_rows(start_date, end_date)
 
 
