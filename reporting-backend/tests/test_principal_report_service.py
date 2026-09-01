@@ -275,3 +275,65 @@ def test_principal_category_conversion_mapping():
     assert raw_row["principal_group"] is None
 
 
+def test_principal_report_csat_enrichment(monkeypatch):
+    from app.services.principal_service import enrich_rows_with_csat
+
+    fake_csat_rows = [
+        {
+            "id": 1,
+            "unique_id": "62811986168",
+            "rating_csat": "5",
+            "created_at": "2026-08-01T01:35:00+00:00",
+            "feedback": "Pelayanan sangat baik",
+        }
+    ]
+
+    class FakeQuery:
+        def select(self, *_args, **_kwargs): return self
+        def gte(self, *_args, **_kwargs): return self
+        def lt(self, *_args, **_kwargs): return self
+        def is_(self, *_args, **_kwargs): return self
+        def execute(self):
+            class Res:
+                data = fake_csat_rows
+            return Res()
+
+    class FakeSupabase:
+        def table(self, name):
+            assert name == "csat_responses"
+            return FakeQuery()
+
+    monkeypatch.setattr("app.services.principal_service.supabase", FakeSupabase())
+
+    cases = [
+        {
+            "ticket_id": "103833",
+            "customer_hp": "'+62811986168'",
+            "source_name": "Whatsapp",
+            "interaction_at": "2026-08-01T01:02:09+00:00",
+            "date_end_interaction": "2026-08-01T01:34:43+00:00",
+        },
+        {
+            "ticket_id": "103832",
+            "customer_hp": "-",
+            "source_name": "IG Message",
+            "interaction_at": "2026-08-01T01:05:00+00:00",
+            "date_end_interaction": "2026-08-01T01:29:32+00:00",
+        },
+    ]
+
+    enriched = enrich_rows_with_csat(cases, "2026-08-01", "2026-08-02")
+
+    # Case 1 with WhatsApp & matching CSAT
+    assert enriched[0]["csat_dispatch_status"] == "Y"
+    assert enriched[0]["csat_response_status"] == "Y"
+    assert enriched[0]["rating_csat"] == "5"
+    assert enriched[0]["feedback"] == "Pelayanan sangat baik"
+
+    # Case 2 with IG Message & no phone
+    assert enriched[1]["csat_dispatch_status"] == "N"
+    assert enriched[1]["csat_response_status"] == "N"
+    assert enriched[1]["rating_csat"] == ""
+
+
+
