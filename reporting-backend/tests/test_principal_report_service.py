@@ -1,3 +1,6 @@
+import pandas as pd
+
+from app.routes.principal import FINAL_EXPORT_COLUMNS
 from app.services.principal_service import get_principal_report, get_principal_summary
 
 
@@ -132,3 +135,33 @@ def test_get_principal_summary_uses_same_ticket_universe_as_dashboard(monkeypatc
     assert result["total_ticket"] == 3
     assert result["csat_response"] == 2
     assert result["response_rate"] == 66.67
+
+
+def test_principal_export_keeps_full_template_columns_even_when_missing():
+    raw = pd.DataFrame([
+        {
+            "ticket_id": "T-1",
+            "interaction_at": "2026-08-01T09:00:00+00:00",
+            "source_name": "WhatsApp",
+            "main_category": "Billing",
+            "principal_group": "Bank A",
+        }
+    ])
+
+    renamed = raw.rename(columns={
+        "ticket_id": "Ticket ID",
+        "interaction_at": "Ticket Created Date",
+        "source_name": "Contact Channel",
+        "main_category": "Main Category",
+        "principal_group": "Principal Group",
+    })
+
+    for col in FINAL_EXPORT_COLUMNS:
+        if col not in renamed.columns:
+            renamed[col] = ""
+
+    exported = renamed[FINAL_EXPORT_COLUMNS]
+
+    assert list(exported.columns) == FINAL_EXPORT_COLUMNS
+    assert "Customer Name" in exported.columns
+    assert "CSAT Score" in exported.columns

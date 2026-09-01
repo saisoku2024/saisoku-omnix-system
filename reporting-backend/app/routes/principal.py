@@ -16,6 +16,16 @@ router = APIRouter(
 )
 
 
+FINAL_EXPORT_COLUMNS = [
+    "Ticket ID", "Customer Name", "Customer Phone", "Contact Channel",
+    "Ticket Created Date", "First Response Time", "Ticket Resolved Time",
+    "Main Category", "Subcategory", "Detail Subcategory",
+    "Principal Group", "Principal Category", "Ticket Status",
+    "Resolution / Feedback", "CSAT Survey Dispatch Status",
+    "CSAT Response Status", "CSAT Score"
+]
+
+
 def _validate_date(date_str: str, name: str) -> None:
     try:
         datetime.strptime(date_str, "%Y-%m-%d")
@@ -50,14 +60,7 @@ def export_principal_report(
     df = pd.DataFrame(data)
 
     # 2. Urutan kolom final (dipindah ke atas sebagai template)
-    final_columns = [
-        "Ticket ID", "Customer Name", "Customer Phone", "Contact Channel",
-        "Ticket Created Date", "First Response Time", "Ticket Resolved Time",
-        "Main Category", "Subcategory", "Detail Subcategory",
-        "Principal Group", "Principal Category", "Ticket Status",
-        "Resolution / Feedback", "CSAT Survey Dispatch Status",
-        "CSAT Response Status", "CSAT Score"
-    ]
+    final_columns = FINAL_EXPORT_COLUMNS
 
     # 3. Handle jika data dari database kosong
     if df.empty:
@@ -136,8 +139,10 @@ def export_principal_report(
         # ==========================================
         # FILTER SESUAI URUTAN FINAL
         # ==========================================
-        existing_columns = [c for c in final_columns if c in df.columns]
-        df = df[existing_columns]
+        for col in final_columns:
+            if col not in df.columns:
+                df[col] = ""
+        df = df[final_columns]
 
     # Bersihkan sisa nilai kosong/NaN
     df = df.fillna("")
