@@ -157,10 +157,21 @@ def _compute_principal_summary_from_rows(rows):
         or (row.get("rating_csat") not in (None, "", "nan", "None"))
     )
 
+    scores = []
+    for row in active_rows:
+        val = row.get("rating_csat")
+        if val not in (None, "", "nan", "None"):
+            try:
+                scores.append(float(str(val).strip()))
+            except Exception:
+                pass
+    avg_csat = round(sum(scores) / len(scores), 2) if scores else 0.0
+
     return {
         "total_ticket": total_ticket,
         "csat_response": csat_response,
         "response_rate": round((csat_response / total_ticket) * 100, 2) if total_ticket > 0 else 0,
+        "avg_csat": avg_csat,
     }
 
 
