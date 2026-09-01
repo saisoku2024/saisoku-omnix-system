@@ -111,6 +111,8 @@ def _generate_answer(question: str, sources: List[Dict[str, Any]]) -> str:
             except Exception as exc:
                 logger.warning(f"Gemini LLM request failed for model {m}: {exc}")
 
+    return "AI penyusun jawaban sedang tidak tersedia. Silakan coba lagi beberapa saat lagi."
+
 import json
 from typing import Generator
 
