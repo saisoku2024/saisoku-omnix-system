@@ -1,25 +1,35 @@
 from app.core.supabase import supabase
 
 
+def _is_active_case(row):
+    deleted_at = row.get("deleted_at")
+    return deleted_at is None or deleted_at == "" or str(deleted_at).lower() == "null"
+
+
+def _principal_case_query(start_date, end_date):
+    return (
+        supabase.table("omnix_cases")
+        .select("*")
+        .gte("interaction_at", start_date)
+        .lt("interaction_at", end_date)
+        .is_("deleted_at", "null")
+    )
+
+
 def _fallback_principal_rows(start_date, end_date):
     try:
-        rows = (
-            supabase.table("omnix_cases")
-            .select("*")
-            .gte("interaction_at", start_date)
-            .lt("interaction_at", end_date)
-            .execute()
-        )
-        return rows.data or []
+        rows = _principal_case_query(start_date, end_date).execute()
+        return [row for row in (rows.data or []) if _is_active_case(row)]
     except Exception:
         return []
 
 
 def _compute_principal_summary_from_rows(rows):
-    total_ticket = len(rows)
+    active_rows = [row for row in rows if _is_active_case(row)]
+    total_ticket = len(active_rows)
     csat_response = sum(
         1
-        for row in rows
+        for row in active_rows
         if (row.get("csat_response_status") or "").strip().lower() in {"responded", "response sent", "done", "answered"}
         or (row.get("rating_csat") not in (None, "", "nan", "None"))
     )
