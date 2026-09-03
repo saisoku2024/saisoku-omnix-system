@@ -19,6 +19,7 @@ import ChannelBreakdown from "@/features/dashboard/components/ChannelBreakdown"
 import FooterBrand from "@/features/dashboard/components/FooterBrand"
 import RealtimeClock from "@/features/dashboard/components/RealtimeClock"
 import TrendChart from "@/features/dashboard/charts/TrendChart"
+import SegmentedPeriodSelector from "@/features/dashboard/components/SegmentedPeriodSelector"
 import { getDefaultMonth, getDefaultYear, REPORT_YEARS } from "@/lib/period-defaults"
 
 const DARK_VARS: React.CSSProperties = { "--c-bg": "#0d1117", "--c-surface": "#161b22", "--c-offset": "#1f2430", "--c-border": "rgba(255,255,255,0.07)", "--c-text": "#e2e4ea", "--c-muted": "#6b7485", "--c-skeleton": "#252a35", "--c-accent": "#0ea5e9" } as React.CSSProperties
@@ -84,21 +85,15 @@ export default function DashboardPage() {
                 <span className="tabular-nums font-mono"><RealtimeClock /></span>
               </div>
 
-              <div className="flex items-center overflow-hidden rounded-xl border border-(--c-border) bg-(--c-overlay) p-0.5 shadow-sm">
-                <select value={mode} onChange={(e) => handleModeChange(e.target.value)} className="bg-transparent px-2.5 py-1 text-xs font-semibold text-(--c-text) outline-none cursor-pointer">
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-                {mode !== "yearly" && (
-                  <select value={period} onChange={(e) => setPeriod(e.target.value)} className="border-l border-(--c-border) bg-transparent px-2.5 py-1 text-xs font-semibold text-(--c-text) outline-none cursor-pointer">
-                    {periodOptions.map((p) => (<option key={p} value={p}>{p}</option>))}
-                  </select>
-                )}
-                <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="border-l border-(--c-border) bg-transparent px-2.5 py-1 text-xs font-semibold text-(--c-text) outline-none cursor-pointer">
-                  {REPORT_YEARS.map((y) => (<option key={y} value={y}>{y}</option>))}
-                </select>
-              </div>
+              <SegmentedPeriodSelector
+                mode={mode}
+                period={period}
+                year={year}
+                periodOptions={periodOptions}
+                onModeChange={handleModeChange}
+                onPeriodChange={setPeriod}
+                onYearChange={setYear}
+              />
 
               <button onClick={toggleTheme} aria-label="Toggle theme" className="flex h-8 w-8 items-center justify-center rounded-xl border border-(--c-border) bg-(--c-overlay) text-(--c-muted) transition-all hover:border-sky-500/40 hover:text-sky-400">
                 {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
