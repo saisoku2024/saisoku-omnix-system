@@ -420,6 +420,7 @@ function CandidateTable({
 export default function DataCleanupPage() {
   const defaults = useMemo(() => getDefaultDateRange(), [])
   const [dateFrom, setDateFrom] = useState(defaults.dateFrom)
+  const [dateTo, setDateTo] = useState(defaults.dateTo)
   const now = new Date()
   const currentMonthStr = MONTH_OPTIONS[now.getMonth()] || "Sep"
   const currentQuarterStr = `Q${Math.floor(now.getMonth() / 3) + 1}`
